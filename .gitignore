@@ -1,0 +1,22 @@
+# Node
+node_modules/
+
+# React
+build/
+dist/
+
+# Java
+target/
+
+# env
+.env
+.env.local
+
+# uploads
+uploads/
+
+# docker volumes
+mysql_data/
+
+# logs
+*.log

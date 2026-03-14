@@ -1,0 +1,12 @@
+  # ── Agrega estas líneas en la sección environment del backend ──
+  # en tu archivo docker-compose.yml
+  
+  backend:
+    environment:
+      # ... (tus variables existentes de DB y Stripe) ...
+      
+      # ── EMAIL CON SENDGRID ──────────────────────────────────
+      SENDGRID_API_KEY: SG.TU_CLAVE_SENDGRID_AQUI
+      STORE_EMAIL: tu@email.com
+      STORE_NAME: Kosmica
+      # ────────────────────────────────────────────────────────

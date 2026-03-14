@@ -1,0 +1,90 @@
+services:
+
+  mysql:
+    image: mysql:8.0
+    container_name: kosmica-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: LuxShop2025!
+      MYSQL_DATABASE: luxshop
+      MYSQL_USER: luxshop_user
+      MYSQL_PASSWORD: LuxPass2025!
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/luxshop_database.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD","mysqladmin","ping","-h","localhost","-u","root","-pLuxShop2025!"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - kosmica-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: kosmica-backend
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/luxshop?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: luxshop_user
+      SPRING_DATASOURCE_PASSWORD: LuxPass2025!
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_PORT: 8080
+      STRIPE_SECRET_KEY: sk_test_REEMPLAZA_CON_TU_CLAVE_SECRETA
+      STRIPE_PUBLISHABLE_KEY: pk_test_REEMPLAZA_CON_TU_CLAVE_PUBLICA
+      SENDGRID_API_KEY: SG.REEMPLAZA_CON_TU_CLAVE_SENDGRID
+      STORE_EMAIL: tu@email.com
+      STORE_NAME: Kosmica
+    ports:
+      - "8080:8080"
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - kosmica-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_URL: http://localhost:8080
+        REACT_APP_ADMIN_PASSWORD: Kosmica2025
+    container_name: kosmica-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - kosmica-network
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: kosmica-phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: mysql
+      PMA_USER: root
+      PMA_PASSWORD: LuxShop2025!
+    ports:
+      - "8081:80"
+    depends_on:
+      - mysql
+    networks:
+      - kosmica-network
+
+networks:
+  kosmica-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  uploads_data:
