@@ -518,13 +518,30 @@ export default function App() {
   const handleCheckout=async e=>{
     e.preventDefault(); setPaying(true);
     try{
-      const{paymentIntentId}=await orderAPI.createPaymentIntent(grandTotal,"usd");
-      const order=await orderAPI.createOrder({
-        name:form.name,email:form.email,address:form.address,
-        paymentMethod:"CARD",paymentIntentId,
+      // Preparar items para MercadoPago
+      const mpItems=cart.map(i=>({
+        id:i.id, name:i.name,
+        description:i.description||i.name,
+        quantity:i.qty, price:Number(i.price),
+      }));
+
+      // Crear preferencia de pago en MercadoPago
+      const result=await orderAPI.createPaymentIntent(grandTotal,"COP",mpItems);
+
+      // Guardar pedido en la base de datos
+      await orderAPI.createOrder({
+        name:form.name, email:form.email, address:form.address,
+        paymentMethod:"MERCADOPAGO",
+        paymentIntentId:result.preferenceId,
         items:cart.map(i=>({productId:i.id,quantity:i.qty})),
       });
-      setOrderSuccess(order); setCart([]);
+
+      setCart([]);
+      setCheckoutOpen(false);
+
+      // Redirigir a MercadoPago para completar el pago
+      window.location.href=result.initPoint;
+
     }catch(e){ showToast("⚠️ "+e.message); }
     finally{ setPaying(false); }
   };
@@ -841,27 +858,25 @@ export default function App() {
                       onChange={e=>setForm(p=>({...p,[field]:e.target.value}))}/>
                   </div>
                 ))}
-                <p className="form-section">Datos de Pago</p>
-                <div className="card-visual">
-                  <div className="card-label">Número de tarjeta</div>
-                  <input required className="card-input" placeholder="1234 5678 9012 3456" maxLength={19}
-                    value={form.card} onChange={e=>setForm(p=>({...p,card:e.target.value.replace(/\D/g,"").replace(/(.{4})/g,"$1 ").trim()}))}/>
-                  <div className="card-row">
-                    <div className="card-row-half">
-                      <div className="card-label">Vencimiento</div>
-                      <input required className="card-row-input" placeholder="MM/AA" maxLength={5}
-                        value={form.expiry} onChange={e=>setForm(p=>({...p,expiry:e.target.value}))}/>
-                    </div>
-                    <div className="card-row-half">
-                      <div className="card-label">CVV</div>
-                      <input required className="card-row-input" placeholder="•••" maxLength={4} type="password"
-                        value={form.cvv} onChange={e=>setForm(p=>({...p,cvv:e.target.value}))}/>
+                <p className="form-section">Método de Pago</p>
+                <div style={{background:'linear-gradient(135deg,#009EE3,#0070B8)',borderRadius:16,padding:'18px 20px',marginBottom:12,display:'flex',alignItems:'center',gap:14}}>
+                  <div style={{fontSize:'2.2rem'}}>💳</div>
+                  <div>
+                    <div style={{color:'#fff',fontWeight:700,fontSize:'.95rem'}}>Pagar con MercadoPago</div>
+                    <div style={{color:'rgba(255,255,255,.75)',fontSize:'.77rem',marginTop:3}}>
+                      Tarjetas, PSE, Nequi, Efecty, Bancolombia y más
                     </div>
                   </div>
+                  <div style={{marginLeft:'auto',background:'rgba(255,255,255,.18)',borderRadius:10,padding:'4px 12px',color:'#fff',fontSize:'.7rem',fontWeight:700}}>
+                    ✓ Seguro
+                  </div>
                 </div>
-                <div className="secure-note">🔒 Pago 100% seguro · SSL · Stripe</div>
-                <button type="submit" className="pay-btn" disabled={paying}>
-                  {paying?"⏳ Procesando...":`PAGAR $${grandTotal.toFixed(2)} ✦`}
+                <div className="secure-note">
+                  🔒 Serás redirigido a MercadoPago para completar tu pago de forma segura
+                </div>
+                <button type="submit" className="pay-btn" disabled={paying}
+                  style={{background:'linear-gradient(135deg,#009EE3,#0070B8)'}}>
+                  {paying?"⏳ Redirigiendo...":`Ir a pagar $${grandTotal.toFixed(2)} COP →`}
                 </button>
               </form>
             </div>

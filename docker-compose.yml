@@ -35,11 +35,16 @@ services:
       SPRING_DATASOURCE_PASSWORD: LuxPass2025!
       SPRING_PROFILES_ACTIVE: prod
       SERVER_PORT: 8080
-      STRIPE_SECRET_KEY: sk_test_REEMPLAZA_CON_TU_CLAVE_SECRETA
-      STRIPE_PUBLISHABLE_KEY: pk_test_REEMPLAZA_CON_TU_CLAVE_PUBLICA
-      SENDGRID_API_KEY: SG.REEMPLAZA_CON_TU_CLAVE_SENDGRID
-      STORE_EMAIL: tu@email.com
+      # ── MercadoPago — REEMPLAZA CON TUS CREDENCIALES ──────
+      # Obtén las claves en: mercadopago.com.co → Desarrolladores → Credenciales
+      MERCADOPAGO_ACCESS_TOKEN: ${MERCADOPAGO_ACCESS_TOKEN}
+      MERCADOPAGO_PUBLIC_KEY: ${MERCADOPAGO_PUBLIC_KEY}
+      # ── Tienda ─────────────────────────────────────────────
+      STORE_URL: ${STORE_URL:-http://localhost:3000}
       STORE_NAME: Kosmica
+      STORE_EMAIL: ${STORE_EMAIL:-hola@kosmica.com}
+      # ── Email SendGrid (opcional) ──────────────────────────
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
     ports:
       - "8080:8080"
     volumes:
