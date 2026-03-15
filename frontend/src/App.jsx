@@ -928,7 +928,7 @@ export default function App() {
       </div>
 
       {/* ── PROMO STRIP ── */}
-      <div className="promo-strip">✦ Envío GRATIS en compras +$80 &nbsp;|&nbsp; 🎀 Hasta 40% OFF &nbsp;|&nbsp; 💳 Paga con Nequi, PSE, tarjeta ✦</div>
+      <div className="promo-strip">✦ Envío GRATIS en compras +$300.000 &nbsp;|&nbsp; &nbsp;|&nbsp; 💳 Paga con Nequi, PSE, tarjeta ✦</div>
 
       {/* ── HERO ── */}
       <section className="hero">
