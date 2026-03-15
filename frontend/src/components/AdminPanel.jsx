@@ -24,10 +24,10 @@ const ADM_CSS = `
   .adm-login-btn:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(155,114,207,.55)}
   .adm-login-error{color:#E74C3C;font-size:.8rem;margin-top:8px}
 
-  .adm-sidebar{width:240px;background:linear-gradient(180deg,#2D1B4E 0%,#4A2D7A 100%);min-height:100vh;display:flex;flex-direction:column;position:fixed;left:0;top:0;z-index:100}
+  .adm-sidebar{width:240px;background:linear-gradient(180deg,#2D1B4E 0%,#4A2D7A 100%);min-height:100vh;display:flex;flex-direction:column;position:fixed;left:0;top:0;z-index:200;transition:transform .3s ease}
   .adm-logo{padding:28px 24px 20px;border-bottom:1px solid rgba(255,255,255,.1)}
   .adm-logo-text{font-family:'Playfair Display',serif;font-size:1.4rem;color:#fff;font-weight:700}
-  .adm-logo-sub{font-size:.7rem;color:rgba(255,255,255,.4);margin-top:2px;letter-spacing:.1em;text-transform:uppercase}
+  .adm-logo-sub{font-size:.78rem;color:rgba(255,255,255,.4);margin-top:2px;letter-spacing:.1em;text-transform:uppercase}
   .adm-nav{padding:20px 12px;flex:1}
   .adm-nav-item{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:14px;cursor:pointer;transition:all .2s;color:rgba(255,255,255,.6);font-size:.88rem;font-weight:500;margin-bottom:4px}
   .adm-nav-item:hover{background:rgba(255,255,255,.08);color:#fff}
@@ -37,17 +37,45 @@ const ADM_CSS = `
   .adm-logout-btn{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;cursor:pointer;color:rgba(255,255,255,.5);font-size:.85rem;transition:all .2s;border:none;background:none;width:100%;font-family:'DM Sans',sans-serif}
   .adm-logout-btn:hover{color:#FF8A80;background:rgba(255,255,255,.05)}
 
-  .adm-content{margin-left:240px;padding:32px 36px;min-height:100vh}
+  .adm-content{margin-left:240px;padding:32px 36px;min-height:100vh;transition:margin .3s}
   .adm-page-title{font-family:'Playfair Display',serif;font-size:2rem;font-weight:700;color:#2D1B4E;margin-bottom:6px}
   .adm-page-sub{color:#9B72CF;font-size:.87rem;margin-bottom:28px}
 
   /* Stats cards */
   .adm-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:32px}
   @media(max-width:1000px){.adm-stats{grid-template-columns:repeat(2,1fr)}}
+
+  /* ── HAMBURGER MÓVIL ── */
+  .adm-hamburger{display:none;position:fixed;top:14px;left:14px;z-index:300;background:linear-gradient(135deg,#9B72CF,#7B5EA7);border:none;border-radius:12px;width:46px;height:46px;align-items:center;justify-content:center;font-size:1.3rem;cursor:pointer;box-shadow:0 4px 16px rgba(120,80,180,.5)}
+  .adm-mob-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:199;backdrop-filter:blur(3px)}
+  @media(max-width:768px){
+    .adm-hamburger{display:flex}
+    .adm-mob-overlay.show{display:block}
+    .adm-sidebar{transform:translateX(-100%);z-index:200}
+    .adm-sidebar.open{transform:translateX(0)}
+    .adm-content{margin-left:0!important;padding:18px 14px;padding-top:76px}
+    .adm-page-title{font-size:1.5rem}
+    .adm-stats{grid-template-columns:repeat(2,1fr)!important;gap:12px!important;margin-bottom:20px!important}
+    .adm-stat-card{padding:16px!important}
+    .adm-stat-n{font-size:1.4rem!important}
+    .adm-card{overflow:hidden}
+    .adm-table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .adm-table{min-width:580px}
+    .adm-card-header{padding:14px 16px!important;flex-wrap:wrap;gap:8px}
+    .adm-form-grid{grid-template-columns:1fr!important}
+    .adm-form-group.full{grid-column:auto!important}
+    .adm-login-box{padding:28px 20px!important;margin:16px!important;border-radius:20px!important}
+    .adm-login-title{font-size:1.7rem!important}
+    .adm-login-sub{font-size:.85rem!important}
+    .adm-modal-inner{padding:20px 16px!important;border-radius:20px 20px 0 0!important;max-height:95vh}
+    .orders-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .orders-scroll table{min-width:520px}
+  }
+
   .adm-stat-card{background:#fff;border-radius:20px;padding:22px;box-shadow:0 4px 20px rgba(120,80,180,.08);border-left:4px solid var(--color)}
   .adm-stat-icon{font-size:1.8rem;margin-bottom:10px}
   .adm-stat-n{font-family:'Playfair Display',serif;font-size:2rem;font-weight:700;color:#2D1B4E}
-  .adm-stat-label{font-size:.78rem;color:#9B72CF;margin-top:4px;font-weight:500}
+  .adm-stat-label{font-size:.84rem;color:#9B72CF;margin-top:4px;font-weight:500}
 
   /* Tabla productos */
   .adm-card{background:#fff;border-radius:20px;box-shadow:0 4px 20px rgba(120,80,180,.08);overflow:hidden}
@@ -56,11 +84,11 @@ const ADM_CSS = `
   .adm-new-btn{padding:10px 20px;background:linear-gradient(135deg,#9B72CF,#7B5EA7);color:#fff;border:none;border-radius:12px;font-weight:700;font-size:.85rem;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .3s;box-shadow:0 4px 14px rgba(155,114,207,.35)}
   .adm-new-btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(155,114,207,.5)}
   .adm-table{width:100%;border-collapse:collapse}
-  .adm-table th{padding:12px 16px;text-align:left;font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#9B72CF;border-bottom:1px solid #F0E8FF;background:#FAF7FF}
+  .adm-table th{padding:12px 16px;text-align:left;font-size:.8rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#9B72CF;border-bottom:1px solid #F0E8FF;background:#FAF7FF}
   .adm-table td{padding:14px 16px;border-bottom:1px solid #F8F4FF;vertical-align:middle}
   .adm-table tr:hover td{background:#FAF7FF}
   .adm-prod-img{width:50px;height:50px;border-radius:10px;object-fit:cover}
-  .adm-badge{padding:3px 10px;border-radius:30px;font-size:.65rem;font-weight:800;text-transform:uppercase}
+  .adm-badge{padding:3px 10px;border-radius:30px;font-size:.75rem;font-weight:800;text-transform:uppercase}
   .adm-badge.VIRAL{background:#F0E8FF;color:#7B5EA7}
   .adm-badge.HOT{background:#FFE8EA;color:#C0392B}
   .adm-badge.BESTSELLER{background:#FFF3E0;color:#E67E22}
@@ -326,16 +354,16 @@ export default function AdminPanel({ onExit }) {
         <div className="adm-login-box">
           <div className="adm-login-icon">🛡️</div>
           <h1 className="adm-login-title">Panel Admin</h1>
-          <p className="adm-login-sub">Kosmica · Acceso restringido</p>
+          <p className="adm-login-sub">LuxShop · Acceso restringido</p>
           <input className="adm-login-input" type="password" placeholder="Contraseña de administrador"
             value={pass} onChange={e => setPass(e.target.value)}
             onKeyDown={e => e.key==='Enter' && login()} />
           <button className="adm-login-btn" onClick={login}>Ingresar →</button>
           {loginErr && <p className="adm-login-error">⚠️ {loginErr}</p>}
           <div style={{marginTop:20,fontSize:'.75rem',color:'#C9B8E8'}}>
-            <br/>
+            Contraseña por defecto: luxshop2025<br/>
             <span style={{fontSize:'.68rem',color:'#D4B8FF'}}>
-              
+              Cámbiala en .env → REACT_APP_ADMIN_PASSWORD
             </span>
           </div>
         </div>
@@ -358,9 +386,9 @@ export default function AdminPanel({ onExit }) {
 
       <div style={{ display:'flex' }}>
         {/* SIDEBAR */}
-        <div className="adm-sidebar">
+        <div className={`adm-sidebar${sidebarOpen?' open':''}`}>
           <div className="adm-logo">
-            <div className="adm-logo-text">✦ Kosmica</div>
+            <div className="adm-logo-text">✦ LuxShop</div>
             <div className="adm-logo-sub">Admin Panel</div>
           </div>
           <div className="adm-nav">
@@ -408,7 +436,7 @@ export default function AdminPanel({ onExit }) {
                 <div className="adm-card-header">
                   <span className="adm-card-title">Últimos 5 pedidos</span>
                 </div>
-                <table className="adm-table">
+                <div className="adm-table-scroll"><table className="adm-table">
                   <thead><tr>
                     <th>Pedido</th><th>Cliente</th><th>Total</th><th>Estado</th>
                   </tr></thead>
@@ -439,7 +467,7 @@ export default function AdminPanel({ onExit }) {
                 </div>
                 {loading ? <div className="adm-loading">⏳ Cargando...</div> :
                   products.length === 0 ? <div className="adm-empty"><div className="adm-empty-icon">📭</div><p>Sin productos</p></div> :
-                  <table className="adm-table">
+                  <div className="adm-table-scroll"><table className="adm-table">
                     <thead><tr>
                       <th>Imagen</th><th>Nombre</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Badge</th><th>Acciones</th>
                     </tr></thead>
@@ -596,7 +624,7 @@ export default function AdminPanel({ onExit }) {
                 </div>
                 {loading ? <div className="adm-loading">⏳ Cargando pedidos...</div> :
                 filteredOrders.length === 0 ? <div className="adm-empty"><div className="adm-empty-icon">📭</div><p>Sin pedidos</p></div> :
-                <table className="adm-table">
+                <div className="adm-table-scroll"><table className="adm-table">
                   <thead><tr><th>#Pedido</th><th>Cliente</th><th>Email</th><th>Total</th><th>Estado</th><th>Fecha</th><th>Cambiar estado</th></tr></thead>
                   <tbody>
                     {filteredOrders.map(o => (

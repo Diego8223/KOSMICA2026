@@ -65,14 +65,14 @@ const CSS = `
   .search-box {
     padding: 7px 11px; border-radius: 30px;
     border: 2px solid var(--lila-xlight); background: rgba(255,255,255,.9);
-    font-size: .76rem; width: 100px; outline: none;
+    font-size: .76rem; width: 90px; min-height: 38px; outline: none;
     transition: all .3s; color: var(--dark);
   }
   .search-box:focus { border-color: var(--lila); width: 130px; }
-  .admin-toggle {
+  .admin-toggle { min-height: 38px;
     padding: 5px 9px; background: var(--lila-xlight); color: var(--lila-dark);
     border: 2px solid var(--lila-light); border-radius: 30px;
-    font-size: .66rem; font-weight: 700; white-space: nowrap; transition: all .2s;
+    font-size: .76rem; font-weight: 700; white-space: nowrap; transition: all .2s;
   }
   .cart-btn {
     position: relative; background: linear-gradient(135deg, var(--lila), var(--lila-dark));
@@ -80,11 +80,11 @@ const CSS = `
     display: flex; align-items: center; justify-content: center;
     font-size: .95rem; box-shadow: var(--shadow); transition: transform .2s;
   }
-  .cart-btn:hover { transform: scale(1.08); }
+  .cart-btn:hover, .cart-btn:active { transform: scale(1.08); }
   .cart-badge {
     position: absolute; top: -3px; right: -3px;
     background: var(--pink); color: #fff; border-radius: 50%;
-    width: 17px; height: 17px; font-size: .54rem; font-weight: 800;
+    width: 17px; height: 17px; font-size: .82rem; font-weight: 800;
     display: flex; align-items: center; justify-content: center;
   }
 
@@ -98,7 +98,7 @@ const CSS = `
   .mobile-cats::-webkit-scrollbar { display: none; }
   .mobile-cat-btn {
     padding: 6px 13px; border-radius: 30px; border: 2px solid var(--lila-xlight);
-    background: #fff; color: var(--brown); font-size: .7rem; font-weight: 600;
+    background: #fff; color: var(--brown); font-size: .8rem; font-weight: 600;
     white-space: nowrap; flex-shrink: 0; transition: all .2s;
   }
   .mobile-cat-btn.active { border-color: transparent; color: #fff; box-shadow: 0 3px 12px rgba(155,114,207,.35); }
@@ -130,7 +130,7 @@ const CSS = `
     display: inline-flex; align-items: center; gap: 6px;
     background: rgba(155,114,207,.12); border: 1.5px solid rgba(155,114,207,.28);
     border-radius: 30px; padding: 5px 13px; color: var(--lila);
-    font-size: .65rem; font-weight: 700; letter-spacing: .13em; text-transform: uppercase;
+    font-size: .76rem; font-weight: 700; letter-spacing: .13em; text-transform: uppercase;
     margin-bottom: 14px; width: fit-content;
   }
   .hero-title {
@@ -161,20 +161,20 @@ const CSS = `
   }
   .hero-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
   .stat-n { font-family: 'Playfair Display', serif; font-size: 1.45rem; font-weight: 700; color: var(--lila); }
-  .stat-l { font-size: .62rem; color: var(--muted); margin-top: 1px; }
+  .stat-l { font-size: .73rem; color: var(--muted); margin-top: 1px; }
 
   /* ── PROMO STRIP ── */
   .promo-strip {
     background: linear-gradient(90deg,var(--lila),var(--pink),var(--mint),var(--lila));
     background-size: 300%; animation: moveGrad 6s linear infinite;
     padding: 8px 0; text-align: center;
-    color: #fff; font-size: .64rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+    color: #fff; font-size: .75rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
   }
 
   /* ── PRODUCTOS BASE MÓVIL ── */
   .section-wrap { max-width: 1400px; margin: 0 auto; padding: 0 12px; }
   .products-section { padding: 18px 0 44px; }
-  .section-eyebrow { font-size: .62rem; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: var(--lila); margin-bottom: 5px; }
+  .section-eyebrow { font-size: .73rem; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: var(--lila); margin-bottom: 5px; }
   .section-title { font-family: 'Playfair Display', serif; font-size: 1.55rem; font-weight: 700; color: var(--dark); margin-bottom: 18px; }
   .cat-pills { display: none; }
 
@@ -192,13 +192,13 @@ const CSS = `
     position: absolute; bottom: 0; left: 0; right: 0;
     background: linear-gradient(transparent,rgba(45,27,78,.7));
     color: #fff; text-align: center; padding: 16px 6px 9px;
-    font-size: .66rem; font-weight: 700; opacity: 0; transition: opacity .3s;
+    font-size: .76rem; font-weight: 700; opacity: 0; transition: opacity .3s;
   }
   .product-card:hover .card-see-more { opacity: 1; }
   .card-badge {
     position: absolute; top: 7px; left: 7px;
     padding: 3px 8px; border-radius: 30px;
-    font-size: .55rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+    font-size: .82rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
   }
   .card-badge.VIRAL    { background: linear-gradient(135deg,#F4A7C3,#C9B8E8); color:#fff; }
   .card-badge.HOT      { background: linear-gradient(135deg,#FFB3BA,#FFCBA4); color:#fff; }
@@ -213,19 +213,19 @@ const CSS = `
   }
   .card-wish:active { transform: scale(1.2); }
   .card-body { padding: 9px 10px 11px; }
-  .card-stars { color: #C9A96E; font-size: .68rem; }
-  .card-reviews { color: #ccc; font-size: .62rem; margin-left: 3px; }
+  .card-stars { color: #C9A96E; font-size: .78rem; }
+  .card-reviews { color: #ccc; font-size: .73rem; margin-left: 3px; }
   .card-name {
-    font-weight: 600; font-size: .75rem; color: var(--dark); margin: 4px 0 7px; line-height: 1.35;
+    font-weight: 600; font-size: .84rem; color: var(--dark); margin: 4px 0 7px; line-height: 1.35;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
   }
   .card-footer { display: flex; align-items: center; justify-content: space-between; gap: 5px; }
   .card-price { font-family: 'Playfair Display', serif; font-size: .95rem; font-weight: 700; color: var(--lila); }
-  .card-original { font-size: .65rem; color: #bbb; text-decoration: line-through; display: none; }
+  .card-original { font-size: .76rem; color: #bbb; text-decoration: line-through; display: none; }
   .card-add {
     background: linear-gradient(135deg, var(--lila), var(--lila-dark));
     color: #fff; border: none; border-radius: 9px;
-    padding: 6px 9px; font-weight: 700; font-size: .64rem; white-space: nowrap;
+    padding: 6px 9px; font-weight: 700; font-size: .75rem; white-space: nowrap;
     box-shadow: 0 3px 10px rgba(155,114,207,.3); transition: all .25s; flex-shrink: 0;
   }
   .card-add:active { transform: scale(.95); }
@@ -237,7 +237,7 @@ const CSS = `
 
   /* ── TESTIMONIOS BASE MÓVIL ── */
   .testimonials { padding: 46px 14px; background: linear-gradient(135deg,#2D1B4E 0%,#4A2D7A 60%,#6B3FA0 100%); }
-  .test-eyebrow { font-size: .62rem; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: var(--lila-light); margin-bottom: 6px; }
+  .test-eyebrow { font-size: .73rem; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: var(--lila-light); margin-bottom: 6px; }
   .test-title { font-family: 'Playfair Display', serif; font-size: 1.55rem; font-weight: 700; color: #fff; margin-bottom: 20px; }
   .test-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
   .test-card { background: rgba(255,255,255,.07); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,.13); border-radius: 16px; padding: 18px 16px; }
@@ -253,7 +253,7 @@ const CSS = `
   .feat-card { text-align: center; padding: 18px 12px; background: var(--lila-xlight); border-radius: 16px; border: 1.5px solid rgba(155,114,207,.14); }
   .feat-icon { font-size: 1.85rem; margin-bottom: 8px; }
   .feat-title { font-weight: 700; font-size: .82rem; margin-bottom: 4px; color: var(--dark); }
-  .feat-sub { font-size: .7rem; color: var(--brown); line-height: 1.5; }
+  .feat-sub { font-size: .8rem; color: var(--brown); line-height: 1.5; }
 
   /* ── FOOTER BASE MÓVIL ── */
   .footer { background: #1A0D30; padding: 36px 14px 18px; color: rgba(255,255,255,.55); font-size: .78rem; }
@@ -262,10 +262,10 @@ const CSS = `
   .footer-brand { grid-column: 1 / -1; }
   .footer-logo { font-family: 'Playfair Display', serif; font-size: 1.35rem; font-weight: 900; background: linear-gradient(135deg,var(--lila-light),var(--pink)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px; }
   .footer-desc { line-height: 1.72; color: rgba(255,255,255,.38); font-size: .76rem; }
-  .footer-heading { color: var(--lila-light); font-weight: 700; letter-spacing: .09em; text-transform: uppercase; font-size: .62rem; margin-bottom: 10px; }
+  .footer-heading { color: var(--lila-light); font-weight: 700; letter-spacing: .09em; text-transform: uppercase; font-size: .73rem; margin-bottom: 10px; }
   .footer-links a { display: block; margin-bottom: 6px; color: rgba(255,255,255,.38); text-decoration: none; transition: color .2s; font-size: .76rem; }
   .footer-links a:hover { color: var(--lila-light); }
-  .footer-bottom { border-top: 1px solid rgba(155,114,207,.14); padding-top: 16px; display: flex; flex-direction: column; gap: 10px; text-align: center; font-size: .72rem; }
+  .footer-bottom { border-top: 1px solid rgba(155,114,207,.14); padding-top: 16px; display: flex; flex-direction: column; gap: 10px; text-align: center; font-size: .82rem; }
   .social-icons { display: flex; gap: 7px; justify-content: center; }
   .social-icon { width: 32px; height: 32px; border-radius: 50%; background: rgba(155,114,207,.12); border: 1px solid rgba(155,114,207,.22); display: flex; align-items: center; justify-content: center; font-size: .82rem; transition: all .2s; text-decoration: none; }
   .social-icon:hover { background: rgba(155,114,207,.24); transform: translateY(-2px); }
@@ -302,18 +302,18 @@ const CSS = `
   .modal-header { padding: 16px 16px 12px; border-bottom: 1px solid var(--lila-xlight); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; background: var(--cream); z-index: 2; }
   .modal-title { font-family: 'Playfair Display', serif; font-size: 1.15rem; font-weight: 700; color: var(--dark); }
   .modal-body { padding: 14px 16px 32px; }
-  .form-section { font-size: .6rem; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: var(--lila); margin: 15px 0 8px; }
+  .form-section { font-size: .73rem; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: var(--lila); margin: 15px 0 8px; }
   .form-group { margin-bottom: 10px; }
-  .form-label { display: block; font-size: .72rem; font-weight: 600; color: var(--brown); margin-bottom: 4px; }
+  .form-label { display: block; font-size: .82rem; font-weight: 600; color: var(--brown); margin-bottom: 4px; }
   .form-input { width: 100%; padding: 12px 12px; border-radius: 11px; border: 2px solid var(--lila-xlight); background: #fff; font-size: 16px; outline: none; transition: border .2s; color: var(--dark); }
   .form-input:focus { border-color: var(--lila); }
   .card-visual { background: linear-gradient(135deg,#2D1B4E,#4A2D7A); border-radius: 14px; padding: 16px; margin-bottom: 10px; }
-  .card-label { color: rgba(255,255,255,.44); font-size: .6rem; margin-bottom: 5px; }
+  .card-label { color: rgba(255,255,255,.44); font-size: .73rem; margin-bottom: 5px; }
   .card-input { width: 100%; background: none; border: none; color: #fff; font-size: 1rem; letter-spacing: .1em; outline: none; font-family: inherit; }
   .card-row { display: flex; gap: 14px; margin-top: 12px; }
   .card-row-half { flex: 1; }
   .card-row-input { background: none; border: none; color: #fff; font-size: .85rem; outline: none; width: 100%; }
-  .secure-note { display: flex; align-items: center; gap: 5px; font-size: .68rem; color: var(--muted); justify-content: center; margin-top: 8px; }
+  .secure-note { display: flex; align-items: center; gap: 5px; font-size: .78rem; color: var(--muted); justify-content: center; margin-top: 8px; }
   .pay-btn { width: 100%; padding: 14px; background: linear-gradient(135deg,var(--lila),var(--lila-dark)); color: #fff; border: none; border-radius: 13px; font-weight: 800; font-size: .92rem; letter-spacing: .04em; box-shadow: var(--shadow); margin-top: 14px; transition: all .3s; }
   .pay-btn:hover:not(:disabled) { transform: translateY(-1px); }
   .pay-btn:disabled { opacity: .7; cursor: wait; }
@@ -325,6 +325,20 @@ const CSS = `
   .success-title { font-family: 'Playfair Display', serif; font-size: 1.65rem; font-weight: 700; margin-bottom: 9px; color: var(--dark); }
   .success-sub { color: var(--muted); font-size: .83rem; line-height: 1.7; margin-bottom: 18px; }
   .order-num-badge { background: var(--lila-xlight); border: 1px solid var(--lila-light); border-radius: 9px; padding: 7px 15px; display: inline-block; font-weight: 700; color: var(--lila); font-size: .82rem; margin-bottom: 20px; font-family: 'Playfair Display', serif; }
+
+
+  /* ── WHATSAPP FLOTANTE ── */
+  .wa-float{
+    position:fixed; bottom:22px; right:16px; z-index:800;
+    width:52px; height:52px; border-radius:50%;
+    background:linear-gradient(135deg,#25D366,#128C7E);
+    display:flex; align-items:center; justify-content:center;
+    font-size:1.55rem; box-shadow:0 6px 22px rgba(37,211,102,.45);
+    border:none; cursor:pointer; transition:transform .25s;
+    text-decoration:none;
+  }
+  .wa-float:hover,.wa-float:active{ transform:scale(1.1); }
+  @media(min-width:860px){ .wa-float{ width:58px; height:58px; bottom:30px; right:28px; font-size:1.75rem; } }
 
   /* ── TOAST ── */
   .toast { position: fixed; bottom: 18px; left: 12px; right: 12px; z-index: 9999; background: linear-gradient(135deg,var(--lila),var(--lila-dark)); color: #fff; padding: 11px 16px; border-radius: 13px; font-weight: 600; font-size: .8rem; box-shadow: 0 8px 28px rgba(155,114,207,.42); animation: slideLeft .4s ease; text-align: center; }
@@ -338,7 +352,7 @@ const CSS = `
     .logo { font-size: 1.5rem; }
     .search-box { width: 140px; }
     .search-box:focus { width: 180px; }
-    .admin-toggle { padding: 6px 12px; font-size: .72rem; }
+    .admin-toggle { min-height: 38px; padding: 6px 12px; font-size: .82rem; }
     .cart-btn { width: 42px; height: 42px; font-size: 1rem; }
     .mobile-cats { top: 62px; }
     .hero { padding: 130px 22px 55px; }
@@ -361,7 +375,7 @@ const CSS = `
     .modal { border-radius: 22px; max-width: 490px; max-height: 90vh; }
     @keyframes slideUp { from{transform:scale(.9) translateY(20px);opacity:0} to{transform:scale(1) translateY(0);opacity:1} }
     .toast { left: 18px; right: auto; max-width: 300px; text-align: left; }
-    .promo-strip { font-size: .72rem; }
+    .promo-strip { font-size: .82rem; }
   }
 
   /* ══════════════════════════════════════
@@ -740,21 +754,21 @@ export default function App() {
               <div className="footer-logo">✦ Kosmica</div>
               <p className="footer-desc">Tu destino de moda femenina premium. Calidad, estilo y exclusividad.</p>
               <div className="social-icons" style={{marginTop:14}}>
-                {["📘","📷","🎵","▶️"].map((s,i)=><a key={i} href="#" className="social-icon">{s}</a>)}
+                {["📘","📷","🎵","▶️"].map((s,i)=><a key={i} href="#" onClick={e=>e.preventDefault()} className="social-icon">{s}</a>)}
               </div>
             </div>
             {[["Tienda",["Bolsos","Billeteras","Maquillaje","Capilar","Ropa"]],["Ayuda",["FAQ","Envíos","Devoluciones","Contacto"]]].map(([h,ls])=>(
               <div key={h}>
                 <div className="footer-heading">{h}</div>
-                <div className="footer-links">{ls.map(l=><a key={l} href="#">{l}</a>)}</div>
+                <div className="footer-links">{ls.map(l=><a key={l} href="#" onClick={e=>e.preventDefault()}>{l}</a>)}</div>
               </div>
             ))}
             <div>
               <div className="footer-heading">Mi pedido</div>
               <div className="footer-links">
                 <a href="#" onClick={e=>{e.preventDefault();setTrackingMode(true);}}>📦 Rastrear pedido</a>
-                <a href="#">Política de envíos</a>
-                <a href="#">Política de devoluciones</a>
+                <a href="#" onClick={e=>e.preventDefault()}>Política de envíos</a>
+                <a href="#" onClick={e=>e.preventDefault()}>Política de devoluciones</a>
               </div>
             </div>
           </div>
@@ -906,6 +920,10 @@ export default function App() {
           </div>
         </>
       )}
+      {/* WHATSAPP FLOTANTE */}
+      <a className="wa-float" href="https://wa.me/573000000000?text=Hola%20Kosmica%2C%20quiero%20información" target="_blank" rel="noreferrer" aria-label="WhatsApp">
+        💬
+      </a>
     </>
   );
 }
