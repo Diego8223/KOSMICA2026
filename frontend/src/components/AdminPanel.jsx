@@ -5,7 +5,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { productAPI, orderAPI } from '../services/api';
 
-const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD || 'kosmica8223';
+const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD || 'Kosmica2025';
 
 const CATEGORIES = ['BOLSOS','BILLETERAS','MAQUILLAJE','CAPILAR','ROPA'];
 const BADGES     = ['','VIRAL','HOT','BESTSELLER','NUEVO'];
