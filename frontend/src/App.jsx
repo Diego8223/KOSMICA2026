@@ -51,11 +51,11 @@ const CSS = `
     box-shadow: 0 2px 20px rgba(120,80,180,.08);
   }
   .nav-inner {
-    height: 56px; display: flex; align-items: center;
+    height: 52px; display: flex; align-items: center;
     justify-content: space-between; gap: 8px; max-width: 1400px; margin: 0 auto;
   }
   .logo {
-    font-family: 'Playfair Display', serif; font-size: 1.35rem; font-weight: 900;
+    font-family: 'Playfair Display', serif; font-size: 1.2rem; font-weight: 900;
     background: linear-gradient(135deg, var(--lila), var(--lila-dark));
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     cursor: pointer; flex-shrink: 0; white-space: nowrap;
@@ -65,7 +65,7 @@ const CSS = `
   .search-box {
     padding: 7px 11px; border-radius: 30px;
     border: 2px solid var(--lila-xlight); background: rgba(255,255,255,.9);
-    font-size: .76rem; width: 90px; min-height: 38px; outline: none;
+    font-size: .82rem; width: 85px; min-height: 40px; outline: none;
     transition: all .3s; color: var(--dark);
   }
   .search-box:focus { border-color: var(--lila); width: 130px; }
@@ -90,14 +90,14 @@ const CSS = `
 
   /* ── CATEGORÍAS MÓVIL (scroll horizontal) ── */
   .mobile-cats {
-    position: fixed; top: 56px; left: 0; right: 0; z-index: 890;
+    position: fixed; top: 52px; left: 0; right: 0; z-index: 890;
     display: flex; gap: 7px; overflow-x: auto; padding: 9px 14px;
     background: rgba(253,248,255,.97); border-bottom: 1px solid var(--lila-xlight);
     scrollbar-width: none; -webkit-overflow-scrolling: touch;
   }
   .mobile-cats::-webkit-scrollbar { display: none; }
   .mobile-cat-btn {
-    padding: 6px 13px; border-radius: 30px; border: 2px solid var(--lila-xlight);
+    padding: 6px 12px; border-radius: 30px; border: 2px solid var(--lila-xlight);
     background: #fff; color: var(--brown); font-size: .8rem; font-weight: 600;
     white-space: nowrap; flex-shrink: 0; transition: all .2s;
   }
@@ -113,7 +113,7 @@ const CSS = `
 
   /* ── HERO BASE MÓVIL ── */
   .hero {
-    min-height: 100svh; padding: 118px 14px 50px;
+    min-height: auto; padding: 88px 16px 36px;
     display: flex; align-items: center;
     background: linear-gradient(160deg,#EDE4FF 0%,#F5EEFF 40%,#FDE8F5 70%,#FFE8F0 100%);
     position: relative; overflow: hidden;
@@ -135,16 +135,16 @@ const CSS = `
   }
   .hero-title {
     font-family: 'Playfair Display', serif;
-    font-size: 2.3rem; line-height: 1.12; color: var(--dark); font-weight: 900;
-    margin-bottom: 12px;
+    font-size: 2.1rem; line-height: 1.15; color: var(--dark); font-weight: 900;
+    margin-bottom: 10px;
   }
   .hero-title em {
     font-style: italic;
     background: linear-gradient(135deg, var(--lila), var(--pink));
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   }
-  .hero-sub { color: var(--brown); font-size: .88rem; line-height: 1.75; margin-bottom: 22px; }
-  .hero-btns { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+  .hero-sub { color: var(--brown); font-size: .93rem; line-height: 1.7; margin-bottom: 18px; }
+  .hero-btns { display: flex; flex-direction: column; gap: 10px; margin-bottom: 22px; }
   .btn-primary {
     padding: 13px 24px; text-align: center;
     background: linear-gradient(135deg, var(--lila), var(--lila-dark));
@@ -160,7 +160,7 @@ const CSS = `
     font-weight: 600; font-size: .84rem; transition: all .3s;
   }
   .hero-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
-  .stat-n { font-family: 'Playfair Display', serif; font-size: 1.45rem; font-weight: 700; color: var(--lila); }
+  .stat-n { font-family: 'Playfair Display', serif; font-size: 1.35rem; font-weight: 700; color: var(--lila); }
   .stat-l { font-size: .73rem; color: var(--muted); margin-top: 1px; }
 
   /* ── PROMO STRIP ── */
@@ -173,19 +173,19 @@ const CSS = `
 
   /* ── PRODUCTOS BASE MÓVIL ── */
   .section-wrap { max-width: 1400px; margin: 0 auto; padding: 0 12px; }
-  .products-section { padding: 18px 0 44px; }
-  .section-eyebrow { font-size: .73rem; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: var(--lila); margin-bottom: 5px; }
-  .section-title { font-family: 'Playfair Display', serif; font-size: 1.55rem; font-weight: 700; color: var(--dark); margin-bottom: 18px; }
+  .products-section { padding: 14px 0 36px; }
+  .section-eyebrow { font-size: .78rem; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: var(--lila); margin-bottom: 5px; }
+  .section-title { font-family: 'Playfair Display', serif; font-size: 1.45rem; font-weight: 700; color: var(--dark); margin-bottom: 14px; }
   .cat-pills { display: none; }
 
-  .product-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; }
+  .product-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 9px; }
   .product-card {
     background: #fff; border-radius: var(--r); overflow: hidden;
     box-shadow: var(--shadow-sm); transition: transform .3s, box-shadow .3s;
     border: 2px solid transparent;
   }
   .product-card:hover { transform: translateY(-4px); box-shadow: 0 14px 40px rgba(155,114,207,.18); border-color: var(--lila-xlight); }
-  .card-img-wrap { position: relative; overflow: hidden; height: 165px; background: #F8F4FF; cursor: pointer; }
+  .card-img-wrap { position: relative; overflow: hidden; height: 155px; background: #F8F4FF; cursor: pointer; }
   .card-img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s; }
   .product-card:hover .card-img { transform: scale(1.05); }
   .card-see-more {
@@ -212,20 +212,20 @@ const CSS = `
     transition: transform .2s;
   }
   .card-wish:active { transform: scale(1.2); }
-  .card-body { padding: 9px 10px 11px; }
+  .card-body { padding: 8px 10px 10px; }
   .card-stars { color: #C9A96E; font-size: .78rem; }
   .card-reviews { color: #ccc; font-size: .73rem; margin-left: 3px; }
   .card-name {
-    font-weight: 600; font-size: .84rem; color: var(--dark); margin: 4px 0 7px; line-height: 1.35;
+    font-weight: 600; font-size: .86rem; color: var(--dark); margin: 3px 0 6px; line-height: 1.3;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
   }
   .card-footer { display: flex; align-items: center; justify-content: space-between; gap: 5px; }
-  .card-price { font-family: 'Playfair Display', serif; font-size: .95rem; font-weight: 700; color: var(--lila); }
+  .card-price { font-family: 'Playfair Display', serif; font-size: 1rem; font-weight: 700; color: var(--lila); }
   .card-original { font-size: .76rem; color: #bbb; text-decoration: line-through; display: none; }
   .card-add {
     background: linear-gradient(135deg, var(--lila), var(--lila-dark));
     color: #fff; border: none; border-radius: 9px;
-    padding: 6px 9px; font-weight: 700; font-size: .75rem; white-space: nowrap;
+    padding: 7px 10px; font-weight: 700; font-size: .78rem; white-space: nowrap;
     box-shadow: 0 3px 10px rgba(155,114,207,.3); transition: all .25s; flex-shrink: 0;
   }
   .card-add:active { transform: scale(.95); }
@@ -236,23 +236,23 @@ const CSS = `
   }
 
   /* ── TESTIMONIOS BASE MÓVIL ── */
-  .testimonials { padding: 46px 14px; background: linear-gradient(135deg,#2D1B4E 0%,#4A2D7A 60%,#6B3FA0 100%); }
+  .testimonials { padding: 36px 14px; background: linear-gradient(135deg,#2D1B4E 0%,#4A2D7A 60%,#6B3FA0 100%); }
   .test-eyebrow { font-size: .73rem; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: var(--lila-light); margin-bottom: 6px; }
-  .test-title { font-family: 'Playfair Display', serif; font-size: 1.55rem; font-weight: 700; color: #fff; margin-bottom: 20px; }
+  .test-title { font-family: 'Playfair Display', serif; font-size: 1.4rem; font-weight: 700; color: #fff; margin-bottom: 16px; }
   .test-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
   .test-card { background: rgba(255,255,255,.07); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,.13); border-radius: 16px; padding: 18px 16px; }
   .test-stars { color: #F4A7C3; font-size: .82rem; margin-bottom: 8px; }
-  .test-text { color: rgba(255,255,255,.8); font-size: .8rem; line-height: 1.72; margin-bottom: 12px; }
+  .test-text { color: rgba(255,255,255,.8); font-size: .85rem; line-height: 1.65; margin-bottom: 10px; }
   .test-author { display: flex; align-items: center; gap: 9px; }
   .test-avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg,var(--lila-light),var(--pink)); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: .82rem; flex-shrink: 0; }
   .test-name { color: #fff; font-weight: 600; font-size: .8rem; }
 
   /* ── FEATURES BASE MÓVIL ── */
-  .features { padding: 36px 14px; background: #fff; }
+  .features { padding: 28px 14px; background: #fff; }
   .feat-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; max-width: 1400px; margin: 0 auto; }
-  .feat-card { text-align: center; padding: 18px 12px; background: var(--lila-xlight); border-radius: 16px; border: 1.5px solid rgba(155,114,207,.14); }
-  .feat-icon { font-size: 1.85rem; margin-bottom: 8px; }
-  .feat-title { font-weight: 700; font-size: .82rem; margin-bottom: 4px; color: var(--dark); }
+  .feat-card { text-align: center; padding: 14px 10px; background: var(--lila-xlight); border-radius: 16px; border: 1.5px solid rgba(155,114,207,.14); }
+  .feat-icon { font-size: 1.6rem; margin-bottom: 6px; }
+  .feat-title { font-weight: 700; font-size: .88rem; margin-bottom: 3px; color: var(--dark); }
   .feat-sub { font-size: .8rem; color: var(--brown); line-height: 1.5; }
 
   /* ── FOOTER BASE MÓVIL ── */
