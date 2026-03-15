@@ -37,7 +37,7 @@
       <artifactId>spring-boot-starter-data-jpa</artifactId>
     </dependency>
 
-    <!-- ── PostgreSQL Driver (reemplaza MySQL) ────────── -->
+    <!-- ── PostgreSQL Driver ─────────────────────────── -->
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
