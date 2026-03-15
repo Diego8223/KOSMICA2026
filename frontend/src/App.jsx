@@ -1248,7 +1248,7 @@ export default function App() {
       )}
 
       {/* ── WHATSAPP ── */}
-      <a className="wa-float" href="https://wa.me/573000000000?text=Hola%20Kosmica%2C%20quiero%20información"
+      <a className="wa-float" href="https://wa.me/573043927148?text=Hola%20Kosmica%2C%20quiero%20información"
         target="_blank" rel="noreferrer" aria-label="WhatsApp">💬</a>
     </>
   );
