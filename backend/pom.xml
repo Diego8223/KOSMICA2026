@@ -15,7 +15,7 @@
   <artifactId>luxshop-backend</artifactId>
   <version>1.0.0</version>
   <packaging>jar</packaging>
-  <name>Kosmica Backend</name>
+  <n>Kosmica Backend</n>
   <description>E-commerce Backend para Kosmica</description>
 
   <properties>
@@ -62,6 +62,13 @@
       <groupId>com.mercadopago</groupId>
       <artifactId>sdk-java</artifactId>
       <version>${mercadopago.version}</version>
+    </dependency>
+
+    <!-- ── Cloudinary (subida de imágenes y videos) ──── -->
+    <dependency>
+      <groupId>com.cloudinary</groupId>
+      <artifactId>cloudinary-http45</artifactId>
+      <version>1.36.0</version>
     </dependency>
 
     <!-- ── Tests ─────────────────────────────────────── -->

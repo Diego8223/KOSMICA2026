@@ -653,8 +653,18 @@ export default function AdminPanel({ onExit }) {
                   </div>
 
                   <div className="adm-form-group">
-                    <label className="adm-label">Precio original (tachado)</label>
-                    <input className="adm-input" type="number" step="0.01" value={form.originalPrice} onChange={e=>fSet('originalPrice',e.target.value)} placeholder="129.99"/>
+                    <label className="adm-label">Precio original (tachado) — opcional</label>
+                    <div style={{display:'flex',gap:8}}>
+                      <input className="adm-input" style={{flex:1}} type="number" step="0.01"
+                        value={form.originalPrice}
+                        onChange={e=>fSet('originalPrice',e.target.value)}
+                        placeholder="Solo si tiene descuento"/>
+                      {form.originalPrice &&
+                        <button type="button" className="adm-btn-sm adm-btn-del"
+                          style={{whiteSpace:'nowrap'}}
+                          onClick={()=>fSet('originalPrice','')}>✕ Quitar</button>
+                      }
+                    </div>
                   </div>
 
                   <div className="adm-form-group">

@@ -829,6 +829,11 @@ export default function App() {
     </div>
   );
 
+  const fmtCOP=(n)=>{
+    const num=Number(n);
+    if(isNaN(num)) return "$0";
+    return "$"+num.toLocaleString("es-CO",{minimumFractionDigits:0,maximumFractionDigits:0});
+  };
   const discountPct=(p)=>{
     if(!p.originalPrice || p.originalPrice<=p.price) return 0;
     return Math.round((1-p.price/p.originalPrice)*100);
@@ -928,7 +933,7 @@ export default function App() {
       </div>
 
       {/* ── PROMO STRIP ── */}
-      <div className="promo-strip">✦ Envío GRATIS en compras +$300.000 &nbsp;|&nbsp; &nbsp;|&nbsp; 💳 Paga con Nequi, PSE, tarjeta ✦</div>
+      <div className="promo-strip">✦ Envío GRATIS en compras +$80 &nbsp;|&nbsp; 🎀 Hasta 40% OFF &nbsp;|&nbsp; 💳 Paga con Nequi, PSE, tarjeta ✦</div>
 
       {/* ── HERO ── */}
       <section className="hero">
@@ -1021,8 +1026,8 @@ export default function App() {
                         </div>
                         <div className="card-name">{p.name}</div>
                         <div className="card-price-row">
-                          <span className="card-price">${Number(p.price).toFixed(2)}</span>
-                          {p.originalPrice&&<span className="card-original">${Number(p.originalPrice).toFixed(2)}</span>}
+                          <span className="card-price">{fmtCOP(p.price)}</span>
+                          {p.originalPrice&&<span className="card-original">{fmtCOP(p.originalPrice)}</span>}
                           {pct>0&&<span className="card-discount">-{pct}%</span>}
                         </div>
                         <button className="card-add" onClick={()=>addToCart(p)}>🛒 Agregar al carrito</button>
@@ -1058,7 +1063,7 @@ export default function App() {
       {/* ── FEATURES ── */}
       <section className="features">
         <div className="feat-grid">
-          {[["🚚","Envío Express","24–48 hrs Colombia"],["🔒","Pago Seguro","SSL cifrado"], ["🛡️","Compra Protegida","Seguridad garantizada"],,["💎","Calidad","Garantía autenticidad"]].map(([icon,t,d])=>(
+          {[["🚚","Envío Express","24–48 hrs Colombia"],["🔒","Pago Seguro","SSL cifrado"],["↩️","30 Días","Devolución fácil"],["💎","Premium","Garantía autenticidad"]].map(([icon,t,d])=>(
             <div key={t} className="feat-card">
               <div className="feat-icon">{icon}</div>
               <div className="feat-title">{t}</div>
@@ -1137,7 +1142,7 @@ export default function App() {
                       <img className="cart-item-img" src={item.imageUrl||"https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=200"} alt={item.name}/>
                       <div className="cart-item-info">
                         <div className="cart-item-name">{item.name}</div>
-                        <div className="cart-item-price">${(Number(item.price)*item.qty).toFixed(2)}</div>
+                        <div className="cart-item-price">{fmtCOP(Number(item.price)*item.qty)}</div>
                         <div className="qty-controls">
                           <button className="qty-btn" onClick={()=>updateQty(item.id,-1)}>−</button>
                           <span className="qty-val">{item.qty}</span>
@@ -1151,13 +1156,13 @@ export default function App() {
             </div>
             {cart.length>0&&(
               <div className="cart-footer">
-                <div className="cart-row"><span>Subtotal</span><span>${cartTotal.toFixed(2)}</span></div>
+                <div className="cart-row"><span>Subtotal</span><span>{fmtCOP(cartTotal)}</span></div>
                 <div className="cart-row" style={{color:shipping===0?"#27AE60":undefined}}>
-                  <span>Envío</span><span>{shipping===0?"GRATIS 🎉":`$${shipping.toFixed(2)}`}</span>
+                  <span>Envío</span><span>{shipping===0?"GRATIS 🎉":fmtCOP(shipping)}</span>
                 </div>
                 <div className="cart-total-row">
                   <span>Total</span>
-                  <span style={{color:"var(--lila)",fontFamily:"'Playfair Display',serif"}}>${grandTotal.toFixed(2)}</span>
+                  <span style={{color:"var(--lila)",fontFamily:"'Playfair Display',serif"}}>{fmtCOP(grandTotal)}</span>
                 </div>
                 <button className="checkout-btn" onClick={()=>{setCartOpen(false);setCheckoutOpen(true);}}>Finalizar Compra →</button>
               </div>
@@ -1180,14 +1185,14 @@ export default function App() {
                 <div className="order-summary-box">
                   {cart.map(i=>(
                     <div key={i.id} className="summary-item">
-                      <span>{i.name} ×{i.qty}</span><span>${(Number(i.price)*i.qty).toFixed(2)}</span>
+                      <span>{i.name} ×{i.qty}</span><span>{fmtCOP(Number(i.price)*i.qty)}</span>
                     </div>
                   ))}
                   <div className="summary-item" style={{color:shipping===0?"#27AE60":undefined}}>
-                    <span>Envío</span><span>{shipping===0?"GRATIS":`$${shipping.toFixed(2)}`}</span>
+                    <span>Envío</span><span>{shipping===0?"GRATIS":fmtCOP(shipping)}</span>
                   </div>
                   <div className="summary-total">
-                    <span>Total</span><span style={{color:"var(--lila)"}}>${grandTotal.toFixed(2)}</span>
+                    <span>Total</span><span style={{color:"var(--lila)"}}>{fmtCOP(grandTotal)}</span>
                   </div>
                 </div>
                 <p className="form-section">Información Personal</p>
@@ -1216,7 +1221,7 @@ export default function App() {
                 </div>
                 <button type="submit" className="pay-btn" disabled={paying}
                   style={{background:'linear-gradient(135deg,#009EE3,#0070B8)'}}>
-                  {paying?"⏳ Redirigiendo...":`Ir a pagar $${grandTotal.toFixed(2)} COP →`}
+                  {paying?"⏳ Redirigiendo...":`Ir a pagar ${fmtCOP(grandTotal)} COP →`}
                 </button>
               </form>
             </div>
@@ -1248,7 +1253,7 @@ export default function App() {
       )}
 
       {/* ── WHATSAPP ── */}
-      <a className="wa-float" href="https://wa.me/573043927148?text=Hola%20Kosmica%2C%20quiero%20información"
+      <a className="wa-float" href="https://wa.me/573000000000?text=Hola%20Kosmica%2C%20quiero%20información"
         target="_blank" rel="noreferrer" aria-label="WhatsApp">💬</a>
     </>
   );
