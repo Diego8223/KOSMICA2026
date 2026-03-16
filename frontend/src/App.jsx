@@ -1058,7 +1058,7 @@ export default function App() {
       {/* ── FEATURES ── */}
       <section className="features">
         <div className="feat-grid">
-          {[["🚚","Envío Express","24–48 hrs Colombia"],["🔒","Pago Seguro","SSL cifrado"],["↩️","30 Días","Devolución fácil"],["💎","Premium","Garantía autenticidad"]].map(([icon,t,d])=>(
+          {[["🚚","Envío Express","24–48 hrs Colombia"],["🔒","Pago Seguro","SSL cifrado"], ["🛡️","Compra Protegida","Seguridad garantizada"],,["💎","Calidad","Garantía autenticidad"]].map(([icon,t,d])=>(
             <div key={t} className="feat-card">
               <div className="feat-icon">{icon}</div>
               <div className="feat-title">{t}</div>
