@@ -308,10 +308,18 @@ const CSS = `
   /* Imagen grande estilo Shein — portrait */
   .card-img-wrap {
     position: relative; overflow: hidden;
-    aspect-ratio: 3/4; background: #F8F4FF; cursor: pointer;
+    background: #F8F4FF; cursor: pointer;
   }
-  .card-img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s cubic-bezier(.25,.46,.45,.94); }
-  .product-card:hover .card-img { transform: scale(1.08); }
+  .card-img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1/1;
+    object-fit: contain;
+    display: block;
+    background: #F8F4FF;
+    transition: transform .6s cubic-bezier(.25,.46,.45,.94);
+  }
+  .product-card:hover .card-img { transform: scale(1.05); }
 
   .card-see-more {
     position: absolute; bottom: 0; left: 0; right: 0;

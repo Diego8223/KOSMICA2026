@@ -81,15 +81,19 @@ const CSS = `
   .pdm-main{
     flex:1;position:relative;background:#FAF7FF;border-radius:16px;
     overflow:hidden;display:flex;align-items:center;justify-content:center;
-    min-height:420px;
+    min-height:320px;
   }
   .pdm-img{
-    width:100%;height:100%;object-fit:contain;
-    cursor:crosshair;transition:transform .5s cubic-bezier(.25,.46,.45,.94);
+    width:100%;height:auto;
+    aspect-ratio:1/1;
+    object-fit:contain;
+    display:block;
+    cursor:crosshair;
+    transition:transform .5s cubic-bezier(.25,.46,.45,.94);
     transform-origin:var(--mx,50%) var(--my,50%);
   }
   .pdm-img.zoom{transform:scale(2.5);cursor:zoom-out}
-  .pdm-main:hover .pdm-img:not(.zoom){transform:scale(1.04)}
+  .pdm-main:hover .pdm-img:not(.zoom){transform:scale(1.03)}
   .pdm-vid{width:100%;height:100%;object-fit:contain}
   .pdm-nav{
     position:absolute;top:50%;transform:translateY(-50%);
@@ -218,7 +222,7 @@ const CSS = `
     .pdm-gallery{flex-direction:column;padding:10px 12px 0}
     .pdm-thumbs{flex-direction:row;width:auto;overflow-x:auto;overflow-y:hidden;padding-bottom:6px}
     .pdm-thumb,.pdm-vthumb{width:58px;height:58px}
-    .pdm-main{min-height:300px;max-height:420px}
+    .pdm-main{min-height:unset;max-height:none;width:100%}
     .pdm-info{width:100%;border-left:none;border-top:1px solid #F0E8FF;padding:14px 12px 20px}
     .pdm-name{font-size:1.2rem}
     .pdm-price{font-size:1.6rem}
