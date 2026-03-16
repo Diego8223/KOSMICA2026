@@ -81,11 +81,10 @@ const CSS = `
   .pdm-main{
     flex:1;position:relative;background:#FAF7FF;border-radius:16px;
     overflow:hidden;display:flex;align-items:center;justify-content:center;
-    min-height:320px;
+    height:480px;min-height:480px;
   }
   .pdm-img{
-    width:100%;height:auto;
-    aspect-ratio:4/3;
+    width:100%;height:100%;
     object-fit:contain;
     display:block;
     background:#FAF7FF;
@@ -223,7 +222,7 @@ const CSS = `
     .pdm-gallery{flex-direction:column;padding:10px 12px 0}
     .pdm-thumbs{flex-direction:row;width:auto;overflow-x:auto;overflow-y:hidden;padding-bottom:6px}
     .pdm-thumb,.pdm-vthumb{width:58px;height:58px}
-    .pdm-main{min-height:unset;max-height:none;width:100%}
+    .pdm-main{height:320px;min-height:320px;width:100%}
     .pdm-info{width:100%;border-left:none;border-top:1px solid #F0E8FF;padding:14px 12px 20px}
     .pdm-name{font-size:1.2rem}
     .pdm-price{font-size:1.6rem}

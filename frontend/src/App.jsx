@@ -305,21 +305,22 @@ const CSS = `
   }
   .product-card:hover { transform: translateY(-4px); box-shadow: 0 14px 40px rgba(155,114,207,.2); border-color: var(--lila-xlight); }
 
-  /* Imagen grande estilo Shein — portrait */
+  /* Imagen grande estilo Shein/Amazon */
   .card-img-wrap {
     position: relative; overflow: hidden;
-    background: #F8F4FF; cursor: pointer;
+    height: 240px; background: #F8F4FF; cursor: pointer;
   }
   .card-img {
     width: 100%;
-    height: auto;
-    aspect-ratio: 4/3;
+    height: 100%;
     object-fit: contain;
     display: block;
     background: #F8F4FF;
     transition: transform .6s cubic-bezier(.25,.46,.45,.94);
+    padding: 8px;
+    box-sizing: border-box;
   }
-  .product-card:hover .card-img { transform: scale(1.05); }
+  .product-card:hover .card-img { transform: scale(1.06); }
 
   .card-see-more {
     position: absolute; bottom: 0; left: 0; right: 0;
@@ -637,7 +638,7 @@ const CSS = `
     .btn-primary, .btn-outline { width: auto; }
     .stat-n { font-size: 1.7rem; }
     .product-grid { gap: 14px; }
-    /* card-img-wrap usa aspect-ratio, no necesita height fija */
+    .card-img-wrap { height: 220px; }
     .card-name { font-size: 1rem; }
     .test-grid { grid-template-columns: repeat(2,1fr); }
     .cart-panel { max-width: 390px; right: 0; left: auto; }
@@ -694,7 +695,7 @@ const CSS = `
     .cat-pill.active { border-color: transparent; color: #fff; box-shadow: 0 6px 20px rgba(155,114,207,.38); }
     .section-title { font-size: 2.3rem; margin-bottom: 30px; }
     .product-grid { grid-template-columns: repeat(3,1fr); gap: 20px; }
-    /* card-img-wrap usa aspect-ratio, no necesita height fija */
+    .card-img-wrap { height: 220px; }
     .card-body { padding: 14px 16px 16px; }
     .card-name { font-size: 1.02rem; }
     .card-price { font-size: 1.2rem; }
@@ -715,7 +716,7 @@ const CSS = `
   @media (min-width: 1100px) {
     .hero-title { font-size: 4.2rem; }
     .product-grid { grid-template-columns: repeat(4,1fr); gap: 22px; }
-    /* card-img-wrap usa aspect-ratio, no necesita height fija */
+    .card-img-wrap { height: 220px; }
     .test-grid { grid-template-columns: repeat(4,1fr); }
     .footer-grid { grid-template-columns: 2fr 1fr 1fr 1fr; gap: 50px; }
   }
