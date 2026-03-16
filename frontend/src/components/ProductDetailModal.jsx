@@ -243,6 +243,12 @@ export default function ProductDetailModal({
   const [cartOpen, setCartOpen] = useState(false);
   const vidRef = useRef(null);
 
+  const fmtCOP = (n) => {
+    const num = Number(n);
+    if (isNaN(num)) return '$0';
+    return '$' + num.toLocaleString('es-CO', {minimumFractionDigits:0, maximumFractionDigits:0});
+  };
+
   // Construir lista de medios
   const gallery = (() => { try { return JSON.parse(product.gallery || '[]'); } catch { return []; } })();
   const mainImg = product.imageUrl || 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=600&q=80';
@@ -346,8 +352,8 @@ export default function ProductDetailModal({
               </div>
               <div className="pdm-div" />
               <div className="pdm-price-row">
-                <span className="pdm-price">${Number(product.price).toFixed(2)}</span>
-                {product.originalPrice && <span className="pdm-orig">${Number(product.originalPrice).toFixed(2)}</span>}
+                <span className="pdm-price">{fmtCOP(product.price)}</span>
+                {product.originalPrice && <span className="pdm-orig">{fmtCOP(product.originalPrice)}</span>}
                 {discount > 0 && <span className="pdm-disc">-{discount}%</span>}
               </div>
               {product.description && <p className="pdm-desc">{product.description}</p>}
@@ -399,7 +405,7 @@ export default function ProductDetailModal({
                         alt={item.name} />
                       <div className="pdm-cp-inf">
                         <div className="pdm-cp-nm">{item.name}</div>
-                        <div className="pdm-cp-pr">${(Number(item.price) * item.qty).toFixed(2)}</div>
+                        <div className="pdm-cp-pr">{fmtCOP(Number(item.price) * item.qty)}</div>
                         <div className="pdm-cp-qty">
                           <button className="pdm-cp-qb" onClick={() => onUpdateQty(item.id, -1)}>−</button>
                           <span className="pdm-cp-qv">{item.qty}</span>
@@ -414,15 +420,15 @@ export default function ProductDetailModal({
                 {(cart || []).length > 0 && (
                   <div className="pdm-cp-footer">
                     <div className="pdm-cp-row">
-                      <span>Subtotal</span><span>${cartTotal.toFixed(2)}</span>
+                      <span>Subtotal</span><span>{fmtCOP(cartTotal)}</span>
                     </div>
                     <div className="pdm-cp-row" style={{color: shipping === 0 ? '#52B788' : undefined}}>
-                      <span>Envío</span><span>{shipping === 0 ? 'GRATIS 🎉' : `$${shipping.toFixed(2)}`}</span>
+                      <span>Envío</span><span>{shipping === 0 ? 'GRATIS 🎉' : fmtCOP(shipping)}</span>
                     </div>
                     <div className="pdm-cp-total">
                       <span>Total</span>
                       <span style={{color:'#7B5EA7',fontFamily:"'Playfair Display',serif"}}>
-                        ${(cartTotal + shipping).toFixed(2)}
+                        {fmtCOP(cartTotal + shipping)}
                       </span>
                     </div>
                     <button className="pdm-cp-checkout" onClick={() => { onClose(); onCheckout(); }}>

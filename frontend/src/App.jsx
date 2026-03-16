@@ -645,7 +645,7 @@ const CSS = `
     .nav { padding: 0 5%; }
     .nav-inner { height: 70px; }
     .logo { font-size: 1.7rem; }
-    .hbg-btn { display: none; }
+    .hbg-btn { display: flex; }
     .nav-links {
       display: flex; gap: 22px; list-style: none; flex: 1; justify-content: center;
     }
