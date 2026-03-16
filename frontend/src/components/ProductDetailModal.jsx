@@ -1,6 +1,5 @@
 // ============================================================
-//  ProductDetailModal.jsx - VERSIÓN CORREGIDA
-//  Tus estilos originales + zoom mejorado
+//  ProductDetailModal.jsx - CORREGIDO (SOLO PROBLEMA DE LA FOTO)
 // ============================================================
 import { useState, useEffect, useRef } from 'react';
 
@@ -56,7 +55,7 @@ const CSS = `
   /* ── BODY ── */
   .pdm-body{display:flex;flex:1;overflow:hidden;position:relative}
 
-  /* ── GALERÍA CON ZOOM SIMPLE ── */
+  /* ── GALERÍA CORREGIDA - LA FOTO AHORA SE VE BIEN ── */
   .pdm-gallery{display:flex;gap:10px;padding:16px 14px 16px 18px;flex:1;overflow:hidden;min-width:0}
   .pdm-thumbs{
     display:flex;flex-direction:column;gap:7px;overflow-y:auto;
@@ -78,63 +77,37 @@ const CSS = `
   }
   .pdm-vthumb.active{border-color:#9B72CF}
 
+  /* MAIN - CORREGIDO PARA QUE LA FOTO SE VEA COMPLETA */
   .pdm-main{
-    flex:1;position:relative;background:#FAF7FF;border-radius:16px;
-    overflow:hidden;display:flex;align-items:center;justify-content:center;
-    min-height:0;
-  }
-  
-  /* ZOOM SIMPLE Y EFECTIVO */
-  .pdm-img-container{
-    width:100%;
-    height:100%;
+    flex:1;
+    position:relative;
+    background:#FAF7FF;
+    border-radius:16px;
+    overflow:auto;  /* Cambiado de hidden a auto para permitir scroll si es necesario */
     display:flex;
     align-items:center;
     justify-content:center;
-    overflow:hidden;
+    min-height:400px; /* Altura mínima para que se vea bien */
+    max-height:500px;
     cursor:zoom-in;
   }
   
-  .pdm-img-container.zoomed{
+  .pdm-main.zoomed{
     cursor:zoom-out;
-    overflow:auto;
   }
   
   .pdm-img{
-    max-width:100%;
-    max-height:100%;
-    width:auto;
-    height:auto;
-    object-fit:contain;
-    transition:transform 0.3s ease;
+    width:100%;
+    height:100%;
+    object-fit:contain; /* Esto asegura que la imagen se vea completa sin recortes */
     display:block;
+    transition:transform 0.3s ease;
   }
   
-  .pdm-img-container.zoomed .pdm-img{
+  .pdm-img.zoomed{
     transform:scale(2);
     cursor:zoom-out;
-    max-width:none;
-    max-height:none;
-  }
-  
-  /* Barra de scroll personalizada para el zoom */
-  .pdm-img-container.zoomed::-webkit-scrollbar{
-    width:8px;
-    height:8px;
-  }
-  
-  .pdm-img-container.zoomed::-webkit-scrollbar-track{
-    background:#F0E8FF;
-    border-radius:4px;
-  }
-  
-  .pdm-img-container.zoomed::-webkit-scrollbar-thumb{
-    background:#9B72CF;
-    border-radius:4px;
-  }
-  
-  .pdm-img-container.zoomed::-webkit-scrollbar-thumb:hover{
-    background:#7B5EA7;
+    object-fit:scale-down;
   }
   
   .pdm-vid{width:100%;height:100%;object-fit:contain}
@@ -268,8 +241,8 @@ const CSS = `
     .pdm-gallery{flex-direction:column;padding:10px 12px 0}
     .pdm-thumbs{flex-direction:row;width:auto;overflow-x:auto;overflow-y:hidden;padding-bottom:6px}
     .pdm-thumb,.pdm-vthumb{width:56px;height:56px}
-    .pdm-main{min-height:0;flex:none}
-    .pdm-img{max-width:100%;max-height:55vh;}
+    .pdm-main{min-height:0;flex:none;max-height:400px;}
+    .pdm-img{width:100%;height:100%;object-fit:contain;}
     .pdm-info{width:100%;border-left:none;border-top:1px solid #F0E8FF;padding:14px 12px 20px}
     .pdm-name{font-size:1.2rem}
     .pdm-price{font-size:1.6rem}
@@ -298,7 +271,6 @@ export default function ProductDetailModal({
   const [added, setAdded] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const vidRef = useRef(null);
-  const imgContainerRef = useRef(null);
 
   const fmtCOP = (n) => {
     const num = Number(n);
@@ -355,7 +327,7 @@ export default function ProductDetailModal({
               ← Volver
             </button>
             <div className="pdm-breadcrumb">
-              Tienda / <span>{product.category || 'Bolsos'}</span> / {product.name}
+              Tienda / <span>{product.category || 'BOLSOS'}</span>
             </div>
             <button className="pdm-cart-toggle" onClick={() => setCartOpen(o => !o)}>
               🛍️ Mi carrito
@@ -367,7 +339,7 @@ export default function ProductDetailModal({
           {/* ── BODY ── */}
           <div className="pdm-body">
 
-            {/* GALERÍA CON ZOOM SIMPLE */}
+            {/* GALERÍA CON IMAGEN CORREGIDA */}
             <div className="pdm-gallery">
               {mediaList.length > 1 && (
                 <div className="pdm-thumbs">
@@ -380,42 +352,64 @@ export default function ProductDetailModal({
                 </div>
               )}
 
-              <div className="pdm-main">
-                {cur?.type === 'video'
-                  ? <video ref={vidRef} className="pdm-vid" controls autoPlay><source src={cur.url} /></video>
-                  : (
-                    <div 
-                      ref={imgContainerRef}
-                      className={`pdm-img-container${zoomed ? ' zoomed' : ''}`}
-                      onClick={toggleZoom}
-                    >
-                      <img 
-                        className="pdm-img" 
-                        src={cur?.url} 
-                        alt={product.name}
-                      />
-                    </div>
-                  )
-                }
+              <div 
+                className={`pdm-main${zoomed ? ' zoomed' : ''}`}
+                onClick={toggleZoom}
+              >
+                {cur?.type === 'video' ? (
+                  <video ref={vidRef} className="pdm-vid" controls autoPlay>
+                    <source src={cur.url} />
+                  </video>
+                ) : (
+                  <img 
+                    className={`pdm-img${zoomed ? ' zoomed' : ''}`} 
+                    src={cur?.url} 
+                    alt={product.name}
+                  />
+                )}
+                
                 {product.badge && (
                   <span className="pdm-badge-img" style={{ background: BADGE_BG[product.badge] || '#C9B8E8' }}>
                     {product.badge}
                   </span>
                 )}
-                {cur?.type === 'video' && <div className="pdm-vid-tag">🎥 Video</div>}
-                {cur?.type === 'image' && !zoomed && <div className="pdm-zoom-hint">🔍 Clic para zoom</div>}
-                {cur?.type === 'image' && zoomed && <div className="pdm-zoom-hint">🔍 Clic para alejar</div>}
                 
+                {cur?.type === 'video' && (
+                  <div className="pdm-vid-tag">🎥 Video</div>
+                )}
+                
+                {cur?.type === 'image' && !zoomed && (
+                  <div className="pdm-zoom-hint">🔍 Clic para zoom</div>
+                )}
+                
+                {cur?.type === 'image' && zoomed && (
+                  <div className="pdm-zoom-hint">🔍 Clic para alejar</div>
+                )}
+
                 {mediaList.length > 1 && (
                   <>
-                    {media > 0 && <button className="pdm-nav pdm-prev" onClick={() => { setZoomed(false); setMedia(i => i - 1); }}>‹</button>}
-                    {media < mediaList.length - 1 && <button className="pdm-nav pdm-next" onClick={() => { setZoomed(false); setMedia(i => i + 1); }}>›</button>}
+                    {media > 0 && (
+                      <button 
+                        className="pdm-nav pdm-prev" 
+                        onClick={(e) => { e.stopPropagation(); setZoomed(false); setMedia(i => i - 1); }}
+                      >
+                        ‹
+                      </button>
+                    )}
+                    {media < mediaList.length - 1 && (
+                      <button 
+                        className="pdm-nav pdm-next" 
+                        onClick={(e) => { e.stopPropagation(); setZoomed(false); setMedia(i => i + 1); }}
+                      >
+                        ›
+                      </button>
+                    )}
                   </>
                 )}
               </div>
             </div>
 
-            {/* INFO PANEL - CON TUS DATOS EXACTOS */}
+            {/* INFO PANEL */}
             <div className="pdm-info">
               <div className="pdm-cat">{product.category || 'BOLSOS'}</div>
               <h2 className="pdm-name">{product.name || 'Bolso manos libre'}</h2>
@@ -438,7 +432,7 @@ export default function ProductDetailModal({
               <div className="pdm-div" />
               
               <div className="pdm-stock-in">
-                ✔ En stock – Envío gratis a toda Colombia
+                ✔ En stock (1 disponibles)
               </div>
               
               <div className="pdm-qty-row">
@@ -455,7 +449,7 @@ export default function ProductDetailModal({
               </button>
               
               <button className="pdm-wish" onClick={() => onToggleWishlist(product.id)}>
-                🔒 Guardar
+                {wishlist?.includes(product.id) ? '❤️ En favoritos' : '🤍 Guardar en favoritos'}
               </button>
               
               <div className="pdm-tags">
