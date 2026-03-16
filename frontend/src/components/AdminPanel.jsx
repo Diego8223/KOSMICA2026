@@ -561,7 +561,7 @@ export default function AdminPanel({ onExit }) {
               {[
                 {ico:'🛍️', n:products.length,  lbl:'Productos',      c:'#9B72CF'},
                 {ico:'📦', n:orders.length,    lbl:'Pedidos',        c:'#72B7CF'},
-                {ico:'💰', n:`$${totalRev.toFixed(0)}`, lbl:'Ingresos', c:'#72CF9B'},
+                {ico:'💰', n:`$${Number(totalRev||0).toLocaleString("es-CO",{minimumFractionDigits:0,maximumFractionDigits:0})}`, lbl:'Ingresos COP', c:'#72CF9B'},
                 {ico:'❤️', n:orders.filter(o=>o.status==='DELIVERED').length, lbl:'Entregados', c:'#CF7299'},
               ].map((s,i)=>(
                 <div key={i} className="adm-stat" style={{'--c':s.c}}>
@@ -581,7 +581,7 @@ export default function AdminPanel({ onExit }) {
                       <tr key={o.id}>
                         <td style={{fontWeight:700,color:'#7B5EA7'}}>{o.orderNumber}</td>
                         <td>{o.customerName}</td>
-                        <td style={{fontWeight:700}}>${Number(o.total||0).toFixed(2)}</td>
+                        <td style={{fontWeight:700}}>${Number(o.total||0).toLocaleString("es-CO",{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
                         <td><span className={`adm-status ${o.status}`}>{o.status}</span></td>
                       </tr>
                     ))}
@@ -613,7 +613,7 @@ export default function AdminPanel({ onExit }) {
                             <td><img className="adm-prod-img" src={p.imageUrl||'https://via.placeholder.com/48'} alt=""/></td>
                             <td style={{fontWeight:600,maxWidth:180}}>{p.name}</td>
                             <td><span className="adm-cat">{p.category}</span></td>
-                            <td style={{fontWeight:700,color:'#7B5EA7'}}>${Number(p.price||0).toFixed(2)}</td>
+                            <td style={{fontWeight:700,color:'#7B5EA7'}}>${Number(p.price||0).toLocaleString("es-CO",{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
                             <td>{p.stock}</td>
                             <td>{p.badge&&<span className={`adm-badge ${p.badge}`}>{p.badge}</span>}</td>
                             <td>
@@ -783,7 +783,7 @@ export default function AdminPanel({ onExit }) {
                               <div style={{fontWeight:600}}>{o.customerName}</div>
                               <div style={{fontSize:'.8rem',color:'#9B72CF'}}>{o.customerEmail}</div>
                             </td>
-                            <td style={{fontWeight:700,whiteSpace:'nowrap'}}>${Number(o.total||0).toFixed(2)}</td>
+                            <td style={{fontWeight:700,whiteSpace:'nowrap'}}>${Number(o.total||0).toLocaleString("es-CO",{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
                             <td><span className={`adm-status ${o.status}`}>{o.status}</span></td>
                             <td style={{fontSize:'.82rem',color:'#aaa',whiteSpace:'nowrap'}}>{o.createdAt?new Date(o.createdAt).toLocaleDateString('es-CO'):'-'}</td>
                             <td>
