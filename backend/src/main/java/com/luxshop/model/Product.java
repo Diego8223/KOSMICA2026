@@ -44,8 +44,9 @@ public class Product {
     @Column(name = "video_url", length = 500)
     private String videoUrl;
 
-    @Column(columnDefinition = "JSON")
-    private String gallery;
+    @Column(columnDefinition = "json")
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+     private String gallery;
 
     @DecimalMin("0.0") @DecimalMax("5.0")
     private Double rating = 0.0;
