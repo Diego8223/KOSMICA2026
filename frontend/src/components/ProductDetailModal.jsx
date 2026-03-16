@@ -81,9 +81,9 @@ const CSS = `
   .pdm-main{
     flex:1;position:relative;background:#FAF7FF;border-radius:16px;
     overflow:hidden;display:flex;align-items:center;justify-content:center;
-    min-height:350px;
+    min-height:260px;max-height:360px;
   }
-  .pdm-img{width:100%;height:100%;object-fit:contain;cursor:zoom-in;transition:transform .4s ease}
+  .pdm-img{width:100%;height:100%;max-height:360px;object-fit:contain;cursor:zoom-in;transition:transform .4s ease}
   .pdm-img.zoom{transform:scale(2);cursor:zoom-out}
   .pdm-vid{width:100%;height:100%;object-fit:contain}
   .pdm-nav{
@@ -213,7 +213,7 @@ const CSS = `
     .pdm-gallery{flex-direction:column;padding:10px 12px 0}
     .pdm-thumbs{flex-direction:row;width:auto;overflow-x:auto;overflow-y:hidden;padding-bottom:6px}
     .pdm-thumb,.pdm-vthumb{width:52px;height:52px}
-    .pdm-main{min-height:240px}
+    .pdm-main{min-height:200px;max-height:280px}
     .pdm-info{width:100%;border-left:none;border-top:1px solid #F0E8FF;padding:14px 12px 20px}
     .pdm-name{font-size:1.2rem}
     .pdm-price{font-size:1.6rem}
