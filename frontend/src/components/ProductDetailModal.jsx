@@ -85,9 +85,10 @@ const CSS = `
   }
   .pdm-img{
     width:100%;height:auto;
-    aspect-ratio:1/1;
+    aspect-ratio:4/3;
     object-fit:contain;
     display:block;
+    background:#FAF7FF;
     cursor:crosshair;
     transition:transform .5s cubic-bezier(.25,.46,.45,.94);
     transform-origin:var(--mx,50%) var(--my,50%);

@@ -313,7 +313,7 @@ const CSS = `
   .card-img {
     width: 100%;
     height: auto;
-    aspect-ratio: 1/1;
+    aspect-ratio: 4/3;
     object-fit: contain;
     display: block;
     background: #F8F4FF;
