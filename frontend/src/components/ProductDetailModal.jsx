@@ -213,7 +213,7 @@ const CSS = `
     .pdm-gallery{flex-direction:column;padding:10px 12px 0}
     .pdm-thumbs{flex-direction:row;width:auto;overflow-x:auto;overflow-y:hidden;padding-bottom:6px}
     .pdm-thumb,.pdm-vthumb{width:52px;height:52px}
-    .pdm-main{min-height:200px;max-height:280px}
+    .pdm-main{min-height:200px;max-height:250px}
     .pdm-info{width:100%;border-left:none;border-top:1px solid #F0E8FF;padding:14px 12px 20px}
     .pdm-name{font-size:1.2rem}
     .pdm-price{font-size:1.6rem}
@@ -378,7 +378,7 @@ export default function ProductDetailModal({
                 {wishlist?.includes(product.id) ? '❤️ En favoritos' : '🤍 Guardar en favoritos'}
               </button>
               <div className="pdm-tags">
-                {['Envío gratis +$80', 'Devolución 30 días', 'Pago seguro'].map(t => (
+                {['Envío gratis +$300.000', 'Pago seguro'].map(t => (
                   <span key={t} className="pdm-tag">✓ {t}</span>
                 ))}
               </div>
