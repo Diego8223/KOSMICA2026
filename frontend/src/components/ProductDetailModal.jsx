@@ -60,31 +60,36 @@ const CSS = `
   .pdm-gallery{display:flex;gap:10px;padding:16px 14px 16px 18px;flex:1;overflow:hidden;min-width:0}
   .pdm-thumbs{
     display:flex;flex-direction:column;gap:7px;overflow-y:auto;
-    width:68px;flex-shrink:0;padding-right:2px;
+    width:76px;flex-shrink:0;padding-right:4px;
   }
   .pdm-thumbs::-webkit-scrollbar{width:3px}
   .pdm-thumbs::-webkit-scrollbar-thumb{background:#C9B8E8;border-radius:2px}
   .pdm-thumb{
-    width:62px;height:62px;border-radius:11px;object-fit:cover;cursor:pointer;
-    border:2.5px solid transparent;transition:all .2s;flex-shrink:0;
+    width:70px;height:70px;border-radius:12px;object-fit:cover;cursor:pointer;
+    border:3px solid transparent;transition:all .25s;flex-shrink:0;box-shadow:0 2px 8px rgba(120,80,180,.12);
   }
   .pdm-thumb.active{border-color:#9B72CF;box-shadow:0 0 0 2px rgba(155,114,207,.25)}
   .pdm-thumb:hover:not(.active){border-color:#C9B8E8;transform:scale(1.04)}
   .pdm-vthumb{
-    width:62px;height:62px;border-radius:11px;cursor:pointer;
-    border:2.5px solid transparent;background:#2D1B4E;
+    width:70px;height:70px;border-radius:12px;cursor:pointer;
+    border:3px solid transparent;background:#2D1B4E;
     display:flex;align-items:center;justify-content:center;
     font-size:1.3rem;transition:all .2s;flex-shrink:0;
   }
   .pdm-vthumb.active{border-color:#9B72CF}
 
   .pdm-main{
-    position:relative;background:#FAF7FF;border-radius:16px;
+    flex:1;position:relative;background:#FAF7FF;border-radius:16px;
     overflow:hidden;display:flex;align-items:center;justify-content:center;
-    aspect-ratio:1/1;width:100%;
+    min-height:420px;
   }
-  .pdm-img{width:100%;height:100%;object-fit:contain;cursor:zoom-in;transition:transform .4s ease}
-  .pdm-img.zoom{transform:scale(2);cursor:zoom-out}
+  .pdm-img{
+    width:100%;height:100%;object-fit:contain;
+    cursor:crosshair;transition:transform .5s cubic-bezier(.25,.46,.45,.94);
+    transform-origin:var(--mx,50%) var(--my,50%);
+  }
+  .pdm-img.zoom{transform:scale(2.5);cursor:zoom-out}
+  .pdm-main:hover .pdm-img:not(.zoom){transform:scale(1.04)}
   .pdm-vid{width:100%;height:100%;object-fit:contain}
   .pdm-nav{
     position:absolute;top:50%;transform:translateY(-50%);
@@ -212,8 +217,8 @@ const CSS = `
     .pdm-body{flex-direction:column;overflow-y:auto}
     .pdm-gallery{flex-direction:column;padding:10px 12px 0}
     .pdm-thumbs{flex-direction:row;width:auto;overflow-x:auto;overflow-y:hidden;padding-bottom:6px}
-    .pdm-thumb,.pdm-vthumb{width:52px;height:52px}
-    .pdm-main{aspect-ratio:1/1;width:100%;height:auto}
+    .pdm-thumb,.pdm-vthumb{width:58px;height:58px}
+    .pdm-main{min-height:300px;max-height:420px}
     .pdm-info{width:100%;border-left:none;border-top:1px solid #F0E8FF;padding:14px 12px 20px}
     .pdm-name{font-size:1.2rem}
     .pdm-price{font-size:1.6rem}
@@ -322,7 +327,17 @@ export default function ProductDetailModal({
                   ? <video ref={vidRef} className="pdm-vid" controls autoPlay><source src={cur.url} /></video>
                   : <img className={`pdm-img${zoomed ? ' zoom' : ''}`}
                       src={cur?.url} alt={product.name}
-                      onClick={() => setZoomed(z => !z)} />
+                      onClick={() => setZoomed(z => !z)}
+                      onMouseMove={e => {
+                        if (zoomed) {
+                          const r = e.currentTarget.getBoundingClientRect();
+                          const x = ((e.clientX - r.left) / r.width * 100).toFixed(1);
+                          const y = ((e.clientY - r.top) / r.height * 100).toFixed(1);
+                          e.currentTarget.style.setProperty('--mx', x + '%');
+                          e.currentTarget.style.setProperty('--my', y + '%');
+                          e.currentTarget.style.transformOrigin = x+'% '+y+'%';
+                        }
+                      }} />
                 }
                 {product.badge && (
                   <span className="pdm-badge-img" style={{ background: BADGE_BG[product.badge] || '#C9B8E8' }}>

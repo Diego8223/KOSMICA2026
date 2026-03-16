@@ -305,20 +305,22 @@ const CSS = `
   }
   .product-card:hover { transform: translateY(-4px); box-shadow: 0 14px 40px rgba(155,114,207,.2); border-color: var(--lila-xlight); }
 
-  /* Imagen grande tipo Amazon */
+  /* Imagen grande estilo Shein — portrait */
   .card-img-wrap {
     position: relative; overflow: hidden;
-    height: 180px; background: #F8F4FF; cursor: pointer;
+    aspect-ratio: 3/4; background: #F8F4FF; cursor: pointer;
   }
-  .card-img { width: 100%; height: 100%; object-fit: contain; background: #F8F4FF; transition: transform .5s; }
-  .product-card:hover .card-img { transform: scale(1.06); }
+  .card-img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s cubic-bezier(.25,.46,.45,.94); }
+  .product-card:hover .card-img { transform: scale(1.08); }
 
   .card-see-more {
     position: absolute; bottom: 0; left: 0; right: 0;
-    background: linear-gradient(transparent, rgba(45,27,78,.72));
-    color: #fff; text-align: center; padding: 22px 8px 10px;
-    font-size: .82rem; font-weight: 700; opacity: 0; transition: opacity .28s;
+    background: linear-gradient(transparent, rgba(45,27,78,.85));
+    color: #fff; text-align: center; padding: 40px 8px 14px;
+    font-size: .88rem; font-weight: 700; letter-spacing:.03em;
+    opacity: 0; transition: opacity .3s; pointer-events:none;
   }
+  .card-see-more-inner { display:flex; align-items:center; justify-content:center; gap:5px; }
   .product-card:hover .card-see-more { opacity: 1; }
 
   .card-badge {
@@ -627,7 +629,7 @@ const CSS = `
     .btn-primary, .btn-outline { width: auto; }
     .stat-n { font-size: 1.7rem; }
     .product-grid { gap: 14px; }
-    .card-img-wrap { height: 210px; }
+    /* card-img-wrap usa aspect-ratio, no necesita height fija */
     .card-name { font-size: 1rem; }
     .test-grid { grid-template-columns: repeat(2,1fr); }
     .cart-panel { max-width: 390px; right: 0; left: auto; }
@@ -684,7 +686,7 @@ const CSS = `
     .cat-pill.active { border-color: transparent; color: #fff; box-shadow: 0 6px 20px rgba(155,114,207,.38); }
     .section-title { font-size: 2.3rem; margin-bottom: 30px; }
     .product-grid { grid-template-columns: repeat(3,1fr); gap: 20px; }
-    .card-img-wrap { height: 255px; }
+    /* card-img-wrap usa aspect-ratio, no necesita height fija */
     .card-body { padding: 14px 16px 16px; }
     .card-name { font-size: 1.02rem; }
     .card-price { font-size: 1.2rem; }
@@ -705,7 +707,7 @@ const CSS = `
   @media (min-width: 1100px) {
     .hero-title { font-size: 4.2rem; }
     .product-grid { grid-template-columns: repeat(4,1fr); gap: 22px; }
-    .card-img-wrap { height: 275px; }
+    /* card-img-wrap usa aspect-ratio, no necesita height fija */
     .test-grid { grid-template-columns: repeat(4,1fr); }
     .footer-grid { grid-template-columns: 2fr 1fr 1fr 1fr; gap: 50px; }
   }
