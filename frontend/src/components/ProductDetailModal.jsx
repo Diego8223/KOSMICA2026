@@ -213,7 +213,7 @@ const CSS = `
     .pdm-gallery{flex-direction:column;padding:8px 12px 0}
     .pdm-thumbs{flex-direction:row;width:auto;overflow-x:auto;overflow-y:hidden;padding-bottom:6px}
     .pdm-thumb,.pdm-vthumb{width:44px;height:44px}
-    .pdm-main{min-height:160px;max-height:220px}.pdm-img{object-fit:contain;background:#FAF7FF}
+    .pdm-main{height:200px;min-height:unset;max-height:unset;flex:none}.pdm-img{width:100%;height:200px;object-fit:contain;background:#FAF7FF}
     .pdm-info{width:100%;border-left:none;border-top:1px solid #F0E8FF;padding:14px 12px 20px}
     .pdm-name{font-size:1.2rem}
     .pdm-price{font-size:1.6rem}
