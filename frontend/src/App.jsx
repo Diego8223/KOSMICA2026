@@ -310,7 +310,7 @@ const CSS = `
     position: relative; overflow: hidden;
     height: 180px; background: #F8F4FF; cursor: pointer;
   }
-  .card-img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s; }
+  .card-img { width: 100%; height: 100%; object-fit: contain; background: #F8F4FF; transition: transform .5s; }
   .product-card:hover .card-img { transform: scale(1.06); }
 
   .card-see-more {

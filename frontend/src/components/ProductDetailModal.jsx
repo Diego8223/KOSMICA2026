@@ -79,11 +79,11 @@ const CSS = `
   .pdm-vthumb.active{border-color:#9B72CF}
 
   .pdm-main{
-    flex:1;position:relative;background:#FAF7FF;border-radius:16px;
+    position:relative;background:#FAF7FF;border-radius:16px;
     overflow:hidden;display:flex;align-items:center;justify-content:center;
-    min-height:260px;max-height:360px;
+    aspect-ratio:1/1;width:100%;
   }
-  .pdm-img{width:100%;height:100%;max-height:360px;object-fit:contain;cursor:zoom-in;transition:transform .4s ease}
+  .pdm-img{width:100%;height:100%;object-fit:contain;cursor:zoom-in;transition:transform .4s ease}
   .pdm-img.zoom{transform:scale(2);cursor:zoom-out}
   .pdm-vid{width:100%;height:100%;object-fit:contain}
   .pdm-nav{
@@ -210,10 +210,10 @@ const CSS = `
     .pdm-wrap{padding:0;align-items:flex-end}
     .pdm-box{border-radius:22px 22px 0 0;max-height:96vh;max-width:100%}
     .pdm-body{flex-direction:column;overflow-y:auto}
-    .pdm-gallery{flex-direction:column;padding:8px 12px 0}
+    .pdm-gallery{flex-direction:column;padding:10px 12px 0}
     .pdm-thumbs{flex-direction:row;width:auto;overflow-x:auto;overflow-y:hidden;padding-bottom:6px}
-    .pdm-thumb,.pdm-vthumb{width:44px;height:44px}
-    .pdm-main{height:200px;min-height:unset;max-height:unset;flex:none}.pdm-img{width:100%;height:200px;object-fit:contain;background:#FAF7FF}
+    .pdm-thumb,.pdm-vthumb{width:52px;height:52px}
+    .pdm-main{aspect-ratio:1/1;width:100%;height:auto}
     .pdm-info{width:100%;border-left:none;border-top:1px solid #F0E8FF;padding:14px 12px 20px}
     .pdm-name{font-size:1.2rem}
     .pdm-price{font-size:1.6rem}
