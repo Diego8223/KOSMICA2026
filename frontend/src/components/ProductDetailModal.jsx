@@ -1,15 +1,16 @@
 // ============================================================
-//  ProductDetailModal.jsx — IMAGEN SIEMPRE VISIBLE ✅
+//  ProductDetailModal.jsx — Con Lightbox de foto ✅
 // ============================================================
 import { useState, useEffect, useRef } from 'react';
 
 const CSS = `
-  @keyframes pdmIn  { from{opacity:0}                          to{opacity:1} }
-  @keyframes pdmUp  { from{transform:translateY(100%);opacity:0} to{transform:translateY(0);opacity:1} }
+  @keyframes pdmIn  { from{opacity:0}                              to{opacity:1} }
+  @keyframes pdmUp  { from{transform:translateY(100%);opacity:0}   to{transform:translateY(0);opacity:1} }
   @keyframes addPop { 0%{transform:scale(1)} 50%{transform:scale(1.06)} 100%{transform:scale(1)} }
-  @keyframes cartIn { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
+  @keyframes cartIn { from{transform:translateX(100%);opacity:0}   to{transform:translateX(0);opacity:1} }
+  @keyframes lbIn   { from{opacity:0;transform:scale(.88)}         to{opacity:1;transform:scale(1)} }
 
-  /* ── OVERLAY ── */
+  /* ── OVERLAY MODAL ── */
   .pdm-ov{
     position:fixed;inset:0;
     background:rgba(30,10,60,.6);
@@ -18,20 +19,17 @@ const CSS = `
     animation:pdmIn .2s ease;
   }
 
-  /* ── CONTENEDOR CENTRADO ── */
   .pdm-wrap{
     position:fixed;inset:0;z-index:1101;
     display:flex;align-items:flex-end;justify-content:center;
     pointer-events:none;
   }
 
-  /* ── CAJA PRINCIPAL ── */
   .pdm-box{
     pointer-events:all;
     background:#fff;
     border-radius:22px 22px 0 0;
     width:100%;max-width:480px;
-    /* Altura total de la pantalla menos la barra de estado */
     height:92vh;
     display:flex;flex-direction:column;
     overflow:hidden;
@@ -39,7 +37,7 @@ const CSS = `
     animation:pdmUp .3s cubic-bezier(.22,.68,0,1.08);
   }
 
-  /* ── HEADER fijo arriba ── */
+  /* ── HEADER ── */
   .pdm-hdr{
     flex-shrink:0;
     padding:12px 14px 10px;
@@ -78,29 +76,20 @@ const CSS = `
   }
   .pdm-close:hover{background:rgba(180,150,220,.28)}
 
-  /* ── SCROLL BODY — todo hace scroll menos el header ── */
+  /* ── SCROLL ── */
   .pdm-scroll{
-    flex:1;
-    overflow-y:auto;
-    overflow-x:hidden;
+    flex:1;overflow-y:auto;overflow-x:hidden;
     -webkit-overflow-scrolling:touch;
     overscroll-behavior:contain;
   }
   .pdm-scroll::-webkit-scrollbar{width:3px}
   .pdm-scroll::-webkit-scrollbar-thumb{background:#C9B8E8;border-radius:2px}
 
-  /* ═══════════════════════════════════════════
-     IMAGEN PRINCIPAL — EL ARREGLO DEFINITIVO
-     Usamos aspect-ratio para que SIEMPRE
-     tenga la altura correcta sin depender de flex
-  ═══════════════════════════════════════════ */
-  .pdm-img-section{
-    width:100%;
-    background:#F8F5FF;
-    position:relative;
-  }
+  /* ══════════════════════════════════════
+     SECCIÓN IMAGEN — cuadrado con swipe
+  ══════════════════════════════════════ */
+  .pdm-img-section{ width:100%; background:#F8F5FF; position:relative; }
 
-  /* Contenedor cuadrado 1:1 — la imagen siempre se ve completa */
   .pdm-img-box{
     width:100%;
     aspect-ratio:1 / 1;
@@ -113,30 +102,19 @@ const CSS = `
     -webkit-user-select:none;
     touch-action:none;
   }
-  .pdm-img-box.zoomed{ cursor:grab; overflow:hidden; }
-  .pdm-img-box.zoomed:active{ cursor:grabbing; }
 
-  /* LA IMAGEN — object-fit:contain dentro de un cuadrado = siempre visible */
   .pdm-img{
-    width:100%;
-    height:100%;
+    width:100%;height:100%;
     object-fit:contain;
     display:block;
-    transition:transform .28s cubic-bezier(.25,.46,.45,.94);
     padding:12px;
     box-sizing:border-box;
-    transform-origin:center center;
-    will-change:transform;
-  }
-  .pdm-img.zoomed{ padding:0; transition:none; }
-
-  /* Video */
-  .pdm-vid{
-    width:100%;height:100%;
-    object-fit:contain;display:block;
+    pointer-events:none;
   }
 
-  /* Flechas nav */
+  .pdm-vid{ width:100%;height:100%;object-fit:contain;display:block; }
+
+  /* Flechas sobre imagen */
   .pdm-nav{
     position:absolute;top:50%;transform:translateY(-50%);
     background:rgba(255,255,255,.92);border:none;border-radius:50%;
@@ -147,26 +125,94 @@ const CSS = `
     transition:all .2s;color:#7B5EA7;z-index:2;
   }
   .pdm-nav:hover{transform:translateY(-50%) scale(1.1)}
-  .pdm-prev{left:8px}
-  .pdm-next{right:8px}
+  .pdm-prev{left:8px} .pdm-next{right:8px}
 
-  /* Badge sobre imagen */
   .pdm-badge-img{
     position:absolute;top:10px;left:10px;
     padding:4px 11px;border-radius:30px;
     font-size:.62rem;font-weight:800;letter-spacing:.08em;
     color:#fff;text-transform:uppercase;z-index:2;
   }
+
+  /* Hint "toca para ampliar" */
   .pdm-zoom-hint{
     position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
     background:rgba(30,10,60,.65);color:#fff;
     font-size:.62rem;padding:3px 12px;border-radius:20px;
-    pointer-events:none;opacity:0;transition:opacity .3s;
+    pointer-events:none;
     white-space:nowrap;z-index:2;
+    opacity:.85;
   }
-  .pdm-img-box:hover .pdm-zoom-hint{opacity:1}
 
-  /* ── MINIATURAS HORIZONTALES ── */
+  /* Puntos indicadores */
+  .pdm-dots{
+    position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
+    display:flex;gap:5px;z-index:3;pointer-events:none;
+  }
+  .pdm-dot{
+    height:6px;border-radius:3px;
+    background:rgba(255,255,255,.7);
+    transition:all .25s;
+  }
+  .pdm-dot.on{ background:#9B72CF; }
+
+  /* ══════════════════════════════════════
+     LIGHTBOX — foto sale hacia adelante
+  ══════════════════════════════════════ */
+  .pdm-lb-ov{
+    position:fixed;inset:0;
+    background:rgba(0,0,0,.92);
+    z-index:2000;
+    display:flex;align-items:center;justify-content:center;
+    animation:pdmIn .18s ease;
+  }
+
+  .pdm-lb-img{
+    max-width:96vw;
+    max-height:90vh;
+    object-fit:contain;
+    border-radius:10px;
+    animation:lbIn .22s ease;
+    display:block;
+    user-select:none;
+    -webkit-user-select:none;
+    touch-action:none;
+  }
+
+  /* Botón cerrar lightbox */
+  .pdm-lb-close{
+    position:fixed;top:16px;right:16px;
+    width:44px;height:44px;border-radius:50%;
+    background:rgba(255,255,255,.15);
+    border:2px solid rgba(255,255,255,.3);
+    color:#fff;font-size:1.3rem;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;transition:all .2s;z-index:2001;
+  }
+  .pdm-lb-close:hover{background:rgba(255,255,255,.28);transform:scale(1.1)}
+
+  /* Flechas lightbox */
+  .pdm-lb-prev, .pdm-lb-next{
+    position:fixed;top:50%;transform:translateY(-50%);
+    width:48px;height:48px;border-radius:50%;
+    background:rgba(255,255,255,.15);
+    border:2px solid rgba(255,255,255,.3);
+    color:#fff;font-size:1.5rem;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;transition:all .2s;z-index:2001;
+  }
+  .pdm-lb-prev:hover,.pdm-lb-next:hover{background:rgba(255,255,255,.28)}
+  .pdm-lb-prev{left:12px} .pdm-lb-next{right:12px}
+
+  /* Contador lightbox */
+  .pdm-lb-counter{
+    position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+    background:rgba(0,0,0,.5);color:#fff;
+    padding:5px 16px;border-radius:20px;
+    font-size:.82rem;font-weight:600;z-index:2001;
+  }
+
+  /* ── MINIATURAS ── */
   .pdm-thumbs{
     display:flex;gap:7px;
     padding:10px 14px;
@@ -217,17 +263,15 @@ const CSS = `
   .pdm-qbtn{background:none;border:none;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:1.1rem;color:#7B5EA7;font-weight:700;display:flex;align-items:center;justify-content:center;transition:background .2s}
   .pdm-qbtn:hover{background:rgba(155,114,207,.2)}
   .pdm-qval{min-width:30px;text-align:center;font-weight:700;font-size:.92rem;color:#2D1B4E}
-
-  /* Botones acción */
   .pdm-add{
     padding:15px 0;
     background:linear-gradient(135deg,#9B72CF,#7B5EA7);
     color:#fff;border:none;border-radius:14px;
     font-weight:700;font-size:1rem;cursor:pointer;
     box-shadow:0 7px 22px rgba(155,114,207,.38);
-    transition:all .3s;letter-spacing:.03em;
+    transition:all .3s;
   }
-  .pdm-add:hover{transform:translateY(-2px);box-shadow:0 11px 30px rgba(155,114,207,.52)}
+  .pdm-add:hover{transform:translateY(-2px)}
   .pdm-add.popped{animation:addPop .3s ease}
   .pdm-wish{
     padding:13px 0;background:rgba(155,114,207,.07);color:#7B5EA7;
@@ -238,18 +282,13 @@ const CSS = `
   .pdm-tags{display:flex;flex-wrap:wrap;gap:5px}
   .pdm-tag{background:#F5EEFF;color:#9B72CF;font-size:.7rem;font-weight:600;padding:4px 11px;border-radius:30px}
 
-  /* ── MINI CARRITO LATERAL ── */
+  /* ── MINI CARRITO ── */
   .pdm-cart-panel{
     position:fixed;inset:0;z-index:1200;
     display:flex;flex-direction:column;
-    background:#fff;
-    animation:cartIn .28s ease;
+    background:#fff;animation:cartIn .28s ease;
   }
-  .pdm-cp-hdr{
-    padding:16px 16px 12px;border-bottom:1px solid #F0E8FF;
-    display:flex;align-items:center;justify-content:space-between;
-    flex-shrink:0;
-  }
+  .pdm-cp-hdr{padding:16px 16px 12px;border-bottom:1px solid #F0E8FF;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
   .pdm-cp-title{font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:700;color:#2D1B4E}
   .pdm-cp-close{background:none;border:none;color:#B8A0D8;font-size:1.1rem;cursor:pointer;padding:4px}
   .pdm-cp-items{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
@@ -271,49 +310,10 @@ const CSS = `
   .pdm-cp-continue{width:100%;padding:10px;margin-top:7px;background:transparent;color:#9B72CF;border:2px solid rgba(155,114,207,.28);border-radius:12px;font-weight:600;font-size:.82rem;cursor:pointer;transition:all .2s}
   .pdm-cp-continue:hover{background:#F0E8FF}
 
-  /* ── TABLET / DESKTOP ≥ 640px ── */
   @media(min-width:640px){
     .pdm-wrap{align-items:center;padding:20px}
-    .pdm-box{
-      border-radius:24px;
-      height:auto;
-      max-height:92vh;
-      /* En desktop: layout de dos columnas */
-      max-width:900px;
-      flex-direction:column;
-    }
-    /* En desktop mostramos galería vertical + info al lado */
-    .pdm-desktop-body{
-      display:flex;flex-direction:row;
-      flex:1;overflow:hidden;
-    }
-    .pdm-img-section{
-      width:420px;flex-shrink:0;
-      border-right:1px solid #F0E8FF;
-      display:flex;flex-direction:column;
-    }
-    .pdm-img-box{
-      flex:1;
-      aspect-ratio:unset;
-      min-height:320px;
-    }
-    .pdm-thumbs{
-      flex-direction:column;
-      width:72px;
-      padding:10px 6px;
-      border-bottom:none;border-right:1px solid #F0E8FF;
-      overflow-y:auto;overflow-x:hidden;
-      align-items:center;
-    }
-    .pdm-thumb,.pdm-vthumb{width:58px;height:58px;flex-shrink:0}
-    .pdm-info{overflow-y:auto;flex:1}
-    .pdm-cart-panel{
-      position:absolute;
-      width:300px;right:0;top:0;bottom:0;
-      border-left:1px solid #F0E8FF;
-      border-radius:0 24px 24px 0;
-      box-shadow:-8px 0 30px rgba(90,40,160,.1);
-    }
+    .pdm-box{border-radius:24px;height:auto;max-height:92vh;max-width:900px;}
+    .pdm-lb-prev{left:24px} .pdm-lb-next{right:24px}
   }
 `;
 
@@ -328,21 +328,14 @@ export default function ProductDetailModal({
   product, onClose, cart, onAddToCart, onUpdateQty, onRemoveFromCart,
   wishlist, onToggleWishlist, onCheckout
 }) {
-  const [media, setMedia] = useState(0);
-  const [zoomed, setZoomed]   = useState(false);
-  const [qty, setQty]         = useState(1);
-  const [added, setAdded]     = useState(false);
-  const [cartOpen, setCartOpen] = useState(false);
-  const vidRef = useRef(null);
-  const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 640;
-  const touchStartX   = useRef(null);
-  const touchStartY   = useRef(null);
-  const touchLastX    = useRef(null);
-  const touchLastY    = useRef(null);
-  const imgRef        = useRef(null);
-  const panX          = useRef(0);
-  const panY          = useRef(0);
-  const isPanning     = useRef(false);
+  const [media,     setMedia]     = useState(0);
+  const [qty,       setQty]       = useState(1);
+  const [added,     setAdded]     = useState(false);
+  const [cartOpen,  setCartOpen]  = useState(false);
+  const [lightbox,  setLightbox]  = useState(false); // ← foto ampliada
+  const vidRef      = useRef(null);
+  const touchStartX = useRef(null);
+  const touchStartY = useRef(null);
 
   const fmtCOP = n => {
     const num = Number(n);
@@ -350,31 +343,74 @@ export default function ProductDetailModal({
     return '$' + num.toLocaleString('es-CO', {minimumFractionDigits:0, maximumFractionDigits:0});
   };
 
-  const gallery  = (() => { try { return JSON.parse(product.gallery || '[]'); } catch { return []; } })();
-  const mainImg  = product.imageUrl || 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=600&q=80';
-  const allImgs  = [mainImg, ...gallery.filter(u => u && u !== mainImg)];
+  const gallery   = (() => { try { return JSON.parse(product.gallery || '[]'); } catch { return []; } })();
+  const mainImg   = product.imageUrl || 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=800&q=90';
+  const allImgs   = [mainImg, ...gallery.filter(u => u && u !== mainImg)];
   const mediaList = [
     ...allImgs.map(url => ({ type: 'image', url })),
     ...(product.videoUrl ? [{ type: 'video', url: product.videoUrl }] : []),
   ];
   const cur = mediaList[media] || mediaList[0];
 
+  const imageCount = mediaList.filter(m => m.type === 'image').length;
+
   useEffect(() => {
-    // Bloquear scroll del body
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = ''; };
   }, []);
 
   useEffect(() => {
-    const h = e => { if (e.key === 'Escape') { if (cartOpen) setCartOpen(false); else onClose(); } };
+    const h = e => {
+      if (e.key === 'Escape') {
+        if (lightbox) { setLightbox(false); return; }
+        if (cartOpen)  { setCartOpen(false); return; }
+        onClose();
+      }
+      if (lightbox) {
+        if (e.key === 'ArrowRight') goNext();
+        if (e.key === 'ArrowLeft')  goPrev();
+      }
+    };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
-  }, [onClose, cartOpen]);
+  }, [onClose, cartOpen, lightbox, media, mediaList.length]);
 
   const discount  = product.originalPrice ? Math.round((1 - product.price / product.originalPrice) * 100) : 0;
   const cartTotal = (cart || []).reduce((s, i) => s + Number(i.price) * i.qty, 0);
   const cartCount = (cart || []).reduce((s, i) => s + i.qty, 0);
   const shipping  = cartTotal >= 80 ? 0 : cartTotal * 0.08;
+
+  const goPrev = () => { if (media > 0) setMedia(i => i - 1); };
+  const goNext = () => { if (media < mediaList.length - 1) setMedia(i => i + 1); };
+
+  // Swipe para cambiar imagen (sin lightbox)
+  const handleTouchStart = e => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+  const handleTouchEnd = e => {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const dy = e.changedTouches[0].clientY - touchStartY.current;
+    const moved = Math.abs(dx) > 6 || Math.abs(dy) > 6;
+    if (!moved && cur?.type === 'image') {
+      // Toque sin mover → abrir lightbox
+      setLightbox(true);
+    } else if (Math.abs(dx) > 40 && Math.abs(dy) < 70) {
+      if (dx < 0) goNext(); else goPrev();
+    }
+    touchStartX.current = null;
+  };
+
+  // Swipe dentro del lightbox
+  const lbTouchStart = useRef(null);
+  const handleLbTouchStart = e => { lbTouchStart.current = e.touches[0].clientX; };
+  const handleLbTouchEnd = e => {
+    if (lbTouchStart.current === null) return;
+    const dx = e.changedTouches[0].clientX - lbTouchStart.current;
+    if (Math.abs(dx) > 40) { if (dx < 0) goNext(); else goPrev(); }
+    lbTouchStart.current = null;
+  };
 
   const handleAdd = () => {
     onAddToCart(product, qty);
@@ -383,206 +419,49 @@ export default function ProductDetailModal({
     setTimeout(() => setAdded(false), 1800);
   };
 
-  // ── Zoom + Pan + Swipe ──────────────────────────────────
-  const applyTransform = (scale, x, y) => {
-    if (!imgRef.current) return;
-    imgRef.current.style.transform = scale > 1
-      ? `scale(${scale}) translate(${x}px,${y}px)`
-      : 'scale(1) translate(0px,0px)';
-  };
-
-  const resetZoom = () => {
-    panX.current = 0; panY.current = 0;
-    setZoomed(false);
-    if (imgRef.current) imgRef.current.style.transform = 'scale(1) translate(0px,0px)';
-  };
-
-  const handleTouchStart = (e) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-    touchLastX.current  = e.touches[0].clientX;
-    touchLastY.current  = e.touches[0].clientY;
-    isPanning.current   = false;
-  };
-
-  const handleTouchMove = (e) => {
-    if (!zoomed) return;
-    e.preventDefault();
-    isPanning.current = true;
-    const dx = e.touches[0].clientX - touchLastX.current;
-    const dy = e.touches[0].clientY - touchLastY.current;
-    touchLastX.current = e.touches[0].clientX;
-    touchLastY.current = e.touches[0].clientY;
-    // Límite de desplazamiento para que no se salga de la imagen
-    const limit = 80;
-    panX.current = Math.max(-limit, Math.min(limit, panX.current + dx * 0.5));
-    panY.current = Math.max(-limit, Math.min(limit, panY.current + dy * 0.5));
-    applyTransform(2.5, panX.current, panY.current);
-  };
-
-  const handleTouchEnd = (e) => {
-    if (touchStartX.current === null) return;
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    const dy = e.changedTouches[0].clientY - touchStartY.current;
-
-    if (zoomed && !isPanning.current) {
-      // Toque rápido en modo zoom → salir del zoom
-      resetZoom();
-    } else if (!zoomed && !isPanning.current) {
-      // Toque rápido sin zoom → activar zoom automático
-      if (cur?.type === 'image') {
-        setZoomed(true);
-        panX.current = 0; panY.current = 0;
-        setTimeout(() => applyTransform(2.5, 0, 0), 30);
-      }
-    } else if (!zoomed && Math.abs(dx) > 40 && Math.abs(dy) < 70) {
-      // Swipe horizontal sin zoom → cambiar imagen
-      if (dx < 0 && media < mediaList.length - 1) {
-        setMedia(i => i + 1);
-      } else if (dx > 0 && media > 0) {
-        setMedia(i => i - 1);
-      }
-    }
-    touchStartX.current = null;
-    isPanning.current = false;
-  };
-
-  // ── Sección de imagen (reutilizable desktop/mobile) ──────
-  const ImageSection = () => (
-    <div className="pdm-img-section">
-      {/* Miniaturas */}
-      {mediaList.length > 1 && (
-        <div className="pdm-thumbs">
-          {mediaList.map((m, i) => m.type === 'video'
-            ? <div key={i} className={`pdm-vthumb${media===i?' active':''}`}
-                onClick={() => { setMedia(i); resetZoom(); }}>▶️</div>
-            : <img key={i} src={m.url} alt=""
-                className={`pdm-thumb${media===i?' active':''}`}
-                onClick={() => { setMedia(i); resetZoom(); }} />
-          )}
-        </div>
-      )}
-
-      {/* Imagen principal — aspect-ratio 1:1 garantiza que SIEMPRE se ve */}
-      <div
-        className={`pdm-img-box${zoomed?' zoomed':''}`}
-        onClick={() => { if (cur?.type === 'image' && !isPanning.current) { zoomed ? resetZoom() : (setZoomed(true), setTimeout(()=>applyTransform(2.5,0,0),30)); } }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-        {cur?.type === 'video' ? (
-          <video ref={vidRef} className="pdm-vid" controls autoPlay>
-            <source src={cur.url} />
-          </video>
-        ) : (
-          <img
-            ref={imgRef}
-            className={`pdm-img${zoomed?' zoomed':''}`}
-            src={cur?.url}
-            alt={product.name}
-            draggable="false"
-          />
-        )}
-
-        {product.badge && (
-          <span className="pdm-badge-img" style={{background: BADGE_BG[product.badge] || '#C9B8E8'}}>
-            {product.badge}
-          </span>
-        )}
-        {cur?.type === 'image' && (
-          <div className="pdm-zoom-hint">{zoomed ? 'Toca para cerrar · arrastra para mover' : 'Toca la foto para ampliar'}</div>
-        )}
-        {/* Indicador de posición cuando hay múltiples imágenes */}
-        {mediaList.length > 1 && (
-          <div style={{
-            position:'absolute',bottom:8,left:'50%',transform:'translateX(-50%)',
-            display:'flex',gap:5,zIndex:3,pointerEvents:'none'
-          }}>
-            {mediaList.map((_,i) => (
-              <div key={i} style={{
-                width: i===media ? 18 : 6,
-                height:6,borderRadius:3,
-                background: i===media ? '#9B72CF' : 'rgba(255,255,255,0.7)',
-                transition:'all .25s',
-              }}/>
-            ))}
-          </div>
-        )}
-
-        {mediaList.length > 1 && <>
-          {media > 0 && (
-            <button className="pdm-nav pdm-prev"
-              onClick={e => { e.stopPropagation(); resetZoom(); setMedia(i => i-1); }}>‹</button>
-          )}
-          {media < mediaList.length - 1 && (
-            <button className="pdm-nav pdm-next"
-              onClick={e => { e.stopPropagation(); resetZoom(); setMedia(i => i+1); }}>›</button>
-          )}
-        </>}
-      </div>
-    </div>
-  );
-
-  // ── Panel info ───────────────────────────────────────────
-  const InfoPanel = () => (
-    <div className="pdm-info">
-      <div className="pdm-cat">{product.category || 'BOLSOS'}</div>
-      <h2 className="pdm-name">{product.name}</h2>
-
-      <div className="pdm-stars">
-        <span className="pdm-stars-gold">
-          {'★'.repeat(Math.round(product.rating||0))}{'☆'.repeat(5-Math.round(product.rating||0))}
-        </span>
-        {product.rating||0} · {product.reviewCount||0} reseñas
-      </div>
-
-      <div className="pdm-div" />
-
-      <div className="pdm-price-row">
-        <span className="pdm-price">{fmtCOP(product.price||0)}</span>
-        {product.originalPrice && <span className="pdm-orig">{fmtCOP(product.originalPrice)}</span>}
-        {discount > 0 && <span className="pdm-disc">-{discount}%</span>}
-      </div>
-
-      {product.description && (
-        <p className="pdm-desc">{product.description}</p>
-      )}
-
-      <div className="pdm-div" />
-
-      <div className={product.stock > 0 ? 'pdm-stock-in' : 'pdm-stock-out'}>
-        {product.stock > 0 ? `✔ En stock (${product.stock} disponibles)` : '✖ Sin stock'}
-      </div>
-
-      <div className="pdm-qty-row">
-        <span className="pdm-qty-lbl">Cantidad:</span>
-        <div className="pdm-qty">
-          <button className="pdm-qbtn" onClick={() => setQty(q => Math.max(1, q-1))}>−</button>
-          <span className="pdm-qval">{qty}</span>
-          <button className="pdm-qbtn" onClick={() => setQty(q => q+1)}>+</button>
-        </div>
-      </div>
-
-      <button className={`pdm-add${added?' popped':''}`} onClick={handleAdd}>
-        {added ? '✓ ¡Agregado!' : '🛒 Agregar al carrito'}
-      </button>
-
-      <button className="pdm-wish" onClick={() => onToggleWishlist(product.id)}>
-        {wishlist?.includes(product.id) ? '❤️ En favoritos' : '🤍 Guardar en favoritos'}
-      </button>
-
-      <div className="pdm-tags">
-        <span className="pdm-tag">✓ Envío express Colombia</span>
-        <span className="pdm-tag">✓ Garantía de calidad</span>
-        <span className="pdm-tag">✓ Pago seguro</span>
-      </div>
-    </div>
-  );
-
   return (
     <>
       <style>{CSS}</style>
+
+      {/* ══════════════════════════════════════
+          LIGHTBOX — foto a pantalla completa
+      ══════════════════════════════════════ */}
+      {lightbox && cur?.type === 'image' && (
+        <div className="pdm-lb-ov" onClick={() => setLightbox(false)}>
+          {/* Cerrar */}
+          <button className="pdm-lb-close" onClick={() => setLightbox(false)}>✕</button>
+
+          {/* Flecha izquierda */}
+          {media > 0 && (
+            <button className="pdm-lb-prev" onClick={e => { e.stopPropagation(); goPrev(); }}>‹</button>
+          )}
+
+          {/* Imagen ampliada */}
+          <img
+            className="pdm-lb-img"
+            src={cur.url}
+            alt={product.name}
+            onClick={e => e.stopPropagation()}
+            onTouchStart={handleLbTouchStart}
+            onTouchEnd={handleLbTouchEnd}
+            draggable="false"
+          />
+
+          {/* Flecha derecha */}
+          {media < mediaList.length - 1 && (
+            <button className="pdm-lb-next" onClick={e => { e.stopPropagation(); goNext(); }}>›</button>
+          )}
+
+          {/* Contador */}
+          {imageCount > 1 && (
+            <div className="pdm-lb-counter">{media + 1} / {mediaList.length}</div>
+          )}
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════
+          MODAL PRINCIPAL
+      ══════════════════════════════════════ */}
       <div className="pdm-ov" onClick={() => { if (cartOpen) setCartOpen(false); else onClose(); }} />
       <div className="pdm-wrap">
         <div className="pdm-box" onClick={e => e.stopPropagation()}>
@@ -597,12 +476,128 @@ export default function ProductDetailModal({
             <button className="pdm-close" onClick={onClose}>✕</button>
           </div>
 
-          {/* MÓVIL: todo en scroll vertical */}
+          {/* SCROLL */}
           <div className="pdm-scroll">
-            <ImageSection />
-            <InfoPanel />
-          </div>
 
+            {/* SECCIÓN IMAGEN */}
+            <div className="pdm-img-section">
+
+              {/* Miniaturas */}
+              {mediaList.length > 1 && (
+                <div className="pdm-thumbs">
+                  {mediaList.map((m, i) => m.type === 'video'
+                    ? <div key={i} className={`pdm-vthumb${media===i?' active':''}`}
+                        onClick={() => setMedia(i)}>▶️</div>
+                    : <img key={i} src={m.url} alt=""
+                        className={`pdm-thumb${media===i?' active':''}`}
+                        onClick={() => setMedia(i)} />
+                  )}
+                </div>
+              )}
+
+              {/* Imagen principal — toca para ampliar */}
+              <div
+                className="pdm-img-box"
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+                onClick={() => cur?.type === 'image' && setLightbox(true)}
+              >
+                {cur?.type === 'video' ? (
+                  <video ref={vidRef} className="pdm-vid" controls autoPlay>
+                    <source src={cur.url} />
+                  </video>
+                ) : (
+                  <img className="pdm-img" src={cur?.url} alt={product.name} draggable="false" />
+                )}
+
+                {product.badge && (
+                  <span className="pdm-badge-img" style={{background: BADGE_BG[product.badge] || '#C9B8E8'}}>
+                    {product.badge}
+                  </span>
+                )}
+
+                {/* Hint solo si hay imagen */}
+                {cur?.type === 'image' && (
+                  <div className="pdm-zoom-hint">🔍 Toca para ampliar</div>
+                )}
+
+                {/* Flechas */}
+                {mediaList.length > 1 && <>
+                  {media > 0 && (
+                    <button className="pdm-nav pdm-prev"
+                      onClick={e => { e.stopPropagation(); goPrev(); }}>‹</button>
+                  )}
+                  {media < mediaList.length - 1 && (
+                    <button className="pdm-nav pdm-next"
+                      onClick={e => { e.stopPropagation(); goNext(); }}>›</button>
+                  )}
+                </>}
+
+                {/* Puntos */}
+                {mediaList.length > 1 && (
+                  <div className="pdm-dots">
+                    {mediaList.map((_, i) => (
+                      <div key={i} className={`pdm-dot${media===i?' on':''}`}
+                        style={{width: media===i ? 18 : 6}} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* INFO */}
+            <div className="pdm-info">
+              <div className="pdm-cat">{product.category || 'BOLSOS'}</div>
+              <h2 className="pdm-name">{product.name}</h2>
+
+              <div className="pdm-stars">
+                <span className="pdm-stars-gold">
+                  {'★'.repeat(Math.round(product.rating||0))}{'☆'.repeat(5-Math.round(product.rating||0))}
+                </span>
+                {product.rating||0} · {product.reviewCount||0} reseñas
+              </div>
+
+              <div className="pdm-div" />
+
+              <div className="pdm-price-row">
+                <span className="pdm-price">{fmtCOP(product.price||0)}</span>
+                {product.originalPrice && <span className="pdm-orig">{fmtCOP(product.originalPrice)}</span>}
+                {discount > 0 && <span className="pdm-disc">-{discount}%</span>}
+              </div>
+
+              {product.description && <p className="pdm-desc">{product.description}</p>}
+
+              <div className="pdm-div" />
+
+              <div className={product.stock > 0 ? 'pdm-stock-in' : 'pdm-stock-out'}>
+                {product.stock > 0 ? `✔ En stock (${product.stock} disponibles)` : '✖ Sin stock'}
+              </div>
+
+              <div className="pdm-qty-row">
+                <span className="pdm-qty-lbl">Cantidad:</span>
+                <div className="pdm-qty">
+                  <button className="pdm-qbtn" onClick={() => setQty(q => Math.max(1, q-1))}>−</button>
+                  <span className="pdm-qval">{qty}</span>
+                  <button className="pdm-qbtn" onClick={() => setQty(q => q+1)}>+</button>
+                </div>
+              </div>
+
+              <button className={`pdm-add${added?' popped':''}`} onClick={handleAdd}>
+                {added ? '✓ ¡Agregado!' : '🛒 Agregar al carrito'}
+              </button>
+
+              <button className="pdm-wish" onClick={() => onToggleWishlist(product.id)}>
+                {wishlist?.includes(product.id) ? '❤️ En favoritos' : '🤍 Guardar en favoritos'}
+              </button>
+
+              <div className="pdm-tags">
+                <span className="pdm-tag">✓ Envío express Colombia</span>
+                <span className="pdm-tag">✓ Garantía de calidad</span>
+                <span className="pdm-tag">✓ Pago seguro</span>
+              </div>
+            </div>
+
+          </div>{/* fin scroll */}
         </div>
       </div>
 

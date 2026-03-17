@@ -190,17 +190,18 @@ const CSS = `
      PROMO STRIP
   ════════════════════════════════════════ */
   .promo-strip {
+    position: fixed; top: 58px; left: 0; right: 0; z-index: 890;
     background: linear-gradient(90deg,var(--lila),var(--pink),var(--mint),var(--lila));
     background-size: 300%; animation: moveGrad 6s linear infinite;
-    padding: 9px 0; text-align: center;
-    color: #fff; font-size: .88rem; font-weight: 700; letter-spacing: .04em;
+    padding: 8px 0; text-align: center;
+    color: #fff; font-size: .84rem; font-weight: 700; letter-spacing: .04em;
   }
 
   /* ════════════════════════════════════════
      HERO MÓVIL
   ════════════════════════════════════════ */
   .hero {
-    padding: 78px 16px 28px;
+    padding: 158px 16px 28px;
     background: linear-gradient(160deg,#EDE4FF 0%,#F5EEFF 45%,#FDE8F5 75%,#FFE8F0 100%);
     position: relative; overflow: hidden;
   }
@@ -257,7 +258,7 @@ const CSS = `
      CATEGORÍAS — barra horizontal bajo promo
   ════════════════════════════════════════ */
   .cats-bar {
-    position: sticky; top: 96px; z-index: 880;
+    position: sticky; top: 92px; z-index: 880;
     display: flex; gap: 8px; overflow-x: auto; padding: 10px 14px;
     background: rgba(253,248,255,.97); border-bottom: 1px solid var(--lila-xlight);
     scrollbar-width: none; -webkit-overflow-scrolling: touch;
@@ -627,12 +628,13 @@ const CSS = `
   ════════════════════════════════════════ */
   @media (min-width: 580px) {
     .nav-inner { height: 64px; }
+    .promo-strip { top: 64px; }
     .logo { font-size: 1.5rem; }
     .nav-search-wrap { max-width: 260px; }
     .cart-btn { width: 46px; height: 46px; font-size: 1.15rem; }
     .hbg-btn { width: 46px; height: 46px; font-size: 1.3rem; }
-    .cats-bar { top: 102px; }
-    .hero { padding: 100px 22px 44px; }
+    .cats-bar { top: 98px; }
+    .hero { padding: 166px 22px 44px; }
     .hero-title { font-size: 2.9rem; }
     .hero-btns { flex-direction: row; }
     .btn-primary, .btn-outline { width: auto; }
@@ -666,9 +668,10 @@ const CSS = `
     }
     .nav-links a:hover, .nav-links a.active { color: var(--lila); border-bottom: 2px solid var(--lila-light); }
     .nav-search-wrap { max-width: 220px; }
+    .promo-strip { top: 70px; }
     .cats-bar { display: none; }
 
-    .hero { padding: 100px 5% 70px; }
+    .hero { padding: 140px 5% 70px; }
     .hero-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 55px; align-items: center; }
     .hero-mosaic { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
     .mosaic-img {
@@ -722,7 +725,7 @@ const CSS = `
   }
 
   @media (max-height: 500px) and (orientation: landscape) {
-    .hero { padding: 68px 5% 28px; }
+    .hero { padding: 130px 5% 28px; }
     .hero-title { font-size: 1.9rem; }
     .cats-bar { position: relative; top: auto; }
     .modal { max-height: 98vh; }
