@@ -1,275 +1,313 @@
 // ============================================================
-//  ProductDetailModal.jsx - CORREGIDO (SOLO PROBLEMA DE LA FOTO)
+//  ProductDetailModal.jsx — IMAGEN SIEMPRE VISIBLE ✅
 // ============================================================
 import { useState, useEffect, useRef } from 'react';
 
 const CSS = `
-  @keyframes pdmIn{from{opacity:0}to{opacity:1}}
-  @keyframes pdmUp{from{transform:translateY(36px) scale(.97);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
-  @keyframes cartIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
-  @keyframes cartOut{from{transform:translateX(0);opacity:1}to{transform:translateX(100%);opacity:0}}
-  @keyframes addPop{0%{transform:scale(1)}50%{transform:scale(1.08)}100%{transform:scale(1)}}
+  @keyframes pdmIn  { from{opacity:0}                          to{opacity:1} }
+  @keyframes pdmUp  { from{transform:translateY(100%);opacity:0} to{transform:translateY(0);opacity:1} }
+  @keyframes addPop { 0%{transform:scale(1)} 50%{transform:scale(1.06)} 100%{transform:scale(1)} }
+  @keyframes cartIn { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
 
-  .pdm-ov{position:fixed;inset:0;background:rgba(30,10,60,.55);z-index:1100;backdrop-filter:blur(8px);animation:pdmIn .22s ease}
-  .pdm-wrap{position:fixed;inset:0;z-index:1101;display:flex;align-items:center;justify-content:center;padding:14px;pointer-events:none}
-  .pdm-box{
-    background:#fff;border-radius:28px;width:100%;max-width:980px;
-    max-height:92vh;overflow:hidden;display:flex;flex-direction:column;
-    box-shadow:0 40px 100px rgba(90,40,160,.28);
-    animation:pdmUp .32s cubic-bezier(.22,.68,0,1.1);
-    pointer-events:all;position:relative;
+  /* ── OVERLAY ── */
+  .pdm-ov{
+    position:fixed;inset:0;
+    background:rgba(30,10,60,.6);
+    z-index:1100;
+    backdrop-filter:blur(6px);
+    animation:pdmIn .2s ease;
   }
 
-  /* ── HEADER ── */
+  /* ── CONTENEDOR CENTRADO ── */
+  .pdm-wrap{
+    position:fixed;inset:0;z-index:1101;
+    display:flex;align-items:flex-end;justify-content:center;
+    pointer-events:none;
+  }
+
+  /* ── CAJA PRINCIPAL ── */
+  .pdm-box{
+    pointer-events:all;
+    background:#fff;
+    border-radius:22px 22px 0 0;
+    width:100%;max-width:480px;
+    /* Altura total de la pantalla menos la barra de estado */
+    height:92vh;
+    display:flex;flex-direction:column;
+    overflow:hidden;
+    box-shadow:0 -8px 60px rgba(90,40,160,.3);
+    animation:pdmUp .3s cubic-bezier(.22,.68,0,1.08);
+  }
+
+  /* ── HEADER fijo arriba ── */
   .pdm-hdr{
-    padding:14px 18px 0;display:flex;align-items:center;gap:10px;
-    border-bottom:1px solid #F0E8FF;padding-bottom:12px;flex-shrink:0;
+    flex-shrink:0;
+    padding:12px 14px 10px;
+    border-bottom:1px solid #F0E8FF;
+    display:flex;align-items:center;gap:8px;
+    background:#fff;
   }
   .pdm-back{
-    display:flex;align-items:center;gap:6px;background:none;border:none;
-    color:#9B72CF;font-size:.78rem;font-weight:700;cursor:pointer;
-    padding:6px 12px;border-radius:30px;transition:background .2s;
+    display:flex;align-items:center;gap:4px;
+    background:none;border:none;color:#9B72CF;
+    font-size:.82rem;font-weight:700;cursor:pointer;
+    padding:6px 10px;border-radius:30px;white-space:nowrap;
+    transition:background .2s;
   }
   .pdm-back:hover{background:#F0E8FF}
-  .pdm-breadcrumb{font-size:.72rem;color:#B8A0D8;flex:1}
-  .pdm-breadcrumb span{color:#9B72CF;font-weight:600}
   .pdm-cart-toggle{
-    position:relative;display:flex;align-items:center;gap:6px;
-    padding:7px 14px;background:linear-gradient(135deg,#9B72CF,#7B5EA7);
-    color:#fff;border:none;border-radius:30px;font-size:.76rem;font-weight:700;
-    cursor:pointer;transition:all .2s;box-shadow:0 4px 14px rgba(155,114,207,.35);
+    margin-left:auto;
+    display:flex;align-items:center;gap:5px;
+    padding:7px 12px;
+    background:linear-gradient(135deg,#9B72CF,#7B5EA7);
+    color:#fff;border:none;border-radius:30px;
+    font-size:.76rem;font-weight:700;cursor:pointer;
+    box-shadow:0 3px 12px rgba(155,114,207,.35);
+    white-space:nowrap;
   }
-  .pdm-cart-toggle:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(155,114,207,.5)}
   .pdm-cart-badge2{
     background:#F4A7C3;color:#fff;border-radius:50%;
-    width:18px;height:18px;font-size:.58rem;font-weight:800;
+    width:17px;height:17px;font-size:.58rem;font-weight:800;
     display:flex;align-items:center;justify-content:center;
   }
   .pdm-close{
     background:rgba(180,150,220,.12);border:none;border-radius:50%;
-    width:36px;height:36px;display:flex;align-items:center;justify-content:center;
-    cursor:pointer;font-size:1rem;color:#7B5EA7;transition:all .2s;flex-shrink:0;
-  }
-  .pdm-close:hover{background:rgba(180,150,220,.28);transform:scale(1.08)}
-
-  /* ── BODY ── */
-  .pdm-body{display:flex;flex:1;overflow:hidden;position:relative}
-
-  /* ── GALERÍA CORREGIDA - LA FOTO AHORA SE VE BIEN ── */
-  .pdm-gallery{display:flex;gap:10px;padding:16px 14px 16px 18px;flex:1;overflow:hidden;min-width:0}
-  .pdm-thumbs{
-    display:flex;flex-direction:column;gap:7px;overflow-y:auto;
-    width:68px;flex-shrink:0;padding-right:2px;
-  }
-  .pdm-thumbs::-webkit-scrollbar{width:3px}
-  .pdm-thumbs::-webkit-scrollbar-thumb{background:#C9B8E8;border-radius:2px}
-  .pdm-thumb{
-    width:62px;height:62px;border-radius:11px;object-fit:cover;cursor:pointer;
-    border:2.5px solid transparent;transition:all .2s;flex-shrink:0;
-  }
-  .pdm-thumb.active{border-color:#9B72CF;box-shadow:0 0 0 2px rgba(155,114,207,.25)}
-  .pdm-thumb:hover:not(.active){border-color:#C9B8E8;transform:scale(1.04)}
-  .pdm-vthumb{
-    width:62px;height:62px;border-radius:11px;cursor:pointer;
-    border:2.5px solid transparent;background:#2D1B4E;
+    width:34px;height:34px;flex-shrink:0;
     display:flex;align-items:center;justify-content:center;
-    font-size:1.3rem;transition:all .2s;flex-shrink:0;
+    cursor:pointer;font-size:.95rem;color:#7B5EA7;transition:all .2s;
   }
-  .pdm-vthumb.active{border-color:#9B72CF}
+  .pdm-close:hover{background:rgba(180,150,220,.28)}
 
-  /* MAIN — ✅ FOTO SIEMPRE VISIBLE Y COMPLETA */
-  .pdm-main{
+  /* ── SCROLL BODY — todo hace scroll menos el header ── */
+  .pdm-scroll{
     flex:1;
+    overflow-y:auto;
+    overflow-x:hidden;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+  }
+  .pdm-scroll::-webkit-scrollbar{width:3px}
+  .pdm-scroll::-webkit-scrollbar-thumb{background:#C9B8E8;border-radius:2px}
+
+  /* ═══════════════════════════════════════════
+     IMAGEN PRINCIPAL — EL ARREGLO DEFINITIVO
+     Usamos aspect-ratio para que SIEMPRE
+     tenga la altura correcta sin depender de flex
+  ═══════════════════════════════════════════ */
+  .pdm-img-section{
+    width:100%;
+    background:#F8F5FF;
     position:relative;
-    background:#FAF7FF;
-    border-radius:16px;
+  }
+
+  /* Contenedor cuadrado 1:1 — la imagen siempre se ve completa */
+  .pdm-img-box{
+    width:100%;
+    aspect-ratio:1 / 1;
+    position:relative;
     overflow:hidden;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    /* ✅ height explícito: sin esto object-fit:contain no tiene referencia */
-    height:460px;
-    min-height:260px;
-    max-height:500px;
+    background:#F8F5FF;
+    display:flex;align-items:center;justify-content:center;
     cursor:zoom-in;
   }
-  
-  .pdm-main.zoomed{
-    cursor:zoom-out;
-    overflow:auto;
-  }
-  
+  .pdm-img-box.zoomed{ cursor:zoom-out; }
+
+  /* LA IMAGEN — object-fit:contain dentro de un cuadrado = siempre visible */
   .pdm-img{
-    /* ✅ max-width/max-height en vez de width/height 100%: 
-       así la imagen nunca se estira más de su contenedor */
-    max-width:100%;
-    max-height:100%;
-    width:auto;
-    height:auto;
+    width:100%;
+    height:100%;
     object-fit:contain;
     display:block;
-    transition:transform 0.3s ease;
+    transition:transform .3s ease;
+    padding:12px;
+    box-sizing:border-box;
   }
-  
-  .pdm-img.zoomed{
-    transform:scale(2.2);
-    cursor:zoom-out;
+  .pdm-img.zoomed{ transform:scale(2); padding:0; }
+
+  /* Video */
+  .pdm-vid{
+    width:100%;height:100%;
+    object-fit:contain;display:block;
   }
-  
-  .pdm-vid{width:100%;height:100%;object-fit:contain}
-  
+
+  /* Flechas nav */
   .pdm-nav{
     position:absolute;top:50%;transform:translateY(-50%);
     background:rgba(255,255,255,.92);border:none;border-radius:50%;
-    width:34px;height:34px;display:flex;align-items:center;justify-content:center;
-    cursor:pointer;font-size:.95rem;box-shadow:0 2px 12px rgba(120,80,180,.18);
-    transition:all .2s;color:#7B5EA7;
+    width:36px;height:36px;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;font-size:1.1rem;
+    box-shadow:0 2px 12px rgba(120,80,180,.2);
+    transition:all .2s;color:#7B5EA7;z-index:2;
   }
-  .pdm-nav:hover{background:#fff;box-shadow:0 4px 18px rgba(120,80,180,.3);transform:translateY(-50%) scale(1.08)}
-  .pdm-prev{left:9px}
-  .pdm-next{right:9px}
+  .pdm-nav:hover{transform:translateY(-50%) scale(1.1)}
+  .pdm-prev{left:8px}
+  .pdm-next{right:8px}
+
+  /* Badge sobre imagen */
   .pdm-badge-img{
-    position:absolute;top:11px;left:11px;padding:4px 12px;border-radius:30px;
-    font-size:.62rem;font-weight:800;letter-spacing:.08em;color:#fff;text-transform:uppercase;
-    z-index:2;
-  }
-  .pdm-vid-tag{
-    position:absolute;bottom:9px;right:9px;background:rgba(30,10,60,.75);
-    color:#fff;font-size:.67rem;font-weight:700;padding:3px 9px;border-radius:18px;
-    display:flex;align-items:center;gap:4px;z-index:2;
+    position:absolute;top:10px;left:10px;
+    padding:4px 11px;border-radius:30px;
+    font-size:.62rem;font-weight:800;letter-spacing:.08em;
+    color:#fff;text-transform:uppercase;z-index:2;
   }
   .pdm-zoom-hint{
-    position:absolute;bottom:9px;left:50%;transform:translateX(-50%);
-    background:rgba(30,10,60,.7);color:#fff;font-size:.62rem;
-    padding:4px 14px;border-radius:30px;pointer-events:none;
-    opacity:0;transition:opacity .3s;z-index:2;
-    white-space:nowrap;
+    position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
+    background:rgba(30,10,60,.65);color:#fff;
+    font-size:.62rem;padding:3px 12px;border-radius:20px;
+    pointer-events:none;opacity:0;transition:opacity .3s;
+    white-space:nowrap;z-index:2;
   }
-  .pdm-main:hover .pdm-zoom-hint{opacity:1}
+  .pdm-img-box:hover .pdm-zoom-hint{opacity:1}
 
-  /* ── INFO PANEL (TUS ESTILOS) ── */
-  .pdm-info{
-    width:320px;flex-shrink:0;padding:16px 18px 18px 12px;
-    overflow-y:auto;display:flex;flex-direction:column;gap:11px;
-    border-left:1px solid #F0E8FF;
+  /* ── MINIATURAS HORIZONTALES ── */
+  .pdm-thumbs{
+    display:flex;gap:7px;
+    padding:10px 14px;
+    overflow-x:auto;overflow-y:hidden;
+    scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+    background:#fff;
+    border-bottom:1px solid #F0E8FF;
   }
-  .pdm-info::-webkit-scrollbar{width:3px}
-  .pdm-info::-webkit-scrollbar-thumb{background:#C9B8E8;border-radius:2px}
+  .pdm-thumbs::-webkit-scrollbar{display:none}
+  .pdm-thumb{
+    width:60px;height:60px;flex-shrink:0;
+    border-radius:10px;object-fit:cover;cursor:pointer;
+    border:2.5px solid transparent;transition:all .2s;
+  }
+  .pdm-thumb.active{border-color:#9B72CF;box-shadow:0 0 0 2px rgba(155,114,207,.25)}
+  .pdm-thumb:hover:not(.active){border-color:#C9B8E8}
+  .pdm-vthumb{
+    width:60px;height:60px;flex-shrink:0;
+    border-radius:10px;cursor:pointer;
+    border:2.5px solid transparent;
+    background:#2D1B4E;
+    display:flex;align-items:center;justify-content:center;
+    font-size:1.4rem;transition:all .2s;
+  }
+  .pdm-vthumb.active{border-color:#9B72CF}
+
+  /* ── INFO ── */
+  .pdm-info{
+    padding:16px 16px 32px;
+    display:flex;flex-direction:column;gap:11px;
+  }
   .pdm-cat{font-size:.63rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#9B72CF}
-  .pdm-name{font-family:'Playfair Display',serif;font-size:1.42rem;font-weight:700;color:#2D1B4E;line-height:1.25}
-  .pdm-stars{display:flex;align-items:center;gap:7px;font-size:.79rem;color:#B8A0D8}
+  .pdm-name{font-family:'Playfair Display',serif;font-size:1.35rem;font-weight:700;color:#2D1B4E;line-height:1.25}
+  .pdm-stars{display:flex;align-items:center;gap:6px;font-size:.8rem;color:#B8A0D8}
   .pdm-stars-gold{color:#C9A96E;font-size:.95rem}
-  .pdm-div{height:1px;background:linear-gradient(90deg,#E8D5FF,transparent);margin:2px 0}
+  .pdm-div{height:1px;background:linear-gradient(90deg,#E8D5FF,transparent)}
   .pdm-price-row{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
-  .pdm-price{font-family:'Playfair Display',serif;font-size:1.9rem;font-weight:700;color:#7B5EA7}
+  .pdm-price{font-family:'Playfair Display',serif;font-size:2rem;font-weight:700;color:#7B5EA7}
   .pdm-orig{font-size:.9rem;color:#bbb;text-decoration:line-through}
   .pdm-disc{background:linear-gradient(135deg,#E8D5FF,#F5EEFF);color:#7B5EA7;font-weight:700;font-size:.76rem;padding:3px 9px;border-radius:30px}
-  .pdm-desc{font-size:.83rem;color:#6B5B8A;line-height:1.75;white-space:pre-line;}
-  .pdm-stock-in{font-size:.79rem;font-weight:700;color:#52B788}
-  .pdm-stock-out{font-size:.79rem;font-weight:700;color:#E74C3C}
+  .pdm-desc{font-size:.85rem;color:#6B5B8A;line-height:1.75;white-space:pre-line}
+  .pdm-stock-in{font-size:.8rem;font-weight:700;color:#52B788}
+  .pdm-stock-out{font-size:.8rem;font-weight:700;color:#E74C3C}
   .pdm-qty-row{display:flex;align-items:center;gap:10px}
-  .pdm-qty-lbl{font-size:.78rem;font-weight:600;color:#6B5B8A}
+  .pdm-qty-lbl{font-size:.8rem;font-weight:600;color:#6B5B8A}
   .pdm-qty{display:flex;align-items:center;gap:2px;background:#F5EEFF;border-radius:30px;padding:3px}
-  .pdm-qbtn{background:none;border:none;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:1rem;color:#7B5EA7;font-weight:700;display:flex;align-items:center;justify-content:center;transition:background .2s}
+  .pdm-qbtn{background:none;border:none;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:1.1rem;color:#7B5EA7;font-weight:700;display:flex;align-items:center;justify-content:center;transition:background .2s}
   .pdm-qbtn:hover{background:rgba(155,114,207,.2)}
-  .pdm-qval{min-width:30px;text-align:center;font-weight:700;font-size:.9rem;color:#2D1B4E}
+  .pdm-qval{min-width:30px;text-align:center;font-weight:700;font-size:.92rem;color:#2D1B4E}
+
+  /* Botones acción */
   .pdm-add{
-    padding:14px 0;background:linear-gradient(135deg,#9B72CF,#7B5EA7);
-    color:#fff;border:none;border-radius:14px;font-weight:700;font-size:.95rem;
-    cursor:pointer;box-shadow:0 7px 22px rgba(155,114,207,.38);
+    padding:15px 0;
+    background:linear-gradient(135deg,#9B72CF,#7B5EA7);
+    color:#fff;border:none;border-radius:14px;
+    font-weight:700;font-size:1rem;cursor:pointer;
+    box-shadow:0 7px 22px rgba(155,114,207,.38);
     transition:all .3s;letter-spacing:.03em;
   }
   .pdm-add:hover{transform:translateY(-2px);box-shadow:0 11px 30px rgba(155,114,207,.52)}
   .pdm-add.popped{animation:addPop .3s ease}
-  .pdm-add:disabled{opacity:.6;cursor:default;transform:none}
   .pdm-wish{
-    padding:12px 0;background:rgba(155,114,207,.08);color:#7B5EA7;
+    padding:13px 0;background:rgba(155,114,207,.07);color:#7B5EA7;
     border:2px solid rgba(155,114,207,.28);border-radius:14px;
-    font-weight:700;font-size:.86rem;cursor:pointer;transition:all .3s;
+    font-weight:700;font-size:.88rem;cursor:pointer;transition:all .3s;
   }
-  .pdm-wish:hover{background:rgba(155,114,207,.16);border-color:#9B72CF}
-  .pdm-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;}
-  .pdm-tag{background:#F5EEFF;color:#9B72CF;font-size:.68rem;font-weight:600;padding:3px 10px;border-radius:30px}
+  .pdm-wish:hover{background:rgba(155,114,207,.15);border-color:#9B72CF}
+  .pdm-tags{display:flex;flex-wrap:wrap;gap:5px}
+  .pdm-tag{background:#F5EEFF;color:#9B72CF;font-size:.7rem;font-weight:600;padding:4px 11px;border-radius:30px}
 
-  /* ── MINI CARRITO ── */
+  /* ── MINI CARRITO LATERAL ── */
   .pdm-cart-panel{
-    position:absolute;top:0;right:0;bottom:0;width:310px;
-    background:#fff;border-left:1px solid #F0E8FF;
-    display:flex;flex-direction:column;z-index:10;
-    box-shadow:-8px 0 40px rgba(90,40,160,.12);
+    position:fixed;inset:0;z-index:1200;
+    display:flex;flex-direction:column;
+    background:#fff;
+    animation:cartIn .28s ease;
   }
-  .pdm-cart-panel.entering{animation:cartIn .3s ease forwards}
-  .pdm-cart-panel.leaving{animation:cartOut .25s ease forwards}
   .pdm-cp-hdr{
-    padding:14px 16px 12px;border-bottom:1px solid #F0E8FF;
+    padding:16px 16px 12px;border-bottom:1px solid #F0E8FF;
     display:flex;align-items:center;justify-content:space-between;
+    flex-shrink:0;
   }
-  .pdm-cp-title{font-family:'Playfair Display',serif;font-size:1.05rem;font-weight:700;color:#2D1B4E}
-  .pdm-cp-close{background:none;border:none;color:#B8A0D8;font-size:1rem;cursor:pointer;padding:4px;transition:color .2s}
-  .pdm-cp-close:hover{color:#7B5EA7}
+  .pdm-cp-title{font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:700;color:#2D1B4E}
+  .pdm-cp-close{background:none;border:none;color:#B8A0D8;font-size:1.1rem;cursor:pointer;padding:4px}
   .pdm-cp-items{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
-  .pdm-cp-items::-webkit-scrollbar{width:3px}
-  .pdm-cp-items::-webkit-scrollbar-thumb{background:#C9B8E8;border-radius:2px}
   .pdm-cp-empty{text-align:center;padding:40px 20px;color:#C9B8E8}
-  .pdm-cp-empty-icon{font-size:2.5rem;margin-bottom:10px}
   .pdm-cp-item{display:flex;gap:10px;background:#FAF7FF;border-radius:14px;padding:10px;border:1px solid #F0E8FF}
-  .pdm-cp-img{width:56px;height:56px;border-radius:10px;object-fit:cover;flex-shrink:0}
+  .pdm-cp-img{width:58px;height:58px;border-radius:10px;object-fit:cover;flex-shrink:0}
   .pdm-cp-inf{flex:1;min-width:0}
-  .pdm-cp-nm{font-size:.77rem;font-weight:600;color:#2D1B4E;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px}
-  .pdm-cp-pr{font-size:.85rem;font-weight:700;color:#7B5EA7;margin-bottom:6px}
+  .pdm-cp-nm{font-size:.78rem;font-weight:600;color:#2D1B4E;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px}
+  .pdm-cp-pr{font-size:.88rem;font-weight:700;color:#7B5EA7;margin-bottom:6px}
   .pdm-cp-qty{display:flex;align-items:center;gap:6px}
-  .pdm-cp-qb{width:24px;height:24px;border-radius:7px;border:1.5px solid #E8D5FF;background:#fff;font-size:.8rem;font-weight:700;color:#7B5EA7;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+  .pdm-cp-qb{width:26px;height:26px;border-radius:7px;border:1.5px solid #E8D5FF;background:#fff;font-size:.8rem;font-weight:700;color:#7B5EA7;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
   .pdm-cp-qb:hover{border-color:#9B72CF;background:#F0E8FF}
-  .pdm-cp-qv{font-size:.82rem;font-weight:700;color:#2D1B4E;min-width:16px;text-align:center}
-  .pdm-cp-rm{margin-left:auto;background:none;border:none;color:#F4A7C3;font-size:.95rem;cursor:pointer;padding:2px;transition:color .2s}
-  .pdm-cp-rm:hover{color:#E74C3C}
-  .pdm-cp-footer{padding:12px 14px 16px;border-top:1px solid #F0E8FF}
-  .pdm-cp-row{display:flex;justify-content:space-between;font-size:.77rem;color:#6B5B8A;margin-bottom:3px}
-  .pdm-cp-total{display:flex;justify-content:space-between;font-weight:700;font-size:.92rem;margin:8px 0 12px;color:#2D1B4E}
-  .pdm-cp-checkout{
-    width:100%;padding:12px;background:linear-gradient(135deg,#9B72CF,#7B5EA7);
-    color:#fff;border:none;border-radius:12px;font-weight:700;font-size:.85rem;
-    cursor:pointer;box-shadow:0 5px 16px rgba(155,114,207,.38);transition:all .3s;
-  }
-  .pdm-cp-checkout:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(155,114,207,.5)}
-  .pdm-cp-continue{
-    width:100%;padding:10px;margin-top:7px;background:transparent;
-    color:#9B72CF;border:2px solid rgba(155,114,207,.28);border-radius:12px;
-    font-weight:600;font-size:.8rem;cursor:pointer;transition:all .2s;
-  }
-  .pdm-cp-continue:hover{background:#F0E8FF;border-color:#9B72CF}
+  .pdm-cp-qv{font-size:.84rem;font-weight:700;color:#2D1B4E;min-width:18px;text-align:center}
+  .pdm-cp-rm{margin-left:auto;background:none;border:none;color:#F4A7C3;font-size:1rem;cursor:pointer;padding:2px}
+  .pdm-cp-footer{padding:12px 14px 24px;border-top:1px solid #F0E8FF;flex-shrink:0}
+  .pdm-cp-row{display:flex;justify-content:space-between;font-size:.8rem;color:#6B5B8A;margin-bottom:4px}
+  .pdm-cp-total{display:flex;justify-content:space-between;font-weight:700;font-size:.95rem;margin:8px 0 12px;color:#2D1B4E}
+  .pdm-cp-checkout{width:100%;padding:13px;background:linear-gradient(135deg,#9B72CF,#7B5EA7);color:#fff;border:none;border-radius:12px;font-weight:700;font-size:.88rem;cursor:pointer;box-shadow:0 5px 16px rgba(155,114,207,.38);transition:all .3s}
+  .pdm-cp-continue{width:100%;padding:10px;margin-top:7px;background:transparent;color:#9B72CF;border:2px solid rgba(155,114,207,.28);border-radius:12px;font-weight:600;font-size:.82rem;cursor:pointer;transition:all .2s}
+  .pdm-cp-continue:hover{background:#F0E8FF}
 
-  /* ── RESPONSIVE ── */
-  @media(max-width:760px){
-    .pdm-wrap{padding:0;align-items:flex-end}
-    .pdm-box{border-radius:22px 22px 0 0;max-height:96vh;max-width:100%}
-    .pdm-body{flex-direction:column;overflow-y:auto}
-    .pdm-gallery{flex-direction:column;padding:10px 12px 0}
-    .pdm-thumbs{flex-direction:row;width:auto;overflow-x:auto;overflow-y:hidden;padding-bottom:6px}
-    .pdm-thumb,.pdm-vthumb{width:56px;height:56px}
-    /* ✅ FIX MÓVIL: altura fija para que la imagen sea visible */
-    .pdm-main{
-      flex:none;
-      height:300px;
-      min-height:220px;
-      max-height:340px;
-      width:100%;
-    }
-    /* ✅ FIX MÓVIL: imagen responsive sin desbordarse */
-    .pdm-img{
-      max-width:100%;
-      max-height:100%;
-      width:auto;
+  /* ── TABLET / DESKTOP ≥ 640px ── */
+  @media(min-width:640px){
+    .pdm-wrap{align-items:center;padding:20px}
+    .pdm-box{
+      border-radius:24px;
       height:auto;
+      max-height:92vh;
+      /* En desktop: layout de dos columnas */
+      max-width:900px;
+      flex-direction:column;
     }
-    .pdm-info{width:100%;border-left:none;border-top:1px solid #F0E8FF;padding:14px 12px 20px}
-    .pdm-name{font-size:1.2rem}
-    .pdm-price{font-size:1.6rem}
-    .pdm-cart-panel{width:100%;top:auto;bottom:0;height:75%;border-left:none;border-top:2px solid #E8D5FF;border-radius:18px 18px 0 0}
-  }
-  @media(max-width:480px){
-    .pdm-breadcrumb{display:none}
-    .pdm-hdr{gap:7px}
+    /* En desktop mostramos galería vertical + info al lado */
+    .pdm-desktop-body{
+      display:flex;flex-direction:row;
+      flex:1;overflow:hidden;
+    }
+    .pdm-img-section{
+      width:420px;flex-shrink:0;
+      border-right:1px solid #F0E8FF;
+      display:flex;flex-direction:column;
+    }
+    .pdm-img-box{
+      flex:1;
+      aspect-ratio:unset;
+      min-height:320px;
+    }
+    .pdm-thumbs{
+      flex-direction:column;
+      width:72px;
+      padding:10px 6px;
+      border-bottom:none;border-right:1px solid #F0E8FF;
+      overflow-y:auto;overflow-x:hidden;
+      align-items:center;
+    }
+    .pdm-thumb,.pdm-vthumb{width:58px;height:58px;flex-shrink:0}
+    .pdm-info{overflow-y:auto;flex:1}
+    .pdm-cart-panel{
+      position:absolute;
+      width:300px;right:0;top:0;bottom:0;
+      border-left:1px solid #F0E8FF;
+      border-radius:0 24px 24px 0;
+      box-shadow:-8px 0 30px rgba(90,40,160,.1);
+    }
   }
 `;
 
@@ -285,22 +323,22 @@ export default function ProductDetailModal({
   wishlist, onToggleWishlist, onCheckout
 }) {
   const [media, setMedia] = useState(0);
-  const [zoomed, setZoomed] = useState(false);
-  const [qty, setQty] = useState(1);
-  const [added, setAdded] = useState(false);
+  const [zoomed, setZoomed]   = useState(false);
+  const [qty, setQty]         = useState(1);
+  const [added, setAdded]     = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const vidRef = useRef(null);
+  const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 640;
 
-  const fmtCOP = (n) => {
+  const fmtCOP = n => {
     const num = Number(n);
     if (isNaN(num)) return '$0';
     return '$' + num.toLocaleString('es-CO', {minimumFractionDigits:0, maximumFractionDigits:0});
   };
 
-  // Construir lista de medios
-  const gallery = (() => { try { return JSON.parse(product.gallery || '[]'); } catch { return []; } })();
-  const mainImg = product.imageUrl || 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=600&q=80';
-  const allImgs = [mainImg, ...gallery.filter(u => u && u !== mainImg)];
+  const gallery  = (() => { try { return JSON.parse(product.gallery || '[]'); } catch { return []; } })();
+  const mainImg  = product.imageUrl || 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=600&q=80';
+  const allImgs  = [mainImg, ...gallery.filter(u => u && u !== mainImg)];
   const mediaList = [
     ...allImgs.map(url => ({ type: 'image', url })),
     ...(product.videoUrl ? [{ type: 'video', url: product.videoUrl }] : []),
@@ -308,14 +346,18 @@ export default function ProductDetailModal({
   const cur = mediaList[media] || mediaList[0];
 
   useEffect(() => {
+    // Bloquear scroll del body
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
+  useEffect(() => {
     const h = e => { if (e.key === 'Escape') { if (cartOpen) setCartOpen(false); else onClose(); } };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, [onClose, cartOpen]);
 
-  const discount = product.originalPrice
-    ? Math.round((1 - product.price / product.originalPrice) * 100) : 0;
-
+  const discount  = product.originalPrice ? Math.round((1 - product.price / product.originalPrice) * 100) : 0;
   const cartTotal = (cart || []).reduce((s, i) => s + Number(i.price) * i.qty, 0);
   const cartCount = (cart || []).reduce((s, i) => s + i.qty, 0);
   const shipping  = cartTotal >= 80 ? 0 : cartTotal * 0.08;
@@ -327,11 +369,117 @@ export default function ProductDetailModal({
     setTimeout(() => setAdded(false), 1800);
   };
 
-  const toggleZoom = () => {
-    if (cur?.type === 'image') {
-      setZoomed(!zoomed);
-    }
-  };
+  // ── Sección de imagen (reutilizable desktop/mobile) ──────
+  const ImageSection = () => (
+    <div className="pdm-img-section">
+      {/* Miniaturas */}
+      {mediaList.length > 1 && (
+        <div className="pdm-thumbs">
+          {mediaList.map((m, i) => m.type === 'video'
+            ? <div key={i} className={`pdm-vthumb${media===i?' active':''}`}
+                onClick={() => { setMedia(i); setZoomed(false); }}>▶️</div>
+            : <img key={i} src={m.url} alt=""
+                className={`pdm-thumb${media===i?' active':''}`}
+                onClick={() => { setMedia(i); setZoomed(false); }} />
+          )}
+        </div>
+      )}
+
+      {/* Imagen principal — aspect-ratio 1:1 garantiza que SIEMPRE se ve */}
+      <div
+        className={`pdm-img-box${zoomed?' zoomed':''}`}
+        onClick={() => cur?.type === 'image' && setZoomed(z => !z)}
+      >
+        {cur?.type === 'video' ? (
+          <video ref={vidRef} className="pdm-vid" controls autoPlay>
+            <source src={cur.url} />
+          </video>
+        ) : (
+          <img
+            className={`pdm-img${zoomed?' zoomed':''}`}
+            src={cur?.url}
+            alt={product.name}
+          />
+        )}
+
+        {product.badge && (
+          <span className="pdm-badge-img" style={{background: BADGE_BG[product.badge] || '#C9B8E8'}}>
+            {product.badge}
+          </span>
+        )}
+        {cur?.type === 'image' && (
+          <div className="pdm-zoom-hint">{zoomed ? '🔍 Alejar' : '🔍 Zoom'}</div>
+        )}
+
+        {mediaList.length > 1 && <>
+          {media > 0 && (
+            <button className="pdm-nav pdm-prev"
+              onClick={e => { e.stopPropagation(); setZoomed(false); setMedia(i => i-1); }}>‹</button>
+          )}
+          {media < mediaList.length - 1 && (
+            <button className="pdm-nav pdm-next"
+              onClick={e => { e.stopPropagation(); setZoomed(false); setMedia(i => i+1); }}>›</button>
+          )}
+        </>}
+      </div>
+    </div>
+  );
+
+  // ── Panel info ───────────────────────────────────────────
+  const InfoPanel = () => (
+    <div className="pdm-info">
+      <div className="pdm-cat">{product.category || 'BOLSOS'}</div>
+      <h2 className="pdm-name">{product.name}</h2>
+
+      <div className="pdm-stars">
+        <span className="pdm-stars-gold">
+          {'★'.repeat(Math.round(product.rating||0))}{'☆'.repeat(5-Math.round(product.rating||0))}
+        </span>
+        {product.rating||0} · {product.reviewCount||0} reseñas
+      </div>
+
+      <div className="pdm-div" />
+
+      <div className="pdm-price-row">
+        <span className="pdm-price">{fmtCOP(product.price||0)}</span>
+        {product.originalPrice && <span className="pdm-orig">{fmtCOP(product.originalPrice)}</span>}
+        {discount > 0 && <span className="pdm-disc">-{discount}%</span>}
+      </div>
+
+      {product.description && (
+        <p className="pdm-desc">{product.description}</p>
+      )}
+
+      <div className="pdm-div" />
+
+      <div className={product.stock > 0 ? 'pdm-stock-in' : 'pdm-stock-out'}>
+        {product.stock > 0 ? `✔ En stock (${product.stock} disponibles)` : '✖ Sin stock'}
+      </div>
+
+      <div className="pdm-qty-row">
+        <span className="pdm-qty-lbl">Cantidad:</span>
+        <div className="pdm-qty">
+          <button className="pdm-qbtn" onClick={() => setQty(q => Math.max(1, q-1))}>−</button>
+          <span className="pdm-qval">{qty}</span>
+          <button className="pdm-qbtn" onClick={() => setQty(q => q+1)}>+</button>
+        </div>
+      </div>
+
+      <button className={`pdm-add${added?' popped':''}`} onClick={handleAdd}>
+        {added ? '✓ ¡Agregado!' : '🛒 Agregar al carrito'}
+      </button>
+
+      <button className="pdm-wish" onClick={() => onToggleWishlist(product.id)}>
+        {wishlist?.includes(product.id) ? '❤️ En favoritos' : '🤍 Guardar en favoritos'}
+      </button>
+
+      <div className="pdm-tags">
+        <span className="pdm-tag">✓ Envío gratis +$80</span>
+        <span className="pdm-tag">✓ Devolución 30 días</span>
+        <span className="pdm-tag">✓ Pago seguro</span>
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -340,14 +488,9 @@ export default function ProductDetailModal({
       <div className="pdm-wrap">
         <div className="pdm-box" onClick={e => e.stopPropagation()}>
 
-          {/* ── HEADER ── */}
+          {/* HEADER */}
           <div className="pdm-hdr">
-            <button className="pdm-back" onClick={onClose}>
-              ← Volver
-            </button>
-            <div className="pdm-breadcrumb">
-              Tienda / <span>{product.category || 'BOLSOS'}</span>
-            </div>
+            <button className="pdm-back" onClick={onClose}>← Volver</button>
             <button className="pdm-cart-toggle" onClick={() => setCartOpen(o => !o)}>
               🛍️ Mi carrito
               {cartCount > 0 && <span className="pdm-cart-badge2">{cartCount}</span>}
@@ -355,189 +498,68 @@ export default function ProductDetailModal({
             <button className="pdm-close" onClick={onClose}>✕</button>
           </div>
 
-          {/* ── BODY ── */}
-          <div className="pdm-body">
-
-            {/* GALERÍA CON IMAGEN CORREGIDA */}
-            <div className="pdm-gallery">
-              {mediaList.length > 1 && (
-                <div className="pdm-thumbs">
-                  {mediaList.map((m, i) => m.type === 'video'
-                    ? <div key={i} className={`pdm-vthumb${media === i ? ' active' : ''}`}
-                        onClick={() => { setMedia(i); setZoomed(false); }}>▶️</div>
-                    : <img key={i} src={m.url} alt="" className={`pdm-thumb${media === i ? ' active' : ''}`}
-                        onClick={() => { setMedia(i); setZoomed(false); }} />
-                  )}
-                </div>
-              )}
-
-              <div 
-                className={`pdm-main${zoomed ? ' zoomed' : ''}`}
-                onClick={toggleZoom}
-              >
-                {cur?.type === 'video' ? (
-                  <video ref={vidRef} className="pdm-vid" controls autoPlay>
-                    <source src={cur.url} />
-                  </video>
-                ) : (
-                  <img 
-                    className={`pdm-img${zoomed ? ' zoomed' : ''}`} 
-                    src={cur?.url} 
-                    alt={product.name}
-                  />
-                )}
-                
-                {product.badge && (
-                  <span className="pdm-badge-img" style={{ background: BADGE_BG[product.badge] || '#C9B8E8' }}>
-                    {product.badge}
-                  </span>
-                )}
-                
-                {cur?.type === 'video' && (
-                  <div className="pdm-vid-tag">🎥 Video</div>
-                )}
-                
-                {cur?.type === 'image' && !zoomed && (
-                  <div className="pdm-zoom-hint">🔍 Clic para zoom</div>
-                )}
-                
-                {cur?.type === 'image' && zoomed && (
-                  <div className="pdm-zoom-hint">🔍 Clic para alejar</div>
-                )}
-
-                {mediaList.length > 1 && (
-                  <>
-                    {media > 0 && (
-                      <button 
-                        className="pdm-nav pdm-prev" 
-                        onClick={(e) => { e.stopPropagation(); setZoomed(false); setMedia(i => i - 1); }}
-                      >
-                        ‹
-                      </button>
-                    )}
-                    {media < mediaList.length - 1 && (
-                      <button 
-                        className="pdm-nav pdm-next" 
-                        onClick={(e) => { e.stopPropagation(); setZoomed(false); setMedia(i => i + 1); }}
-                      >
-                        ›
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* INFO PANEL */}
-            <div className="pdm-info">
-              <div className="pdm-cat">{product.category || 'BOLSOS'}</div>
-              <h2 className="pdm-name">{product.name || 'Bolso manos libre'}</h2>
-              
-              <div className="pdm-stars">
-                <span className="pdm-stars-gold">★☆☆☆☆</span>
-                0.0 · 0 reseñas
-              </div>
-              
-              <div className="pdm-div" />
-              
-              <div className="pdm-price-row">
-                <span className="pdm-price">{fmtCOP(product.price || 55000)}</span>
-              </div>
-              
-              <p className="pdm-desc">
-                *manos libres bimba y lola* Material tela 21cm de ancho X 14cm de largo • Garantía 15 días por cierre y costura
-              </p>
-              
-              <div className="pdm-div" />
-              
-              <div className="pdm-stock-in">
-                ✔ En stock (1 disponibles)
-              </div>
-              
-              <div className="pdm-qty-row">
-                <span className="pdm-qty-lbl">Cantidad:</span>
-                <div className="pdm-qty">
-                  <button className="pdm-qbtn" onClick={() => setQty(q => Math.max(1, q - 1))}>−</button>
-                  <span className="pdm-qval">{qty}</span>
-                  <button className="pdm-qbtn" onClick={() => setQty(q => q + 1)}>+</button>
-                </div>
-              </div>
-              
-              <button className={`pdm-add${added ? ' popped' : ''}`} onClick={handleAdd}>
-                {added ? '✓ ¡Agregado!' : 'Agregar al carrito'}
-              </button>
-              
-              <button className="pdm-wish" onClick={() => onToggleWishlist(product.id)}>
-                {wishlist?.includes(product.id) ? '❤️ En favoritos' : '🤍 Guardar en favoritos'}
-              </button>
-              
-              <div className="pdm-tags">
-                <span className="pdm-tag">✓ Envío gratis +$80</span>
-                <span className="pdm-tag">✓ Devolución 30 días</span>
-                <span className="pdm-tag">✓ Pago seguro</span>
-              </div>
-            </div>
-
-            {/* MINI CARRITO */}
-            {cartOpen && (
-              <div className="pdm-cart-panel entering">
-                <div className="pdm-cp-hdr">
-                  <div className="pdm-cp-title">🛍️ Tu carrito ({cartCount})</div>
-                  <button className="pdm-cp-close" onClick={() => setCartOpen(false)}>✕</button>
-                </div>
-
-                <div className="pdm-cp-items">
-                  {(cart || []).length === 0 ? (
-                    <div className="pdm-cp-empty">
-                      <div className="pdm-cp-empty-icon">🛍️</div>
-                      <p style={{fontSize:'.82rem',color:'#B8A0D8'}}>Tu carrito está vacío</p>
-                    </div>
-                  ) : (cart || []).map(item => (
-                    <div key={item.id} className="pdm-cp-item">
-                      <img className="pdm-cp-img"
-                        src={item.imageUrl || 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=100'}
-                        alt={item.name} />
-                      <div className="pdm-cp-inf">
-                        <div className="pdm-cp-nm">{item.name}</div>
-                        <div className="pdm-cp-pr">{fmtCOP(Number(item.price) * item.qty)}</div>
-                        <div className="pdm-cp-qty">
-                          <button className="pdm-cp-qb" onClick={() => onUpdateQty(item.id, -1)}>−</button>
-                          <span className="pdm-cp-qv">{item.qty}</span>
-                          <button className="pdm-cp-qb" onClick={() => onUpdateQty(item.id, 1)}>+</button>
-                          <button className="pdm-cp-rm" onClick={() => onRemoveFromCart(item.id)}>🗑️</button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {(cart || []).length > 0 && (
-                  <div className="pdm-cp-footer">
-                    <div className="pdm-cp-row">
-                      <span>Subtotal</span><span>{fmtCOP(cartTotal)}</span>
-                    </div>
-                    <div className="pdm-cp-row" style={{color: shipping === 0 ? '#52B788' : undefined}}>
-                      <span>Envío</span><span>{shipping === 0 ? 'GRATIS 🎉' : fmtCOP(shipping)}</span>
-                    </div>
-                    <div className="pdm-cp-total">
-                      <span>Total</span>
-                      <span style={{color:'#7B5EA7',fontFamily:"'Playfair Display',serif"}}>
-                        {fmtCOP(cartTotal + shipping)}
-                      </span>
-                    </div>
-                    <button className="pdm-cp-checkout" onClick={() => { onClose(); onCheckout(); }}>
-                      Finalizar Compra →
-                    </button>
-                    <button className="pdm-cp-continue" onClick={() => setCartOpen(false)}>
-                      ← Seguir comprando
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+          {/* MÓVIL: todo en scroll vertical */}
+          <div className="pdm-scroll">
+            <ImageSection />
+            <InfoPanel />
           </div>
+
         </div>
       </div>
+
+      {/* MINI CARRITO */}
+      {cartOpen && (
+        <div className="pdm-cart-panel" onClick={e => e.stopPropagation()}>
+          <div className="pdm-cp-hdr">
+            <div className="pdm-cp-title">🛍️ Tu carrito ({cartCount})</div>
+            <button className="pdm-cp-close" onClick={() => setCartOpen(false)}>✕</button>
+          </div>
+          <div className="pdm-cp-items">
+            {(cart||[]).length === 0 ? (
+              <div className="pdm-cp-empty">
+                <div style={{fontSize:'2.5rem',marginBottom:8}}>🛍️</div>
+                <p style={{fontSize:'.84rem',color:'#B8A0D8'}}>Tu carrito está vacío</p>
+              </div>
+            ) : (cart||[]).map(item => (
+              <div key={item.id} className="pdm-cp-item">
+                <img className="pdm-cp-img"
+                  src={item.imageUrl||'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=100'}
+                  alt={item.name} />
+                <div className="pdm-cp-inf">
+                  <div className="pdm-cp-nm">{item.name}</div>
+                  <div className="pdm-cp-pr">{fmtCOP(Number(item.price)*item.qty)}</div>
+                  <div className="pdm-cp-qty">
+                    <button className="pdm-cp-qb" onClick={() => onUpdateQty(item.id, -1)}>−</button>
+                    <span className="pdm-cp-qv">{item.qty}</span>
+                    <button className="pdm-cp-qb" onClick={() => onUpdateQty(item.id, 1)}>+</button>
+                    <button className="pdm-cp-rm" onClick={() => onRemoveFromCart(item.id)}>🗑️</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {(cart||[]).length > 0 && (
+            <div className="pdm-cp-footer">
+              <div className="pdm-cp-row"><span>Subtotal</span><span>{fmtCOP(cartTotal)}</span></div>
+              <div className="pdm-cp-row" style={{color:shipping===0?'#52B788':undefined}}>
+                <span>Envío</span><span>{shipping===0?'GRATIS 🎉':fmtCOP(shipping)}</span>
+              </div>
+              <div className="pdm-cp-total">
+                <span>Total</span>
+                <span style={{color:'#7B5EA7',fontFamily:"'Playfair Display',serif"}}>
+                  {fmtCOP(cartTotal+shipping)}
+                </span>
+              </div>
+              <button className="pdm-cp-checkout" onClick={() => { onClose(); onCheckout(); }}>
+                Finalizar Compra →
+              </button>
+              <button className="pdm-cp-continue" onClick={() => setCartOpen(false)}>
+                ← Seguir comprando
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </>
   );
 }
