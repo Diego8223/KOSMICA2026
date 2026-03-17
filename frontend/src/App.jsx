@@ -1008,7 +1008,7 @@ export default function App() {
       </div>
 
       {/* ── PROMO STRIP ── */}
-      <div className="promo-strip">✦ Envío GRATIS en compras +$80 &nbsp;|&nbsp; 🎀 Hasta 40% OFF &nbsp;|&nbsp; 💳 Paga con Nequi, PSE, tarjeta ✦</div>
+      <div className="promo-strip">✦ Envío GRATIS en compras +$300.000 &nbsp;|&nbsp; &nbsp;|&nbsp; 💳 Paga con Nequi, PSE, tarjeta ✦</div>
 
       {/* ── HERO ── */}
       <section className="hero">
@@ -1146,7 +1146,7 @@ export default function App() {
       {/* ── FEATURES ── */}
       <section className="features">
         <div className="feat-grid">
-          {[["🚚","Envío Express","24–48 hrs Colombia"],["🔒","Pago Seguro","SSL cifrado"],["↩️","30 Días","Devolución fácil"],["💎","Premium","Garantía autenticidad"]].map(([icon,t,d])=>(
+          {[["🚚","Envío Express","24–48 hrs Colombia"],["🔒","Pago Seguro","SSL cifrado"], ["🛡️","Pedidos Seguros","Protección en cada compra"],["💎","Calidad","Garantía autenticidad"]].map(([icon,t,d])=>(
             <div key={t} className="feat-card">
               <div className="feat-icon">{icon}</div>
               <div className="feat-title">{t}</div>
@@ -1241,7 +1241,7 @@ export default function App() {
               <div className="cart-footer">
                 <div className="cart-row"><span>Subtotal</span><span>{fmtCOP(cartTotal)}</span></div>
                 <div className="cart-row" style={{color:shipping===0?"#27AE60":undefined}}>
-                  <span>Envío</span><span>{shipping===0?"GRATIS 🎉":fmtCOP(shipping)}</span>
+                  <span></span><span>{shipping===0?"":fmtCOP(shipping)}</span>
                 </div>
                 <div className="cart-total-row">
                   <span>Total</span>
@@ -1272,7 +1272,7 @@ export default function App() {
                     </div>
                   ))}
                   <div className="summary-item" style={{color:shipping===0?"#27AE60":undefined}}>
-                    <span>Envío</span><span>{shipping===0?"GRATIS":fmtCOP(shipping)}</span>
+                    <span></span><span>{shipping===0?"":fmtCOP(shipping)}</span>
                   </div>
                   <div className="summary-total">
                     <span>Total</span><span style={{color:"var(--lila)"}}>{fmtCOP(grandTotal)}</span>
