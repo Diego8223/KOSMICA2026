@@ -727,47 +727,47 @@ const CSS = `
     .cats-bar { position: relative; top: auto; }
     .modal { max-height: 98vh; }
   }
-`;
 
-/* ════════════════════════════════════════
-   WAKE-UP SCREEN — backend durmiendo
-════════════════════════════════════════ */
-.wake-screen{
-  position:fixed;inset:0;z-index:9999;
-  background:linear-gradient(160deg,#EDE4FF 0%,#F5EEFF 45%,#FDE8F5 100%);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:20px;padding:24px;
-}
-.wake-logo{
-  font-family:'Playfair Display',serif;font-size:2.8rem;font-weight:900;
-  background:linear-gradient(135deg,var(--lila),var(--pink));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-  margin-bottom:4px;
-}
-.wake-spinner{
-  width:52px;height:52px;border-radius:50%;
-  border:4px solid var(--lila-xlight);
-  border-top-color:var(--lila);
-  animation:spin 0.9s linear infinite;
-}
-@keyframes spin{to{transform:rotate(360deg)}}
-.wake-msg{
-  font-size:1.05rem;font-weight:600;color:var(--brown);
-  text-align:center;max-width:280px;line-height:1.6;
-}
-.wake-sub{
-  font-size:.88rem;color:var(--muted);text-align:center;
-  max-width:260px;line-height:1.55;
-}
-.wake-dots span{
-  display:inline-block;width:8px;height:8px;border-radius:50%;
-  background:var(--lila);margin:0 3px;
-  animation:dotBounce 1.2s infinite ease-in-out;
-}
-.wake-dots span:nth-child(2){animation-delay:.2s}
-.wake-dots span:nth-child(3){animation-delay:.4s}
-@keyframes dotBounce{0%,80%,100%{transform:scale(0.7);opacity:.5}40%{transform:scale(1.1);opacity:1}}
-`
+
+  /* ════════════════════════════════════════
+     WAKE-UP SCREEN — backend durmiendo
+  ════════════════════════════════════════ */
+  .wake-screen{
+    position:fixed;inset:0;z-index:9999;
+    background:linear-gradient(160deg,#EDE4FF 0%,#F5EEFF 45%,#FDE8F5 100%);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:20px;padding:24px;
+  }
+  .wake-logo{
+    font-family:'Playfair Display',serif;font-size:2.8rem;font-weight:900;
+    background:linear-gradient(135deg,var(--lila),var(--pink));
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+    margin-bottom:4px;
+  }
+  .wake-spinner{
+    width:52px;height:52px;border-radius:50%;
+    border:4px solid var(--lila-xlight);
+    border-top-color:var(--lila);
+    animation:spin 0.9s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .wake-msg{
+    font-size:1.05rem;font-weight:600;color:var(--brown);
+    text-align:center;max-width:280px;line-height:1.6;
+  }
+  .wake-sub{
+    font-size:.88rem;color:var(--muted);text-align:center;
+    max-width:260px;line-height:1.55;
+  }
+  .wake-dots span{
+    display:inline-block;width:8px;height:8px;border-radius:50%;
+    background:var(--lila);margin:0 3px;
+    animation:dotBounce 1.2s infinite ease-in-out;
+  }
+  .wake-dots span:nth-child(2){animation-delay:.2s}
+  .wake-dots span:nth-child(3){animation-delay:.4s}
+  @keyframes dotBounce{0%,80%,100%{transform:scale(0.7);opacity:.5}40%{transform:scale(1.1);opacity:1}}
+`;
 
 const CATEGORIES = [
   { key:"BOLSOS",     label:"👜 Bolsos",     ico:"👜", color:"linear-gradient(135deg,#9B72CF,#7B5EA7)" },
