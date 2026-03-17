@@ -2,7 +2,7 @@
 //  src/App.jsx — Kosmica v5  MOBILE-FIRST  Amazon-Style UX
 // ============================================================
 import { useState, useEffect, useCallback, useRef } from "react";
-import { productAPI, orderAPI, wakeUpBackend } from "./services/api";
+import { productAPI, orderAPI } from "./services/api";
 import ProductDetailModal from "./components/ProductDetailModal";
 import AdminPanel from "./components/AdminPanel";
 import OrderTracking from "./components/OrderTracking";
@@ -770,11 +770,13 @@ const CSS = `
 `;
 
 const CATEGORIES = [
-  { key:"BOLSOS",     label:"👜 Bolsos",     ico:"👜", color:"linear-gradient(135deg,#9B72CF,#7B5EA7)" },
-  { key:"BILLETERAS", label:"💳 Billeteras", ico:"💳", color:"linear-gradient(135deg,#B8A0D8,#9B72CF)" },
-  { key:"MAQUILLAJE", label:"💄 Maquillaje", ico:"💄", color:"linear-gradient(135deg,#F4A7C3,#D4719B)" },
-  { key:"CAPILAR",    label:"✨ Capilar",     ico:"✨", color:"linear-gradient(135deg,#A8D4F0,#72B7D4)" },
-  { key:"ROPA",       label:"👗 Ropa",        ico:"👗", color:"linear-gradient(135deg,#A8DEC4,#72BEA0)" },
+  { key:"BOLSOS",           label:"👜 Bolsos y Morrales",   ico:"👜", color:"linear-gradient(135deg,#9B72CF,#7B5EA7)" },
+  { key:"BILLETERAS",       label:"💳 Billeteras",          ico:"💳", color:"linear-gradient(135deg,#B8A0D8,#9B72CF)" },
+  { key:"MAQUILLAJE",       label:"💄 Maquillaje",          ico:"💄", color:"linear-gradient(135deg,#F4A7C3,#D4719B)" },
+  { key:"CAPILAR",          label:"✨ Capilar",              ico:"✨", color:"linear-gradient(135deg,#A8D4F0,#72B7D4)" },
+  { key:"MODA",             label:"👗 Moda",                ico:"👗", color:"linear-gradient(135deg,#A8DEC4,#72BEA0)" },
+  { key:"CUIDADO_PERSONAL", label:"🧴 Cuidado Personal",    ico:"🧴", color:"linear-gradient(135deg,#FFD6A5,#FFAA5A)" },
+  { key:"ACCESORIOS",       label:"💍 Accesorios",          ico:"💍", color:"linear-gradient(135deg,#FFC8DD,#FF85A1)" },
 ];
 const TESTIMONIALS = [
   { name:"Valentina R.", text:"¡Me llegó todo perfecto! La calidad es increíble, ya hice mi 3ra compra 💕", stars:5 },
@@ -784,7 +786,6 @@ const TESTIMONIALS = [
 ];
 
 export default function App() {
-  const [backendStatus,setBackendStatus]       = useState("waking"); // 'waking' | 'ready'
   const [adminMode,setAdminMode]             = useState(false);
   const [trackingMode,setTrackingMode]       = useState(false);
   const [activeCategory,setActiveCategory]   = useState("BOLSOS");
@@ -805,29 +806,35 @@ export default function App() {
   const [form,setForm] = useState({name:"",email:"",address:""});
   const ref = useRef(null);
 
+  // ✅ Productos placeholder — se muestran INSTANTÁNEO mientras el servidor despierta
+  const PLACEHOLDER_PRODUCTS = Array(6).fill(null).map((_,i) => ({
+    id: `ph-${i}`, name: '', price: 0, imageUrl: null,
+    badge: null, rating: 0, reviewCount: 0, __placeholder: true,
+  }));
+
   const fetchProducts = useCallback(async () => {
-    setLoading(true); setError(null);
+    setError(null);
+    // Mostrar placeholders inmediatamente para que la UI no quede vacía
+    setProducts(PLACEHOLDER_PRODUCTS);
+    setLoading(true);
     try {
       const d = await productAPI.getByCategory(activeCategory);
-      setProducts(Array.isArray(d) ? d : (d.content||[]));
-    } catch(e){ setError(e.message); }
+      const list = Array.isArray(d) ? d : (d.content||[]);
+      setProducts(list);
+    } catch(e){
+      setProducts([]);
+      setError(e.message);
+    }
     finally{ setLoading(false); }
   },[activeCategory]);
 
-  // ✅ Despierta el backend al iniciar y luego carga productos
-  useEffect(()=>{
-    wakeUpBackend(status => {
-      setBackendStatus(status);
-      if(status === 'ready') fetchProducts();
-    });
-  },[fetchProducts]);
+  useEffect(()=>{ fetchProducts(); },[fetchProducts]);
   useEffect(()=>{
     const fn=()=>setScrolled(window.scrollY>50);
     window.addEventListener("scroll",fn);
     return ()=>window.removeEventListener("scroll",fn);
   },[]);
   useEffect(()=>{
-    if(backendStatus !== 'ready') return; // esperar que el servidor despierte
     if(!search.trim()){ fetchProducts(); return; }
     const t=setTimeout(async()=>{
       setLoading(true);
@@ -902,21 +909,6 @@ export default function App() {
     <>
       <style>{CSS}</style>
       {toast && <div className="toast">{toast}</div>}
-
-      {/* ── PANTALLA DE ARRANQUE DEL SERVIDOR ── */}
-      {backendStatus === 'waking' && (
-        <div className="wake-screen">
-          <div className="wake-logo">✦ Kosmica</div>
-          <div className="wake-spinner"/>
-          <div className="wake-msg">Despertando el servidor...</div>
-          <div className="wake-sub">
-            Esto solo ocurre la primera vez del día.<br/>
-            Tardará unos segundos ☕
-          </div>
-          <div className="wake-dots">
-            <span/><span/><span/>
-          </div>
-        </div>
       )}
 
       {/* ── DRAWER OVERLAY ── */}
@@ -956,9 +948,10 @@ export default function App() {
         <div className="drawer-foot">
           <div className="drawer-foot-txt">Síguenos en redes</div>
           <div className="drawer-contact">
-            {["📘","📷","🎵","▶️"].map((s,i)=>(
-              <a key={i} href="#" onClick={e=>e.preventDefault()} className="drawer-social">{s}</a>
-            ))}
+            <a href="https://facebook.com" target="_blank" rel="noreferrer" className="drawer-social">📘</a>
+              <a href="https://instagram.com" target="_blank" rel="noreferrer" className="drawer-social">📷</a>
+              <a href="https://tiktok.com" target="_blank" rel="noreferrer" className="drawer-social">🎵</a>
+              <a href="https://youtube.com" target="_blank" rel="noreferrer" className="drawer-social">▶️</a>
           </div>
         </div>
       </nav>
@@ -1008,7 +1001,7 @@ export default function App() {
       </div>
 
       {/* ── PROMO STRIP ── */}
-      <div className="promo-strip">✦ Envío GRATIS en compras +$300.000 &nbsp;|&nbsp; &nbsp;|&nbsp; 💳 Paga con Nequi, PSE, tarjeta ✦</div>
+      <div className="promo-strip">✦ Nueva Colección 2026 &nbsp;|&nbsp; 🎀 Hasta 40% OFF &nbsp;|&nbsp; 💳 Paga con Nequi, PSE, tarjeta ✦</div>
 
       {/* ── HERO ── */}
       <section className="hero">
@@ -1067,23 +1060,24 @@ export default function App() {
             </div>
           )}
           <div className="product-grid">
-            {loading
-              ? Array(6).fill(0).map((_,i)=>(
-                  <div key={i} className="product-card">
-                    <div className="skeleton" style={{height:180}}/>
-                    <div style={{padding:"10px 12px 14px"}}>
-                      <div className="skeleton" style={{height:12,width:"55%",marginBottom:8}}/>
-                      <div className="skeleton" style={{height:18,marginBottom:10}}/>
-                      <div className="skeleton" style={{height:36}}/>
-                    </div>
-                  </div>
-                ))
-              : products.length===0
+            {products.length===0 && !loading
               ? <div style={{gridColumn:"1/-1",textAlign:"center",padding:"48px 18px",color:"var(--muted)"}}>
                   <div style={{fontSize:"3rem",marginBottom:12}}>🔍</div>
                   <p style={{fontSize:"1rem",fontWeight:600}}>No se encontraron productos</p>
                 </div>
-              : products.map(p=>{
+              : products.map((p,idx)=>{
+                  // ✅ Placeholder skeleton mientras el servidor responde
+                  if(p.__placeholder) return (
+                    <div key={p.id} className="product-card" style={{animationDelay:`${idx*0.08}s`}}>
+                      <div className="skeleton" style={{height:240}}/>
+                      <div style={{padding:"10px 12px 14px"}}>
+                        <div className="skeleton" style={{height:11,width:"50%",marginBottom:8}}/>
+                        <div className="skeleton" style={{height:17,marginBottom:7}}/>
+                        <div className="skeleton" style={{height:16,width:"40%",marginBottom:10}}/>
+                        <div className="skeleton" style={{height:38}}/>
+                      </div>
+                    </div>
+                  );
                   const pct=discountPct(p);
                   return (
                     <div key={p.id} className="product-card">
@@ -1146,7 +1140,7 @@ export default function App() {
       {/* ── FEATURES ── */}
       <section className="features">
         <div className="feat-grid">
-          {[["🚚","Envío Express","24–48 hrs Colombia"],["🔒","Pago Seguro","SSL cifrado"], ["🛡️","Pedidos Seguros","Protección en cada compra"],["💎","Calidad","Garantía autenticidad"]].map(([icon,t,d])=>(
+          {[["🚚","Envío Express","24–48 hrs Colombia"],["🔒","Pago Seguro","SSL cifrado"],["↩️","30 Días","Devolución fácil"],["💎","Premium","Garantía autenticidad"]].map(([icon,t,d])=>(
             <div key={t} className="feat-card">
               <div className="feat-icon">{icon}</div>
               <div className="feat-title">{t}</div>
@@ -1164,15 +1158,30 @@ export default function App() {
               <div className="footer-logo">✦ Kosmica</div>
               <p className="footer-desc">Tu destino de moda femenina premium. Calidad, estilo y exclusividad.</p>
               <div className="social-icons" style={{marginTop:14}}>
-                {["📘","📷","🎵","▶️"].map((s,i)=><a key={i} href="#" onClick={e=>e.preventDefault()} className="social-icon">{s}</a>)}
+                {[["📘","https://facebook.com"],["📷","https://instagram.com"],["🎵","https://tiktok.com"],["▶️","https://youtube.com"]].map(([s,url],i)=><a key={i} href={url} target="_blank" rel="noreferrer" className="social-icon">{s}</a>)}
               </div>
             </div>
-            {[["Tienda",["Bolsos","Billeteras","Maquillaje","Capilar","Ropa"]],["Ayuda",["FAQ","Envíos","Devoluciones","Contacto"]]].map(([h,ls])=>(
-              <div key={h}>
-                <div className="footer-heading">{h}</div>
-                <div className="footer-links">{ls.map(l=><a key={l} href="#" onClick={e=>e.preventDefault()}>{l}</a>)}</div>
+            <div>
+              <div className="footer-heading">Tienda</div>
+              <div className="footer-links">
+                <a href="#p" onClick={e=>{e.preventDefault();selectCat("BOLSOS");scrollTo();}}>Bolsos y Morrales</a>
+                <a href="#p" onClick={e=>{e.preventDefault();selectCat("BILLETERAS");scrollTo();}}>Billeteras</a>
+                <a href="#p" onClick={e=>{e.preventDefault();selectCat("MAQUILLAJE");scrollTo();}}>Maquillaje</a>
+                <a href="#p" onClick={e=>{e.preventDefault();selectCat("CAPILAR");scrollTo();}}>Capilar</a>
+                <a href="#p" onClick={e=>{e.preventDefault();selectCat("MODA");scrollTo();}}>Moda</a>
+                <a href="#p" onClick={e=>{e.preventDefault();selectCat("CUIDADO_PERSONAL");scrollTo();}}>Cuidado Personal</a>
+                <a href="#p" onClick={e=>{e.preventDefault();selectCat("ACCESORIOS");scrollTo();}}>Accesorios</a>
               </div>
-            ))}
+            </div>
+            <div>
+              <div className="footer-heading">Ayuda</div>
+              <div className="footer-links">
+                <a href="https://wa.me/573043927148?text=Hola%20Kosmica%2C%20tengo%20una%20pregunta" target="_blank" rel="noreferrer">Contacto</a>
+                <a href="https://wa.me/573043927148?text=Hola%2C%20quiero%20saber%20sobre%20los%20env%C3%ADos" target="_blank" rel="noreferrer">Envíos</a>
+                <a href="https://wa.me/573043927148?text=Hola%2C%20quiero%20hacer%20una%20devoluci%C3%B3n" target="_blank" rel="noreferrer">Devoluciones</a>
+                <a href="https://wa.me/573043927148?text=Hola%2C%20tengo%20una%20pregunta%20frecuente" target="_blank" rel="noreferrer">FAQ</a>
+              </div>
+            </div>
             <div>
               <div className="footer-heading">Mi pedido</div>
               <div className="footer-links">
@@ -1240,8 +1249,8 @@ export default function App() {
             {cart.length>0&&(
               <div className="cart-footer">
                 <div className="cart-row"><span>Subtotal</span><span>{fmtCOP(cartTotal)}</span></div>
-                <div className="cart-row" style={{color:shipping===0?"#27AE60":undefined}}>
-                  <span></span><span>{shipping===0?"":fmtCOP(shipping)}</span>
+                <div className="cart-row" style={{}}>
+                  <span>Envío</span><span>{fmtCOP(shipping)}</span>
                 </div>
                 <div className="cart-total-row">
                   <span>Total</span>
@@ -1271,8 +1280,8 @@ export default function App() {
                       <span>{i.name} ×{i.qty}</span><span>{fmtCOP(Number(i.price)*i.qty)}</span>
                     </div>
                   ))}
-                  <div className="summary-item" style={{color:shipping===0?"#27AE60":undefined}}>
-                    <span></span><span>{shipping===0?"":fmtCOP(shipping)}</span>
+                  <div className="summary-item" style={{}}>
+                    <span>Envío</span><span>{fmtCOP(shipping)}</span>
                   </div>
                   <div className="summary-total">
                     <span>Total</span><span style={{color:"var(--lila)"}}>{fmtCOP(grandTotal)}</span>
@@ -1336,7 +1345,7 @@ export default function App() {
       )}
 
       {/* ── WHATSAPP ── */}
-      <a className="wa-float" href="https://wa.me/573000000000?text=Hola%20Kosmica%2C%20quiero%20información"
+      <a className="wa-float" href="https://wa.me/573043927148?text=Hola%20Kosmica%2C%20quiero%20información"
         target="_blank" rel="noreferrer" aria-label="WhatsApp">💬</a>
     </>
   );

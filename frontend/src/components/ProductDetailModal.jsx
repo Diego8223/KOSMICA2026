@@ -109,6 +109,9 @@ const CSS = `
     background:#F8F5FF;
     display:flex;align-items:center;justify-content:center;
     cursor:zoom-in;
+    user-select:none;
+    -webkit-user-select:none;
+    touch-action:pan-y;
   }
   .pdm-img-box.zoomed{ cursor:zoom-out; }
 
@@ -329,6 +332,8 @@ export default function ProductDetailModal({
   const [cartOpen, setCartOpen] = useState(false);
   const vidRef = useRef(null);
   const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 640;
+  const touchStartX = useRef(null);
+  const touchStartY = useRef(null);
 
   const fmtCOP = n => {
     const num = Number(n);
@@ -369,6 +374,27 @@ export default function ProductDetailModal({
     setTimeout(() => setAdded(false), 1800);
   };
 
+  // ── Swipe táctil izquierda/derecha ──────────────────────
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+  const handleTouchEnd = (e) => {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const dy = e.changedTouches[0].clientY - touchStartY.current;
+    // Solo swipe horizontal (más de 40px en X, menos de 60px en Y)
+    if (Math.abs(dx) > 40 && Math.abs(dy) < 60) {
+      if (dx < 0 && media < mediaList.length - 1) {
+        setMedia(i => i + 1); setZoomed(false);
+      } else if (dx > 0 && media > 0) {
+        setMedia(i => i - 1); setZoomed(false);
+      }
+    }
+    touchStartX.current = null;
+    touchStartY.current = null;
+  };
+
   // ── Sección de imagen (reutilizable desktop/mobile) ──────
   const ImageSection = () => (
     <div className="pdm-img-section">
@@ -389,6 +415,8 @@ export default function ProductDetailModal({
       <div
         className={`pdm-img-box${zoomed?' zoomed':''}`}
         onClick={() => cur?.type === 'image' && setZoomed(z => !z)}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
       >
         {cur?.type === 'video' ? (
           <video ref={vidRef} className="pdm-vid" controls autoPlay>
@@ -409,6 +437,22 @@ export default function ProductDetailModal({
         )}
         {cur?.type === 'image' && (
           <div className="pdm-zoom-hint">{zoomed ? '🔍 Alejar' : '🔍 Zoom'}</div>
+        )}
+        {/* Indicador de posición cuando hay múltiples imágenes */}
+        {mediaList.length > 1 && (
+          <div style={{
+            position:'absolute',bottom:8,left:'50%',transform:'translateX(-50%)',
+            display:'flex',gap:5,zIndex:3,pointerEvents:'none'
+          }}>
+            {mediaList.map((_,i) => (
+              <div key={i} style={{
+                width: i===media ? 18 : 6,
+                height:6,borderRadius:3,
+                background: i===media ? '#9B72CF' : 'rgba(255,255,255,0.7)',
+                transition:'all .25s',
+              }}/>
+            ))}
+          </div>
         )}
 
         {mediaList.length > 1 && <>
@@ -474,7 +518,7 @@ export default function ProductDetailModal({
       </button>
 
       <div className="pdm-tags">
-        <span className="pdm-tag">✓ Envío gratis +$80</span>
+        <span className="pdm-tag">✓ Envío express Colombia</span>
         <span className="pdm-tag">✓ Devolución 30 días</span>
         <span className="pdm-tag">✓ Pago seguro</span>
       </div>
@@ -542,7 +586,7 @@ export default function ProductDetailModal({
             <div className="pdm-cp-footer">
               <div className="pdm-cp-row"><span>Subtotal</span><span>{fmtCOP(cartTotal)}</span></div>
               <div className="pdm-cp-row" style={{color:shipping===0?'#52B788':undefined}}>
-                <span>Envío</span><span>{shipping===0?'GRATIS 🎉':fmtCOP(shipping)}</span>
+                <span>Envío</span><span>{shipping===0?'Sin costo':fmtCOP(shipping)}</span>
               </div>
               <div className="pdm-cp-total">
                 <span>Total</span>
