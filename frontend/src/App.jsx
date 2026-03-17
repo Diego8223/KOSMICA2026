@@ -257,7 +257,7 @@ const CSS = `
      CATEGORÍAS — barra horizontal bajo promo
   ════════════════════════════════════════ */
   .cats-bar {
-    position: sticky; top: 58px; z-index: 880;
+    position: sticky; top: 96px; z-index: 880;
     display: flex; gap: 8px; overflow-x: auto; padding: 10px 14px;
     background: rgba(253,248,255,.97); border-bottom: 1px solid var(--lila-xlight);
     scrollbar-width: none; -webkit-overflow-scrolling: touch;
@@ -631,7 +631,7 @@ const CSS = `
     .nav-search-wrap { max-width: 260px; }
     .cart-btn { width: 46px; height: 46px; font-size: 1.15rem; }
     .hbg-btn { width: 46px; height: 46px; font-size: 1.3rem; }
-    .cats-bar { top: 64px; }
+    .cats-bar { top: 102px; }
     .hero { padding: 100px 22px 44px; }
     .hero-title { font-size: 2.9rem; }
     .hero-btns { flex-direction: row; }
@@ -988,6 +988,9 @@ export default function App() {
         </div>
       </nav>
 
+      {/* ── PROMO STRIP ── */}
+      <div className="promo-strip">✦ Nueva Colección 2026 &nbsp;|&nbsp; 🎀 Hasta 40% OFF &nbsp;|&nbsp; 💳 Paga con Nequi, PSE, tarjeta ✦</div>
+
       {/* ── CATEGORÍAS BARRA HORIZONTAL ── */}
       <div className="cats-bar">
         {CATEGORIES.map(c=>(
@@ -999,9 +1002,6 @@ export default function App() {
           </button>
         ))}
       </div>
-
-      {/* ── PROMO STRIP ── */}
-      <div className="promo-strip">✦ Nueva Colección 2026 &nbsp;|&nbsp; 🎀 Hasta 40% OFF &nbsp;|&nbsp; 💳 Paga con Nequi, PSE, tarjeta ✦</div>
 
       {/* ── HERO ── */}
       <section className="hero">
@@ -1140,7 +1140,7 @@ export default function App() {
       {/* ── FEATURES ── */}
       <section className="features">
         <div className="feat-grid">
-          {[["🚚","Envío Express","24–48 hrs Colombia"],["🔒","Pago Seguro","SSL cifrado"],["↩️","30 Días","Devolución fácil"],["💎","Premium","Garantía autenticidad"]].map(([icon,t,d])=>(
+          {[["🚚","Envío Express","24–48 hrs Colombia"],["🔒","Pago Seguro","SSL cifrado"],["↩️","Calidad garantizada","Garantía de calidad"],["💎","Premium","Garantía autenticidad"]].map(([icon,t,d])=>(
             <div key={t} className="feat-card">
               <div className="feat-icon">{icon}</div>
               <div className="feat-title">{t}</div>
@@ -1178,7 +1178,7 @@ export default function App() {
               <div className="footer-links">
                 <a href="https://wa.me/573043927148?text=Hola%20Kosmica%2C%20tengo%20una%20pregunta" target="_blank" rel="noreferrer">Contacto</a>
                 <a href="https://wa.me/573043927148?text=Hola%2C%20quiero%20saber%20sobre%20los%20env%C3%ADos" target="_blank" rel="noreferrer">Envíos</a>
-                <a href="https://wa.me/573043927148?text=Hola%2C%20quiero%20hacer%20una%20devoluci%C3%B3n" target="_blank" rel="noreferrer">Devoluciones</a>
+                <a href="https://wa.me/573043927148?text=Hola%2C%20quiero%20hacer%20una%20devoluci%C3%B3n" target="_blank" rel="noreferrer">Garantías</a>
                 <a href="https://wa.me/573043927148?text=Hola%2C%20tengo%20una%20pregunta%20frecuente" target="_blank" rel="noreferrer">FAQ</a>
               </div>
             </div>
@@ -1187,7 +1187,7 @@ export default function App() {
               <div className="footer-links">
                 <a href="#" onClick={e=>{e.preventDefault();setTrackingMode(true);}}>📦 Rastrear pedido</a>
                 <a href="#" onClick={e=>e.preventDefault()}>Política de envíos</a>
-                <a href="#" onClick={e=>e.preventDefault()}>Política de devoluciones</a>
+                <a href="#" onClick={e=>e.preventDefault()}>Política de garantías</a>
               </div>
             </div>
           </div>

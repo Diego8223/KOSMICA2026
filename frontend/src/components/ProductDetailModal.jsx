@@ -111,9 +111,10 @@ const CSS = `
     cursor:zoom-in;
     user-select:none;
     -webkit-user-select:none;
-    touch-action:pan-y;
+    touch-action:none;
   }
-  .pdm-img-box.zoomed{ cursor:zoom-out; }
+  .pdm-img-box.zoomed{ cursor:grab; overflow:hidden; }
+  .pdm-img-box.zoomed:active{ cursor:grabbing; }
 
   /* LA IMAGEN — object-fit:contain dentro de un cuadrado = siempre visible */
   .pdm-img{
@@ -121,11 +122,13 @@ const CSS = `
     height:100%;
     object-fit:contain;
     display:block;
-    transition:transform .3s ease;
+    transition:transform .28s cubic-bezier(.25,.46,.45,.94);
     padding:12px;
     box-sizing:border-box;
+    transform-origin:center center;
+    will-change:transform;
   }
-  .pdm-img.zoomed{ transform:scale(2); padding:0; }
+  .pdm-img.zoomed{ padding:0; transition:none; }
 
   /* Video */
   .pdm-vid{
@@ -332,8 +335,14 @@ export default function ProductDetailModal({
   const [cartOpen, setCartOpen] = useState(false);
   const vidRef = useRef(null);
   const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 640;
-  const touchStartX = useRef(null);
-  const touchStartY = useRef(null);
+  const touchStartX   = useRef(null);
+  const touchStartY   = useRef(null);
+  const touchLastX    = useRef(null);
+  const touchLastY    = useRef(null);
+  const imgRef        = useRef(null);
+  const panX          = useRef(0);
+  const panY          = useRef(0);
+  const isPanning     = useRef(false);
 
   const fmtCOP = n => {
     const num = Number(n);
@@ -374,25 +383,68 @@ export default function ProductDetailModal({
     setTimeout(() => setAdded(false), 1800);
   };
 
-  // ── Swipe táctil izquierda/derecha ──────────────────────
+  // ── Zoom + Pan + Swipe ──────────────────────────────────
+  const applyTransform = (scale, x, y) => {
+    if (!imgRef.current) return;
+    imgRef.current.style.transform = scale > 1
+      ? `scale(${scale}) translate(${x}px,${y}px)`
+      : 'scale(1) translate(0px,0px)';
+  };
+
+  const resetZoom = () => {
+    panX.current = 0; panY.current = 0;
+    setZoomed(false);
+    if (imgRef.current) imgRef.current.style.transform = 'scale(1) translate(0px,0px)';
+  };
+
   const handleTouchStart = (e) => {
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
+    touchLastX.current  = e.touches[0].clientX;
+    touchLastY.current  = e.touches[0].clientY;
+    isPanning.current   = false;
   };
+
+  const handleTouchMove = (e) => {
+    if (!zoomed) return;
+    e.preventDefault();
+    isPanning.current = true;
+    const dx = e.touches[0].clientX - touchLastX.current;
+    const dy = e.touches[0].clientY - touchLastY.current;
+    touchLastX.current = e.touches[0].clientX;
+    touchLastY.current = e.touches[0].clientY;
+    // Límite de desplazamiento para que no se salga de la imagen
+    const limit = 80;
+    panX.current = Math.max(-limit, Math.min(limit, panX.current + dx * 0.5));
+    panY.current = Math.max(-limit, Math.min(limit, panY.current + dy * 0.5));
+    applyTransform(2.5, panX.current, panY.current);
+  };
+
   const handleTouchEnd = (e) => {
     if (touchStartX.current === null) return;
     const dx = e.changedTouches[0].clientX - touchStartX.current;
     const dy = e.changedTouches[0].clientY - touchStartY.current;
-    // Solo swipe horizontal (más de 40px en X, menos de 60px en Y)
-    if (Math.abs(dx) > 40 && Math.abs(dy) < 60) {
+
+    if (zoomed && !isPanning.current) {
+      // Toque rápido en modo zoom → salir del zoom
+      resetZoom();
+    } else if (!zoomed && !isPanning.current) {
+      // Toque rápido sin zoom → activar zoom automático
+      if (cur?.type === 'image') {
+        setZoomed(true);
+        panX.current = 0; panY.current = 0;
+        setTimeout(() => applyTransform(2.5, 0, 0), 30);
+      }
+    } else if (!zoomed && Math.abs(dx) > 40 && Math.abs(dy) < 70) {
+      // Swipe horizontal sin zoom → cambiar imagen
       if (dx < 0 && media < mediaList.length - 1) {
-        setMedia(i => i + 1); setZoomed(false);
+        setMedia(i => i + 1);
       } else if (dx > 0 && media > 0) {
-        setMedia(i => i - 1); setZoomed(false);
+        setMedia(i => i - 1);
       }
     }
     touchStartX.current = null;
-    touchStartY.current = null;
+    isPanning.current = false;
   };
 
   // ── Sección de imagen (reutilizable desktop/mobile) ──────
@@ -403,10 +455,10 @@ export default function ProductDetailModal({
         <div className="pdm-thumbs">
           {mediaList.map((m, i) => m.type === 'video'
             ? <div key={i} className={`pdm-vthumb${media===i?' active':''}`}
-                onClick={() => { setMedia(i); setZoomed(false); }}>▶️</div>
+                onClick={() => { setMedia(i); resetZoom(); }}>▶️</div>
             : <img key={i} src={m.url} alt=""
                 className={`pdm-thumb${media===i?' active':''}`}
-                onClick={() => { setMedia(i); setZoomed(false); }} />
+                onClick={() => { setMedia(i); resetZoom(); }} />
           )}
         </div>
       )}
@@ -414,8 +466,9 @@ export default function ProductDetailModal({
       {/* Imagen principal — aspect-ratio 1:1 garantiza que SIEMPRE se ve */}
       <div
         className={`pdm-img-box${zoomed?' zoomed':''}`}
-        onClick={() => cur?.type === 'image' && setZoomed(z => !z)}
+        onClick={() => { if (cur?.type === 'image' && !isPanning.current) { zoomed ? resetZoom() : (setZoomed(true), setTimeout(()=>applyTransform(2.5,0,0),30)); } }}
         onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
         {cur?.type === 'video' ? (
@@ -424,9 +477,11 @@ export default function ProductDetailModal({
           </video>
         ) : (
           <img
+            ref={imgRef}
             className={`pdm-img${zoomed?' zoomed':''}`}
             src={cur?.url}
             alt={product.name}
+            draggable="false"
           />
         )}
 
@@ -436,7 +491,7 @@ export default function ProductDetailModal({
           </span>
         )}
         {cur?.type === 'image' && (
-          <div className="pdm-zoom-hint">{zoomed ? '🔍 Alejar' : '🔍 Zoom'}</div>
+          <div className="pdm-zoom-hint">{zoomed ? 'Toca para cerrar · arrastra para mover' : 'Toca la foto para ampliar'}</div>
         )}
         {/* Indicador de posición cuando hay múltiples imágenes */}
         {mediaList.length > 1 && (
@@ -458,11 +513,11 @@ export default function ProductDetailModal({
         {mediaList.length > 1 && <>
           {media > 0 && (
             <button className="pdm-nav pdm-prev"
-              onClick={e => { e.stopPropagation(); setZoomed(false); setMedia(i => i-1); }}>‹</button>
+              onClick={e => { e.stopPropagation(); resetZoom(); setMedia(i => i-1); }}>‹</button>
           )}
           {media < mediaList.length - 1 && (
             <button className="pdm-nav pdm-next"
-              onClick={e => { e.stopPropagation(); setZoomed(false); setMedia(i => i+1); }}>›</button>
+              onClick={e => { e.stopPropagation(); resetZoom(); setMedia(i => i+1); }}>›</button>
           )}
         </>}
       </div>
@@ -519,7 +574,7 @@ export default function ProductDetailModal({
 
       <div className="pdm-tags">
         <span className="pdm-tag">✓ Envío express Colombia</span>
-        <span className="pdm-tag">✓ Devolución 30 días</span>
+        <span className="pdm-tag">✓ Garantía de calidad</span>
         <span className="pdm-tag">✓ Pago seguro</span>
       </div>
     </div>

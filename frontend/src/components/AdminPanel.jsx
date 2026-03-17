@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 import { productAPI, orderAPI } from '../services/api';
 
 const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD || 'Kosmica2025';
-const CATEGORIES = ['BOLSOS','BILLETERAS','MAQUILLAJE','CAPILAR','ROPA'];
+const CATEGORIES = ['BOLSOS','BILLETERAS','MAQUILLAJE','CAPILAR','MODA','CUIDADO_PERSONAL','ACCESORIOS'];
 const BADGES     = ['','VIRAL','HOT','BESTSELLER','NUEVO'];
 const EMPTY_PROD = {
   name:'', description:'', price:'', originalPrice:'',
@@ -14,7 +14,6 @@ const EMPTY_PROD = {
 };
 
 const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;900&family=DM+Sans:wght@300;400;500;600;700&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin:0; padding:0; }
 
   .adm { font-family:'DM Sans',sans-serif; background:#F8F4FF; min-height:100vh; color:#2D1B4E; }
@@ -333,7 +332,8 @@ export default function AdminPanel({ onExit }) {
   const [vidProg, setVidProg] = useState(0);
   const [gallery, setGallery] = useState([]);
   const [vidName, setVidName] = useState('');
-  const [orderSearch, setOrderSearch] = useState('');
+  const [orderSearch,   setOrderSearch]   = useState('');
+  const [prodCatFilter, setProdCatFilter] = useState('');
   // ── FIX: refs declarados fuera del map ──────────────────────
   const [uploadedImgUrl, setUploadedImgUrl] = useState('');
   const [uploadedVidUrl, setUploadedVidUrl] = useState('');
@@ -596,9 +596,22 @@ export default function AdminPanel({ onExit }) {
             <h1 className="adm-h1">Productos</h1>
             <p className="adm-sub">Gestiona tu catálogo completo</p>
             <div className="adm-card">
-              <div className="adm-card-top">
+              <div className="adm-card-top" style={{flexWrap:'wrap',gap:10}}>
                 <span className="adm-card-title">{products.length} productos</span>
-                <button className="adm-btn-primary" onClick={openNew}>+ Nuevo producto</button>
+                <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+                  <select className="adm-sel-status" value={prodCatFilter} onChange={e=>setProdCatFilter(e.target.value)}
+                    style={{padding:'8px 12px',fontSize:'.88rem'}}>
+                    <option value="">Todas las categorías</option>
+                    <option value="BOLSOS">👜 Bolsos y Morrales</option>
+                    <option value="BILLETERAS">💳 Billeteras</option>
+                    <option value="MAQUILLAJE">💄 Maquillaje</option>
+                    <option value="CAPILAR">✨ Capilar</option>
+                    <option value="MODA">👗 Moda</option>
+                    <option value="CUIDADO_PERSONAL">🧴 Cuidado Personal</option>
+                    <option value="ACCESORIOS">💍 Accesorios</option>
+                  </select>
+                  <button className="adm-btn-primary" onClick={openNew}>+ Nuevo producto</button>
+                </div>
               </div>
               {loading
                 ? <div className="adm-loading">⏳ Cargando...</div>
@@ -608,11 +621,16 @@ export default function AdminPanel({ onExit }) {
                     <table className="adm-tbl">
                       <thead><tr><th>Foto</th><th>Nombre</th><th>Cat.</th><th>Precio</th><th>Stock</th><th>Badge</th><th>Acc.</th></tr></thead>
                       <tbody>
-                        {products.map(p=>(
+                        {(prodCatFilter ? products.filter(p=>p.category===prodCatFilter) : products).map(p=>(
                           <tr key={p.id}>
                             <td><img className="adm-prod-img" src={p.imageUrl||'https://via.placeholder.com/48'} alt=""/></td>
                             <td style={{fontWeight:600,maxWidth:180}}>{p.name}</td>
-                            <td><span className="adm-cat">{p.category}</span></td>
+                            <td><span className="adm-cat">{{
+                              BOLSOS:'👜 Bolsos',BILLETERAS:'💳 Billeteras',
+                              MAQUILLAJE:'💄 Maquillaje',CAPILAR:'✨ Capilar',
+                              MODA:'👗 Moda',CUIDADO_PERSONAL:'🧴 Cuidado',
+                              ACCESORIOS:'💍 Accesorios'
+                            }[p.category]||p.category}</span></td>
                             <td style={{fontWeight:700,color:'#7B5EA7'}}>${Number(p.price||0).toLocaleString("es-CO",{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
                             <td>{p.stock}</td>
                             <td>{p.badge&&<span className={`adm-badge ${p.badge}`}>{p.badge}</span>}</td>
@@ -670,7 +688,13 @@ export default function AdminPanel({ onExit }) {
                   <div className="adm-form-group">
                     <label className="adm-label">Categoría *</label>
                     <select className="adm-select" value={form.category} onChange={e=>fSet('category',e.target.value)}>
-                      {CATEGORIES.map(c=><option key={c}>{c}</option>)}
+                      <option value="BOLSOS">👜 Bolsos y Morrales</option>
+                      <option value="BILLETERAS">💳 Billeteras</option>
+                      <option value="MAQUILLAJE">💄 Maquillaje</option>
+                      <option value="CAPILAR">✨ Capilar</option>
+                      <option value="MODA">👗 Moda</option>
+                      <option value="CUIDADO_PERSONAL">🧴 Cuidado Personal</option>
+                      <option value="ACCESORIOS">💍 Accesorios</option>
                     </select>
                   </div>
 
