@@ -8,7 +8,7 @@ import AdminPanel from "./components/AdminPanel";
 import OrderTracking from "./components/OrderTracking";
 
 const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+  /* ✅ FUENTE: cargada en index.html con display=swap — no bloquea render */
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -965,13 +965,18 @@ export default function App() {
           </div>
           <div className="hero-mosaic">
             {[
-              {src:"https://images.unsplash.com/photo-1483985988355-763728e1935b?w=340&q=80",h:220},
+              {src:"https://images.unsplash.com/photo-1483985988355-763728e1935b?w=340&q=80",h:220,eager:true},
               {src:"https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=340&q=80",h:180,mt:30},
               {src:"https://images.unsplash.com/photo-1599744331096-44b7a09e1059?w=340&q=80",h:180,mt:30},
               {src:"https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=340&q=80",h:220},
             ].map((img,i)=>(
               <div key={i} className="mosaic-img" style={{height:img.h,marginTop:img.mt||0}}>
-                <img src={img.src} alt="" style={{height:"100%"}}/>
+                <img src={img.src} alt="" style={{height:"100%"}}
+                  loading={img.eager ? "eager" : "lazy"}
+                  fetchpriority={img.eager ? "high" : "auto"}
+                />
+              </div>
+            ))}
               </div>
             ))}
           </div>
@@ -1023,7 +1028,12 @@ export default function App() {
                       <div className="card-img-wrap" onClick={()=>setSelectedProduct(p)}>
                         <img className="card-img"
                           src={p.imageUrl||"https://images.unsplash.com/photo-1483985988355-763728e1935b?w=400&q=80"}
-                          alt={p.name} loading="lazy"/>
+                          alt={p.name}
+                          loading="lazy"
+                          width="400"
+                          height="240"
+                          decoding="async"
+                        />
                         <div className="card-see-more">{p.videoUrl?"🎥 Ver fotos y video →":"🔍 Ver más →"}</div>
                         {p.badge&&<span className={`card-badge ${p.badge}`}>{p.badge}</span>}
                         <button className="card-wish" onClick={e=>{e.stopPropagation();toggleWishlist(p.id);}}>

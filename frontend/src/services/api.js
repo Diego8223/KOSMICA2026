@@ -7,7 +7,7 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
 
 const api = axios.create({
   baseURL: `${API_URL}/api`,
-  timeout: 30000,
+  timeout: 15000, // ✅ Reducido de 30s a 15s: falla más rápido si el servidor no responde
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -22,16 +22,33 @@ api.interceptors.response.use(
   }
 );
 
+// ✅ CACHÉ SIMPLE EN MEMORIA: evita llamadas repetidas a la misma categoría
+const cache = new Map();
+const CACHE_TTL = 60_000; // 1 minuto
+
+function cached(key, fetcher) {
+  const entry = cache.get(key);
+  if (entry && Date.now() - entry.time < CACHE_TTL) return Promise.resolve(entry.data);
+  return fetcher().then(data => {
+    cache.set(key, { data, time: Date.now() });
+    return data;
+  });
+}
+
 // ── Productos ─────────────────────────────────────────────
 export const productAPI = {
   getAll:        ()              => api.get('/products').then(r => r.data),
-  getByCategory: (cat, p=0, s=12) => api.get(`/products?category=${cat}&page=${p}&size=${s}`).then(r => r.data),
-  getFeatured:   ()              => api.get('/products/featured').then(r => r.data),
+  getByCategory: (cat, p=0, s=12) =>
+    // ✅ Categorías cacheadas: segunda visita carga instantáneo
+    cached(`cat:${cat}:${p}`, () =>
+      api.get(`/products?category=${cat}&page=${p}&size=${s}`).then(r => r.data)
+    ),
+  getFeatured:   ()              => cached('featured', () => api.get('/products/featured').then(r => r.data)),
   search:        (q, p=0, s=12) => api.get(`/products/search?q=${encodeURIComponent(q)}&page=${p}&size=${s}`).then(r => r.data),
-  getById:       (id)            => api.get(`/products/${id}`).then(r => r.data),
-  create:        (data)          => api.post('/products', data).then(r => r.data),
-  update:        (id, data)      => api.put(`/products/${id}`, data).then(r => r.data),
-  delete:        (id)            => api.delete(`/products/${id}`),
+  getById:       (id)            => cached(`prod:${id}`, () => api.get(`/products/${id}`).then(r => r.data)),
+  create:        (data)          => { cache.clear(); return api.post('/products', data).then(r => r.data); },
+  update:        (id, data)      => { cache.clear(); return api.put(`/products/${id}`, data).then(r => r.data); },
+  delete:        (id)            => { cache.clear(); return api.delete(`/products/${id}`); },
 
   uploadImage: (file, onProgress) => {
     const form = new FormData();

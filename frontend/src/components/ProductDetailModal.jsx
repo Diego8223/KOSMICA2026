@@ -77,37 +77,43 @@ const CSS = `
   }
   .pdm-vthumb.active{border-color:#9B72CF}
 
-  /* MAIN - CORREGIDO PARA QUE LA FOTO SE VEA COMPLETA */
+  /* MAIN — ✅ FOTO SIEMPRE VISIBLE Y COMPLETA */
   .pdm-main{
     flex:1;
     position:relative;
     background:#FAF7FF;
     border-radius:16px;
-    overflow:auto;  /* Cambiado de hidden a auto para permitir scroll si es necesario */
+    overflow:hidden;
     display:flex;
     align-items:center;
     justify-content:center;
-    min-height:400px; /* Altura mínima para que se vea bien */
+    /* ✅ height explícito: sin esto object-fit:contain no tiene referencia */
+    height:460px;
+    min-height:260px;
     max-height:500px;
     cursor:zoom-in;
   }
   
   .pdm-main.zoomed{
     cursor:zoom-out;
+    overflow:auto;
   }
   
   .pdm-img{
-    width:100%;
-    height:100%;
-    object-fit:contain; /* Esto asegura que la imagen se vea completa sin recortes */
+    /* ✅ max-width/max-height en vez de width/height 100%: 
+       así la imagen nunca se estira más de su contenedor */
+    max-width:100%;
+    max-height:100%;
+    width:auto;
+    height:auto;
+    object-fit:contain;
     display:block;
     transition:transform 0.3s ease;
   }
   
   .pdm-img.zoomed{
-    transform:scale(2);
+    transform:scale(2.2);
     cursor:zoom-out;
-    object-fit:scale-down;
   }
   
   .pdm-vid{width:100%;height:100%;object-fit:contain}
@@ -241,8 +247,21 @@ const CSS = `
     .pdm-gallery{flex-direction:column;padding:10px 12px 0}
     .pdm-thumbs{flex-direction:row;width:auto;overflow-x:auto;overflow-y:hidden;padding-bottom:6px}
     .pdm-thumb,.pdm-vthumb{width:56px;height:56px}
-    .pdm-main{min-height:0;flex:none;max-height:400px;}
-    .pdm-img{width:100%;height:100%;object-fit:contain;}
+    /* ✅ FIX MÓVIL: altura fija para que la imagen sea visible */
+    .pdm-main{
+      flex:none;
+      height:300px;
+      min-height:220px;
+      max-height:340px;
+      width:100%;
+    }
+    /* ✅ FIX MÓVIL: imagen responsive sin desbordarse */
+    .pdm-img{
+      max-width:100%;
+      max-height:100%;
+      width:auto;
+      height:auto;
+    }
     .pdm-info{width:100%;border-left:none;border-top:1px solid #F0E8FF;padding:14px 12px 20px}
     .pdm-name{font-size:1.2rem}
     .pdm-price{font-size:1.6rem}

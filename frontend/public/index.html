@@ -9,8 +9,30 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>Kosmica</title>
+
+    <!-- ✅ FUENTES: preload + media=print truco evita bloqueo del render -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" as="style"
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500;600;700&display=swap" />
+    <link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500;600;700&display=swap"
+      media="print" onload="this.media='all'" />
+    <noscript>
+      <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500;600;700&display=swap" />
+    </noscript>
+
+    <!-- ✅ CSS CRÍTICO INLINE: evita FOUC (flash de contenido sin estilo) -->
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+        background: #FDF8FF; color: #2D1B4E;
+        overflow-x: hidden; -webkit-font-smoothing: antialiased;
+      }
+      #root { min-height: 100vh; }
+    </style>
   </head>
   <body>
     <noscript>Necesitas JavaScript para ver esta página.</noscript>
