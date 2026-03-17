@@ -1,5 +1,6 @@
 // ============================================================
 //  src/services/api.js — Kosmica con MercadoPago
+//  ✅ OPTIMIZADO: wake-up automático + retry + caché
 // ============================================================
 import axios from 'axios';
 
@@ -7,7 +8,8 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
 
 const api = axios.create({
   baseURL: `${API_URL}/api`,
-  timeout: 15000, // ✅ Reducido de 30s a 15s: falla más rápido si el servidor no responde
+  // ✅ 60s para el primer request — Render tarda ~30-50s en despertar
+  timeout: 60000,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -22,9 +24,9 @@ api.interceptors.response.use(
   }
 );
 
-// ✅ CACHÉ SIMPLE EN MEMORIA: evita llamadas repetidas a la misma categoría
+// ✅ CACHÉ EN MEMORIA — segunda visita a la misma categoría carga instantáneo
 const cache = new Map();
-const CACHE_TTL = 60_000; // 1 minuto
+const CACHE_TTL = 60_000;
 
 function cached(key, fetcher) {
   const entry = cache.get(key);
@@ -35,20 +37,34 @@ function cached(key, fetcher) {
   });
 }
 
+// ✅ WAKE-UP: despierta el backend en silencio al abrir la página
+let wakeUpDone = false;
+export async function wakeUpBackend(onStatus) {
+  if (wakeUpDone) { onStatus?.('ready'); return; }
+  try {
+    onStatus?.('waking');
+    await axios.get(`${API_URL}/api/health`, { timeout: 65000 });
+    wakeUpDone = true;
+    onStatus?.('ready');
+  } catch {
+    wakeUpDone = true;
+    onStatus?.('ready');
+  }
+}
+
 // ── Productos ─────────────────────────────────────────────
 export const productAPI = {
-  getAll:        ()              => api.get('/products').then(r => r.data),
+  getAll:        ()               => api.get('/products').then(r => r.data),
   getByCategory: (cat, p=0, s=12) =>
-    // ✅ Categorías cacheadas: segunda visita carga instantáneo
     cached(`cat:${cat}:${p}`, () =>
       api.get(`/products?category=${cat}&page=${p}&size=${s}`).then(r => r.data)
     ),
-  getFeatured:   ()              => cached('featured', () => api.get('/products/featured').then(r => r.data)),
-  search:        (q, p=0, s=12) => api.get(`/products/search?q=${encodeURIComponent(q)}&page=${p}&size=${s}`).then(r => r.data),
-  getById:       (id)            => cached(`prod:${id}`, () => api.get(`/products/${id}`).then(r => r.data)),
-  create:        (data)          => { cache.clear(); return api.post('/products', data).then(r => r.data); },
-  update:        (id, data)      => { cache.clear(); return api.put(`/products/${id}`, data).then(r => r.data); },
-  delete:        (id)            => { cache.clear(); return api.delete(`/products/${id}`); },
+  getFeatured:   ()               => cached('featured', () => api.get('/products/featured').then(r => r.data)),
+  search:        (q, p=0, s=12)   => api.get(`/products/search?q=${encodeURIComponent(q)}&page=${p}&size=${s}`).then(r => r.data),
+  getById:       (id)             => cached(`prod:${id}`, () => api.get(`/products/${id}`).then(r => r.data)),
+  create:        (data)           => { cache.clear(); return api.post('/products', data).then(r => r.data); },
+  update:        (id, data)       => { cache.clear(); return api.put(`/products/${id}`, data).then(r => r.data); },
+  delete:        (id)             => { cache.clear(); return api.delete(`/products/${id}`); },
 
   uploadImage: (file, onProgress) => {
     const form = new FormData();
@@ -71,24 +87,12 @@ export const productAPI = {
 
 // ── Pedidos con MercadoPago ───────────────────────────────
 export const orderAPI = {
-
-  // Crea preferencia en MercadoPago — devuelve { preferenceId, initPoint, publicKey }
   createPaymentIntent: (amount, currency = 'COP', items = null) =>
     api.post('/orders/payment-intent', { amount, currency, items }).then(r => r.data),
-
-  // Crea el pedido en la base de datos
-  createOrder: (data) => api.post('/orders', data).then(r => r.data),
-
-  // Buscar pedido por número (rastreo)
-  getByNumber:   (number) => api.get(`/orders/${number}`).then(r => r.data),
-
-  // Pedidos de un cliente
-  getByCustomer: (email)  => api.get(`/orders/customer/${email}`).then(r => r.data),
-
-  // Todos los pedidos (admin)
-  getAll:        (p=0, s=20) => api.get(`/orders?page=${p}&size=${s}`).then(r => r.data),
-
-  // Cambiar estado de un pedido (admin) → dispara email automático
+  createOrder:   (data)       => api.post('/orders', data).then(r => r.data),
+  getByNumber:   (number)     => api.get(`/orders/${number}`).then(r => r.data),
+  getByCustomer: (email)      => api.get(`/orders/customer/${email}`).then(r => r.data),
+  getAll:        (p=0, s=20)  => api.get(`/orders?page=${p}&size=${s}`).then(r => r.data),
   updateStatus:  (id, status) => api.patch(`/orders/${id}/status`, { status }).then(r => r.data),
 };
 

@@ -2,7 +2,7 @@
 //  src/App.jsx — Kosmica v5  MOBILE-FIRST  Amazon-Style UX
 // ============================================================
 import { useState, useEffect, useCallback, useRef } from "react";
-import { productAPI, orderAPI } from "./services/api";
+import { productAPI, orderAPI, wakeUpBackend } from "./services/api";
 import ProductDetailModal from "./components/ProductDetailModal";
 import AdminPanel from "./components/AdminPanel";
 import OrderTracking from "./components/OrderTracking";
@@ -729,6 +729,46 @@ const CSS = `
   }
 `;
 
+/* ════════════════════════════════════════
+   WAKE-UP SCREEN — backend durmiendo
+════════════════════════════════════════ */
+.wake-screen{
+  position:fixed;inset:0;z-index:9999;
+  background:linear-gradient(160deg,#EDE4FF 0%,#F5EEFF 45%,#FDE8F5 100%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:20px;padding:24px;
+}
+.wake-logo{
+  font-family:'Playfair Display',serif;font-size:2.8rem;font-weight:900;
+  background:linear-gradient(135deg,var(--lila),var(--pink));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  margin-bottom:4px;
+}
+.wake-spinner{
+  width:52px;height:52px;border-radius:50%;
+  border:4px solid var(--lila-xlight);
+  border-top-color:var(--lila);
+  animation:spin 0.9s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.wake-msg{
+  font-size:1.05rem;font-weight:600;color:var(--brown);
+  text-align:center;max-width:280px;line-height:1.6;
+}
+.wake-sub{
+  font-size:.88rem;color:var(--muted);text-align:center;
+  max-width:260px;line-height:1.55;
+}
+.wake-dots span{
+  display:inline-block;width:8px;height:8px;border-radius:50%;
+  background:var(--lila);margin:0 3px;
+  animation:dotBounce 1.2s infinite ease-in-out;
+}
+.wake-dots span:nth-child(2){animation-delay:.2s}
+.wake-dots span:nth-child(3){animation-delay:.4s}
+@keyframes dotBounce{0%,80%,100%{transform:scale(0.7);opacity:.5}40%{transform:scale(1.1);opacity:1}}
+`
+
 const CATEGORIES = [
   { key:"BOLSOS",     label:"👜 Bolsos",     ico:"👜", color:"linear-gradient(135deg,#9B72CF,#7B5EA7)" },
   { key:"BILLETERAS", label:"💳 Billeteras", ico:"💳", color:"linear-gradient(135deg,#B8A0D8,#9B72CF)" },
@@ -744,6 +784,7 @@ const TESTIMONIALS = [
 ];
 
 export default function App() {
+  const [backendStatus,setBackendStatus]       = useState("waking"); // 'waking' | 'ready'
   const [adminMode,setAdminMode]             = useState(false);
   const [trackingMode,setTrackingMode]       = useState(false);
   const [activeCategory,setActiveCategory]   = useState("BOLSOS");
@@ -773,13 +814,20 @@ export default function App() {
     finally{ setLoading(false); }
   },[activeCategory]);
 
-  useEffect(()=>{ fetchProducts(); },[fetchProducts]);
+  // ✅ Despierta el backend al iniciar y luego carga productos
+  useEffect(()=>{
+    wakeUpBackend(status => {
+      setBackendStatus(status);
+      if(status === 'ready') fetchProducts();
+    });
+  },[fetchProducts]);
   useEffect(()=>{
     const fn=()=>setScrolled(window.scrollY>50);
     window.addEventListener("scroll",fn);
     return ()=>window.removeEventListener("scroll",fn);
   },[]);
   useEffect(()=>{
+    if(backendStatus !== 'ready') return; // esperar que el servidor despierte
     if(!search.trim()){ fetchProducts(); return; }
     const t=setTimeout(async()=>{
       setLoading(true);
@@ -854,6 +902,22 @@ export default function App() {
     <>
       <style>{CSS}</style>
       {toast && <div className="toast">{toast}</div>}
+
+      {/* ── PANTALLA DE ARRANQUE DEL SERVIDOR ── */}
+      {backendStatus === 'waking' && (
+        <div className="wake-screen">
+          <div className="wake-logo">✦ Kosmica</div>
+          <div className="wake-spinner"/>
+          <div className="wake-msg">Despertando el servidor...</div>
+          <div className="wake-sub">
+            Esto solo ocurre la primera vez del día.<br/>
+            Tardará unos segundos ☕
+          </div>
+          <div className="wake-dots">
+            <span/><span/><span/>
+          </div>
+        </div>
+      )}
 
       {/* ── DRAWER OVERLAY ── */}
       <div className={`drawer-overlay${drawerOpen?" show":""}`} onClick={()=>setDrawerOpen(false)}/>
