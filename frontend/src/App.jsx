@@ -201,7 +201,7 @@ const CSS = `
      HERO MÓVIL
   ════════════════════════════════════════ */
   .hero {
-    padding: 158px 16px 28px;
+    padding: 152px 16px 28px;
     background: linear-gradient(160deg,#EDE4FF 0%,#F5EEFF 45%,#FDE8F5 75%,#FFE8F0 100%);
     position: relative; overflow: hidden;
   }
@@ -773,13 +773,12 @@ const CSS = `
 `;
 
 const CATEGORIES = [
-  { key:"BOLSOS",           label:"👜 Bolsos y Morrales",   ico:"👜", color:"linear-gradient(135deg,#9B72CF,#7B5EA7)" },
-  { key:"BILLETERAS",       label:"💳 Billeteras",          ico:"💳", color:"linear-gradient(135deg,#B8A0D8,#9B72CF)" },
-  { key:"MAQUILLAJE",       label:"💄 Maquillaje",          ico:"💄", color:"linear-gradient(135deg,#F4A7C3,#D4719B)" },
-  { key:"CAPILAR",          label:"✨ Capilar",              ico:"✨", color:"linear-gradient(135deg,#A8D4F0,#72B7D4)" },
-  { key:"MODA",             label:"👗 Moda",                ico:"👗", color:"linear-gradient(135deg,#A8DEC4,#72BEA0)" },
-  { key:"CUIDADO_PERSONAL", label:"🧴 Cuidado Personal",    ico:"🧴", color:"linear-gradient(135deg,#FFD6A5,#FFAA5A)" },
-  { key:"ACCESORIOS",       label:"💍 Accesorios",          ico:"💍", color:"linear-gradient(135deg,#FFC8DD,#FF85A1)" },
+  { key:"BOLSOS",           label:"👜 Bolsos y Morrales",  ico:"👜", color:"linear-gradient(135deg,#9B72CF,#7B5EA7)" },
+  { key:"BILLETERAS",       label:"💳 Billeteras",         ico:"💳", color:"linear-gradient(135deg,#B8A0D8,#9B72CF)" },
+  { key:"MAQUILLAJE",       label:"💄 Maquillaje",         ico:"💄", color:"linear-gradient(135deg,#F4A7C3,#D4719B)" },
+  { key:"CAPILAR",          label:"✨ Capilar",             ico:"✨", color:"linear-gradient(135deg,#A8D4F0,#72B7D4)" },
+  { key:"CUIDADO_PERSONAL", label:"🧴 Cuidado Personal",  ico:"🧴", color:"linear-gradient(135deg,#FFD6A5,#F4A261)" },
+  { key:"ACCESORIOS",       label:"💍 Accesorios",         ico:"💍", color:"linear-gradient(135deg,#FFC8DD,#E07A9A)" },
 ];
 const TESTIMONIALS = [
   { name:"Valentina R.", text:"¡Me llegó todo perfecto! La calidad es increíble, ya hice mi 3ra compra 💕", stars:5 },
@@ -912,7 +911,6 @@ export default function App() {
     <>
       <style>{CSS}</style>
       {toast && <div className="toast">{toast}</div>}
-      )}
 
       {/* ── DRAWER OVERLAY ── */}
       <div className={`drawer-overlay${drawerOpen?" show":""}`} onClick={()=>setDrawerOpen(false)}/>
@@ -992,7 +990,7 @@ export default function App() {
       </nav>
 
       {/* ── PROMO STRIP ── */}
-      <div className="promo-strip">✦ Nueva Colección 2026 &nbsp;|&nbsp; 🎀 Hasta 40% OFF &nbsp;|&nbsp; 💳 Paga con Nequi, PSE, tarjeta ✦</div>
+      <div className="promo-strip">💳 Paga con Nequi, PSE y tarjeta &nbsp;|&nbsp; 🔒 Pago 100% seguro &nbsp;|&nbsp; 📦 Envío express Colombia ✦</div>
 
       {/* ── CATEGORÍAS BARRA HORIZONTAL ── */}
       <div className="cats-bar">

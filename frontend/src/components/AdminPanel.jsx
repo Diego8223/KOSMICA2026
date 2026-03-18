@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 import { productAPI, orderAPI } from '../services/api';
 
 const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD || 'Kosmica2025';
-const CATEGORIES = ['BOLSOS','BILLETERAS','MAQUILLAJE','CAPILAR','MODA','CUIDADO_PERSONAL','ACCESORIOS'];
+const CATEGORIES = ['BOLSOS','BILLETERAS','MAQUILLAJE','CAPILAR','CUIDADO_PERSONAL','ACCESORIOS'];
 const BADGES     = ['','VIRAL','HOT','BESTSELLER','NUEVO'];
 const EMPTY_PROD = {
   name:'', description:'', price:'', originalPrice:'',
@@ -606,7 +606,6 @@ export default function AdminPanel({ onExit }) {
                     <option value="BILLETERAS">💳 Billeteras</option>
                     <option value="MAQUILLAJE">💄 Maquillaje</option>
                     <option value="CAPILAR">✨ Capilar</option>
-                    <option value="MODA">👗 Moda</option>
                     <option value="CUIDADO_PERSONAL">🧴 Cuidado Personal</option>
                     <option value="ACCESORIOS">💍 Accesorios</option>
                   </select>
@@ -625,12 +624,7 @@ export default function AdminPanel({ onExit }) {
                           <tr key={p.id}>
                             <td><img className="adm-prod-img" src={p.imageUrl||'https://via.placeholder.com/48'} alt=""/></td>
                             <td style={{fontWeight:600,maxWidth:180}}>{p.name}</td>
-                            <td><span className="adm-cat">{{
-                              BOLSOS:'👜 Bolsos',BILLETERAS:'💳 Billeteras',
-                              MAQUILLAJE:'💄 Maquillaje',CAPILAR:'✨ Capilar',
-                              MODA:'👗 Moda',CUIDADO_PERSONAL:'🧴 Cuidado',
-                              ACCESORIOS:'💍 Accesorios'
-                            }[p.category]||p.category}</span></td>
+                            <td><span className="adm-cat">{{BOLSOS:'👜 Bolsos',BILLETERAS:'💳 Billeteras',MAQUILLAJE:'💄 Maquillaje',CAPILAR:'✨ Capilar',CUIDADO_PERSONAL:'🧴 Cuidado',ACCESORIOS:'💍 Accesorios'}[p.category]||p.category}</span></td>
                             <td style={{fontWeight:700,color:'#7B5EA7'}}>${Number(p.price||0).toLocaleString("es-CO",{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
                             <td>{p.stock}</td>
                             <td>{p.badge&&<span className={`adm-badge ${p.badge}`}>{p.badge}</span>}</td>
@@ -692,7 +686,6 @@ export default function AdminPanel({ onExit }) {
                       <option value="BILLETERAS">💳 Billeteras</option>
                       <option value="MAQUILLAJE">💄 Maquillaje</option>
                       <option value="CAPILAR">✨ Capilar</option>
-                      <option value="MODA">👗 Moda</option>
                       <option value="CUIDADO_PERSONAL">🧴 Cuidado Personal</option>
                       <option value="ACCESORIOS">💍 Accesorios</option>
                     </select>
