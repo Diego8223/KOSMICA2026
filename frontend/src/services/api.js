@@ -51,11 +51,11 @@ function cached(key, fetcher) {
 // ── Productos ─────────────────────────────────────────────
 export const productAPI = {
   getAll:        ()               => api.get('/products').then(r => r.data),
-  getByCategory: (cat, p=0, s=12) =>
+  getByCategory: (cat, p=0, s=50) =>
     // Sin caché — siempre trae datos frescos del servidor para ver cambios del admin
     api.get(`/products?category=${cat}&page=${p}&size=${s}`).then(r => r.data),
   getFeatured:   () => api.get('/products/featured').then(r => r.data),
-  search:        (q, p=0, s=12)   => api.get(`/products/search?q=${encodeURIComponent(q)}&page=${p}&size=${s}`).then(r => r.data),
+  search:        (q, p=0, s=50)   => api.get(`/products/search?q=${encodeURIComponent(q)}&page=${p}&size=${s}`).then(r => r.data),
   getById:       (id)             => cached(`prod:${id}`, () => api.get(`/products/${id}`).then(r => r.data)),
   create:        (data)           => { cache.clear(); return api.post('/products', data).then(r => r.data); },
   update:        (id, data)       => { cache.clear(); return api.put(`/products/${id}`, data).then(r => r.data); },
