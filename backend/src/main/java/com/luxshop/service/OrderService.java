@@ -9,6 +9,7 @@ import com.luxshop.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -36,29 +37,27 @@ public class OrderService {
         order.setCustomerEmail(req.getEmail());
         order.setShippingAddress(req.getAddress());
         order.setPaymentMethod(req.getPaymentMethod());
-        order.setPaymentId(req.getPaymentIntentId());   // Order.java usa "paymentId"
-        order.setStatus(Order.Status.PAID);              // Order.Status (inner enum)
+        order.setPaymentId(req.getPaymentIntentId());
+        order.setStatus(Order.Status.PAID);
 
         List<OrderItem> items = new ArrayList<>();
         BigDecimal subtotal = BigDecimal.ZERO;
 
-        for (OrderRequest.ItemDto item : req.getItems()) {  // ItemDto (no ItemRequest)
+        for (OrderRequest.ItemDto item : req.getItems()) {
             Product product = productRepo.findById(item.getProductId())
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado: " + item.getProductId()));
 
             if (product.getStock() < item.getQuantity())
                 throw new RuntimeException("Stock insuficiente: " + product.getName());
 
-            // Reducir stock
             product.setStock(product.getStock() - item.getQuantity());
             productRepo.save(product);
 
-            // Construir OrderItem con campos reales del modelo
             OrderItem oi = new OrderItem();
             oi.setOrder(order);
             oi.setProduct(product);
             oi.setQuantity(item.getQuantity());
-            oi.setUnitPrice(product.getPrice());         // OrderItem.unitPrice (BigDecimal)
+            oi.setUnitPrice(product.getPrice());
             oi.setSubtotal(product.getPrice()
                 .multiply(BigDecimal.valueOf(item.getQuantity())));
             items.add(oi);
@@ -66,20 +65,18 @@ public class OrderService {
             subtotal = subtotal.add(oi.getSubtotal());
         }
 
-        // Envío gratis >= $80, sino 8%
         BigDecimal shipping = subtotal.compareTo(new BigDecimal("80")) >= 0
             ? BigDecimal.ZERO
             : subtotal.multiply(new BigDecimal("0.08")).setScale(2, java.math.RoundingMode.HALF_UP);
 
         order.setItems(items);
-        order.setSubtotal(subtotal);                    // Order.java tiene subtotal
-        order.setShippingCost(shipping);                // Order.java tiene shippingCost
-        order.setTotal(subtotal.add(shipping));         // BigDecimal (no double)
+        order.setSubtotal(subtotal);
+        order.setShippingCost(shipping);
+        order.setTotal(subtotal.add(shipping));
 
         Order saved = orderRepo.save(order);
         log.info("Pedido creado: {}", saved.getOrderNumber());
 
-        // ✉️ Email al cliente y notificación al admin
         try { emailService.sendOrderConfirmation(saved); }
         catch (Exception e) { log.warn("Email no enviado: {}", e.getMessage()); }
 
@@ -95,7 +92,6 @@ public class OrderService {
         order.setStatus(status);
         Order saved = orderRepo.save(order);
 
-        // ✉️ Email al cliente
         try { emailService.sendStatusUpdate(saved); }
         catch (Exception e) { log.warn("Email de estado no enviado: {}", e.getMessage()); }
 
@@ -111,8 +107,18 @@ public class OrderService {
         return orderRepo.findByCustomerEmailOrderByCreatedAtDesc(email);
     }
 
+    // ✅ FIX: @Transactional mantiene la sesión abierta mientras se serializa
+    // Usa findAllWithItems() que hace JOIN FETCH en una sola query
+    @Transactional(readOnly = true)
     public Page<Order> getAllOrders(int page, int size) {
-        return orderRepo.findAll(
-            PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
+        // Traer todos con JOIN FETCH para evitar N+1 y LazyInitializationException
+        List<Order> allOrders = orderRepo.findAllWithItems();
+        int total = allOrders.size();
+        int from  = Math.min(page * size, total);
+        int to    = Math.min(from + size, total);
+        List<Order> pageContent = allOrders.subList(from, to);
+        return new PageImpl<>(pageContent,
+            PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")),
+            total);
     }
 }
