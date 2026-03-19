@@ -1,4 +1,3 @@
-// ── OrderRequest.java ────────────────────────────────────
 package com.luxshop.dto;
 
 import jakarta.validation.Valid;
@@ -16,10 +15,17 @@ public class OrderRequest {
     @NotBlank(message = "Email requerido")
     private String email;
 
+    // ✅ Nuevos campos para envío completo
+    private String phone;
+    private String document;
+    private String city;
+    private String neighborhood;
+    private String notes;
+
     @NotBlank(message = "Dirección requerida")
     private String address;
 
-    private String paymentMethod = "CARD";
+    private String paymentMethod = "MERCADOPAGO";
     private String paymentIntentId;
 
     @Valid

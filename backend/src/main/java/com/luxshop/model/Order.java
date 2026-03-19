@@ -30,10 +30,26 @@ public class Order {
     @Column(name = "customer_email", nullable = false)
     private String customerEmail;
 
+    // ✅ Nuevos campos para envío completo
+    @Column(name = "phone")
+    private String phone;
+
+    @Column(name = "document")
+    private String document;
+
+    @Column(name = "city")
+    private String city;
+
+    @Column(name = "neighborhood")
+    private String neighborhood;
+
     @Column(name = "shipping_address", columnDefinition = "TEXT")
     private String shippingAddress;
 
-    // ✅ FIX: EAGER carga los items junto con el pedido — evita LazyInitializationException
+    @Column(name = "notes", columnDefinition = "TEXT")
+    private String notes;
+
+    // ✅ FIX: EAGER evita LazyInitializationException
     @Builder.Default
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<OrderItem> items = new ArrayList<>();

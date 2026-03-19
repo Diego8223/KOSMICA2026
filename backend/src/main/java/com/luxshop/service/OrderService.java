@@ -29,7 +29,6 @@ public class OrderService {
     private final ProductRepository productRepo;
     private final EmailService      emailService;
 
-    // ── Crear pedido + email confirmación ─────────────────────
     @Transactional
     public Order createOrder(OrderRequest req) {
         Order order = new Order();
@@ -39,6 +38,13 @@ public class OrderService {
         order.setPaymentMethod(req.getPaymentMethod());
         order.setPaymentId(req.getPaymentIntentId());
         order.setStatus(Order.Status.PAID);
+
+        // ✅ Guardar campos nuevos de envío
+        order.setPhone(req.getPhone());
+        order.setDocument(req.getDocument());
+        order.setCity(req.getCity());
+        order.setNeighborhood(req.getNeighborhood());
+        order.setNotes(req.getNotes());
 
         List<OrderItem> items = new ArrayList<>();
         BigDecimal subtotal = BigDecimal.ZERO;
@@ -50,6 +56,7 @@ public class OrderService {
             if (product.getStock() < item.getQuantity())
                 throw new RuntimeException("Stock insuficiente: " + product.getName());
 
+            // ✅ Descontar stock automáticamente
             product.setStock(product.getStock() - item.getQuantity());
             productRepo.save(product);
 
@@ -58,8 +65,7 @@ public class OrderService {
             oi.setProduct(product);
             oi.setQuantity(item.getQuantity());
             oi.setUnitPrice(product.getPrice());
-            oi.setSubtotal(product.getPrice()
-                .multiply(BigDecimal.valueOf(item.getQuantity())));
+            oi.setSubtotal(product.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
             items.add(oi);
 
             subtotal = subtotal.add(oi.getSubtotal());
@@ -83,22 +89,17 @@ public class OrderService {
         return saved;
     }
 
-    // ── Actualizar estado + email de seguimiento ──────────────
     @Transactional
     public Order updateStatus(Long orderId, Order.Status status) {
         Order order = orderRepo.findById(orderId)
             .orElseThrow(() -> new RuntimeException("Pedido no encontrado: " + orderId));
-
         order.setStatus(status);
         Order saved = orderRepo.save(order);
-
         try { emailService.sendStatusUpdate(saved); }
         catch (Exception e) { log.warn("Email de estado no enviado: {}", e.getMessage()); }
-
         return saved;
     }
 
-    // ── Consultas ─────────────────────────────────────────────
     public Optional<Order> findByNumber(String orderNumber) {
         return orderRepo.findByOrderNumber(orderNumber);
     }
@@ -107,18 +108,14 @@ public class OrderService {
         return orderRepo.findByCustomerEmailOrderByCreatedAtDesc(email);
     }
 
-    // ✅ FIX: @Transactional mantiene la sesión abierta mientras se serializa
-    // Usa findAllWithItems() que hace JOIN FETCH en una sola query
+    // ✅ FIX: @Transactional evita LazyInitializationException
     @Transactional(readOnly = true)
     public Page<Order> getAllOrders(int page, int size) {
-        // Traer todos con JOIN FETCH para evitar N+1 y LazyInitializationException
         List<Order> allOrders = orderRepo.findAllWithItems();
         int total = allOrders.size();
         int from  = Math.min(page * size, total);
         int to    = Math.min(from + size, total);
-        List<Order> pageContent = allOrders.subList(from, to);
-        return new PageImpl<>(pageContent,
-            PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")),
-            total);
+        return new PageImpl<>(allOrders.subList(from, to),
+            PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")), total);
     }
 }

@@ -1,4 +1,3 @@
-// ── ProductController.java ───────────────────────────────
 package com.luxshop.controller;
 
 import com.luxshop.model.Category;
@@ -25,7 +24,8 @@ public class ProductController {
     public ResponseEntity<?> list(
             @RequestParam(required = false) Category category,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "12") int size) {
+            // ✅ FIX: aumentado de 12 a 50 para mostrar todos los productos
+            @RequestParam(defaultValue = "50") int size) {
         if (category != null) {
             return ResponseEntity.ok(productService.getByCategory(category, page, size));
         }
@@ -41,7 +41,7 @@ public class ProductController {
     public ResponseEntity<Page<Product>> search(
             @RequestParam String q,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "12") int size) {
+            @RequestParam(defaultValue = "50") int size) {
         return ResponseEntity.ok(productService.search(q, page, size));
     }
 
