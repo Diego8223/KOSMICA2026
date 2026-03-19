@@ -35,11 +35,9 @@ public class OrderService {
         order.setCustomerName(req.getName());
         order.setCustomerEmail(req.getEmail());
         order.setShippingAddress(req.getAddress());
-        order.setPaymentMethod(req.getPaymentMethod());
+        order.setPaymentMethod(req.getPaymentMethod() != null ? req.getPaymentMethod() : "MERCADOPAGO");
         order.setPaymentId(req.getPaymentIntentId());
         order.setStatus(Order.Status.PAID);
-
-        // ✅ Guardar campos nuevos de envío
         order.setPhone(req.getPhone());
         order.setDocument(req.getDocument());
         order.setCity(req.getCity());
@@ -56,7 +54,6 @@ public class OrderService {
             if (product.getStock() < item.getQuantity())
                 throw new RuntimeException("Stock insuficiente: " + product.getName());
 
-            // ✅ Descontar stock automáticamente
             product.setStock(product.getStock() - item.getQuantity());
             productRepo.save(product);
 
@@ -67,7 +64,6 @@ public class OrderService {
             oi.setUnitPrice(product.getPrice());
             oi.setSubtotal(product.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
             items.add(oi);
-
             subtotal = subtotal.add(oi.getSubtotal());
         }
 
@@ -81,7 +77,7 @@ public class OrderService {
         order.setTotal(subtotal.add(shipping));
 
         Order saved = orderRepo.save(order);
-        log.info("Pedido creado: {}", saved.getOrderNumber());
+        log.info("✅ Pedido creado: {}", saved.getOrderNumber());
 
         try { emailService.sendOrderConfirmation(saved); }
         catch (Exception e) { log.warn("Email no enviado: {}", e.getMessage()); }
@@ -108,14 +104,18 @@ public class OrderService {
         return orderRepo.findByCustomerEmailOrderByCreatedAtDesc(email);
     }
 
-    // ✅ FIX: @Transactional evita LazyInitializationException
+    // ✅ FIX DEFINITIVO: usa findAllWithItems con JOIN FETCH completo
     @Transactional(readOnly = true)
     public Page<Order> getAllOrders(int page, int size) {
         List<Order> allOrders = orderRepo.findAllWithItems();
+        log.info("📦 Total pedidos encontrados: {}", allOrders.size());
         int total = allOrders.size();
         int from  = Math.min(page * size, total);
         int to    = Math.min(from + size, total);
-        return new PageImpl<>(allOrders.subList(from, to),
-            PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")), total);
+        return new PageImpl<>(
+            allOrders.subList(from, to),
+            PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")),
+            total
+        );
     }
 }
