@@ -805,7 +805,7 @@ export default function App() {
   const [paying,setPaying]                   = useState(false);
   const [selectedProduct,setSelectedProduct] = useState(null);
   const [drawerOpen,setDrawerOpen]           = useState(false);
-  const [form,setForm] = useState({name:"",email:"",address:""});
+  const [form,setForm] = useState({name:"",email:"",phone:"",document:"",city:"",neighborhood:"",address:"",notes:""});
   const ref = useRef(null);
 
   // ✅ Productos placeholder — se muestran INSTANTÁNEO mientras el servidor despierta
@@ -875,7 +875,7 @@ export default function App() {
       }));
       const result=await orderAPI.createPaymentIntent(grandTotal,"COP",mpItems);
       await orderAPI.createOrder({
-        name:form.name, email:form.email, address:form.address,
+        name:form.name, email:form.email, phone:form.phone, document:form.document, city:form.city, neighborhood:form.neighborhood, address:form.address, notes:form.notes,
         paymentMethod:"MERCADOPAGO",
         paymentIntentId:result.preferenceId,
         items:cart.map(i=>({productId:i.id,quantity:i.qty})),
@@ -1169,7 +1169,6 @@ export default function App() {
                 <a href="#p" onClick={e=>{e.preventDefault();selectCat("BILLETERAS");scrollTo();}}>Billeteras</a>
                 <a href="#p" onClick={e=>{e.preventDefault();selectCat("MAQUILLAJE");scrollTo();}}>Maquillaje</a>
                 <a href="#p" onClick={e=>{e.preventDefault();selectCat("CAPILAR");scrollTo();}}>Capilar</a>
-                <a href="#p" onClick={e=>{e.preventDefault();selectCat("MODA");scrollTo();}}>Moda</a>
                 <a href="#p" onClick={e=>{e.preventDefault();selectCat("CUIDADO_PERSONAL");scrollTo();}}>Cuidado Personal</a>
                 <a href="#p" onClick={e=>{e.preventDefault();selectCat("ACCESORIOS");scrollTo();}}>Accesorios</a>
               </div>
@@ -1288,14 +1287,52 @@ export default function App() {
                     <span>Total</span><span style={{color:"var(--lila)"}}>{fmtCOP(grandTotal)}</span>
                   </div>
                 </div>
-                <p className="form-section">Información Personal</p>
-                {[["Nombre completo","name","text"],["Correo electrónico","email","email"],["Dirección de envío","address","text"]].map(([label,field,type])=>(
-                  <div key={field} className="form-group">
-                    <label className="form-label">{label}</label>
-                    <input required type={type} className="form-input" value={form[field]}
-                      onChange={e=>setForm(p=>({...p,[field]:e.target.value}))}/>
+                <p className="form-section">📋 Datos Personales</p>
+                <div className="form-group">
+                  <label className="form-label">Nombre completo *</label>
+                  <input required type="text" className="form-input" value={form.name} placeholder="Ej: María García López"
+                    onChange={e=>setForm(p=>({...p,name:e.target.value}))}/>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                  <div className="form-group">
+                    <label className="form-label">Teléfono / WhatsApp *</label>
+                    <input required type="tel" className="form-input" value={form.phone} placeholder="3001234567"
+                      onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/>
                   </div>
-                ))}
+                  <div className="form-group">
+                    <label className="form-label">Cédula *</label>
+                    <input required type="text" className="form-input" value={form.document} placeholder="1234567890"
+                      onChange={e=>setForm(p=>({...p,document:e.target.value}))}/>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Correo electrónico *</label>
+                  <input required type="email" className="form-input" value={form.email} placeholder="tu@email.com"
+                    onChange={e=>setForm(p=>({...p,email:e.target.value}))}/>
+                </div>
+                <p className="form-section">📦 Datos de Envío</p>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                  <div className="form-group">
+                    <label className="form-label">Ciudad *</label>
+                    <input required type="text" className="form-input" value={form.city} placeholder="Ej: Medellín"
+                      onChange={e=>setForm(p=>({...p,city:e.target.value}))}/>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Barrio</label>
+                    <input type="text" className="form-input" value={form.neighborhood} placeholder="Ej: El Poblado"
+                      onChange={e=>setForm(p=>({...p,neighborhood:e.target.value}))}/>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Dirección completa *</label>
+                  <input required type="text" className="form-input" value={form.address} placeholder="Calle 10 #20-30, Apto 501"
+                    onChange={e=>setForm(p=>({...p,address:e.target.value}))}/>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Nota para el envío (opcional)</label>
+                  <input type="text" className="form-input" value={form.notes} placeholder="Ej: Casa azul, timbre no funciona"
+                    onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/>
+                </div>
                 <p className="form-section">Método de Pago</p>
                 <div style={{background:'linear-gradient(135deg,#009EE3,#0070B8)',borderRadius:16,padding:'18px 20px',marginBottom:12,display:'flex',alignItems:'center',gap:14}}>
                   <div style={{fontSize:'2.2rem'}}>💳</div>
