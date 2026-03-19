@@ -362,7 +362,12 @@ export default function AdminPanel({ onExit }) {
 
   const loadOrders = async () => {
     setLoading(true);
-    try { const d = await orderAPI.getAll(); setOrders(Array.isArray(d) ? d : (d.content||[])); }
+    try {
+      const d = await orderAPI.getAll();
+      // El backend devuelve Page<Order> con estructura {content:[...], totalElements:N}
+      const list = Array.isArray(d) ? d : (d.content || d.orders || []);
+      setOrders(list);
+    }
     catch(e) { showToast(e.message,'error'); }
     finally  { setLoading(false); }
   };
