@@ -104,11 +104,11 @@ public class OrderService {
         return orderRepo.findByCustomerEmailOrderByCreatedAtDesc(email);
     }
 
-    // ✅ FIX DEFINITIVO: usa findAllWithItems con JOIN FETCH completo
+    // ✅ USA método Spring Data simple — sin query personalizada
     @Transactional(readOnly = true)
     public Page<Order> getAllOrders(int page, int size) {
-        List<Order> allOrders = orderRepo.findAllWithItems();
-        log.info("📦 Total pedidos encontrados: {}", allOrders.size());
+        List<Order> allOrders = orderRepo.findAllByOrderByCreatedAtDesc();
+        log.info("📦 Total pedidos: {}", allOrders.size());
         int total = allOrders.size();
         int from  = Math.min(page * size, total);
         int to    = Math.min(from + size, total);

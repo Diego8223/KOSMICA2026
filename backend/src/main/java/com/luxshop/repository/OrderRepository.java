@@ -14,8 +14,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     List<Order> findByCustomerEmailOrderByCreatedAtDesc(String email);
 
-    // ✅ FIX: Sin DISTINCT para evitar error con columna JSON de products
-    // Usamos subquery para traer solo los orders y luego Hibernate carga los items por EAGER
-    @Query("SELECT o FROM Order o ORDER BY o.createdAt DESC")
-    List<Order> findAllWithItems();
+    // ✅ FIX DEFINITIVO: trae orders ordenados, EAGER carga items automáticamente
+    List<Order> findAllByOrderByCreatedAtDesc();
 }
