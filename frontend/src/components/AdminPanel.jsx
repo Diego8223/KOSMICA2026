@@ -364,8 +364,9 @@ export default function AdminPanel({ onExit }) {
     setLoading(true);
     try {
       const d = await orderAPI.getAll();
-      // El backend devuelve Page<Order> con estructura {content:[...], totalElements:N}
-      const list = Array.isArray(d) ? d : (d.content || d.orders || []);
+      console.log('ORDERS RAW:', JSON.stringify(d));
+      const list = Array.isArray(d) ? d : (d.content || d.orders || d || []);
+      console.log('ORDERS LIST:', list.length, list);
       setOrders(list);
     }
     catch(e) { showToast(e.message,'error'); }
