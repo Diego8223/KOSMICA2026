@@ -508,7 +508,7 @@ export default function AdminPanel({ onExit }) {
           physicalWeight: parseFloat(shipPkg.weight) || 0.5,
           weight: parseFloat(shipPkg.weight) || 0.5
         }],
-        shipment: { carrier: "", type: 1 }
+        shipment: { type: 1 }
       };
 
       const resp = await fetch(`${process.env.REACT_APP_API_URL || 'https://kosmica-backend.onrender.com'}/api/shipping/rates`, {
