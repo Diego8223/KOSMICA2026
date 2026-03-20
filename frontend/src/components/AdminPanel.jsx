@@ -6,6 +6,8 @@ import { useState, useEffect, useRef } from 'react';
 import { productAPI, orderAPI } from '../services/api';
 
 const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD || 'Kosmica2025';
+const ENVIA_KEY = '595ac5bf894317bb92ffaf7e3c96bb725ba32df87354fdb3b9d6e637fec10af1';
+const ENVIA_URL = 'https://api.envia.com';
 const CATEGORIES = ['BOLSOS','BILLETERAS','MAQUILLAJE','CAPILAR','CUIDADO_PERSONAL','ACCESORIOS'];
 const BADGES     = ['','VIRAL','HOT','BESTSELLER','NUEVO'];
 const EMPTY_PROD = {
@@ -286,6 +288,48 @@ const CSS = `
   /* ══════════════════════════════
      MÓVIL  < 768px
   ══════════════════════════════ */
+  /* ══ ENVÍOS ══ */
+  .adm-ship-modal {
+    position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);
+    display:flex;align-items:center;justify-content:center;padding:16px;
+  }
+  .adm-ship-box {
+    background:#fff;border-radius:20px;width:100%;max-width:600px;
+    max-height:90vh;overflow-y:auto;
+    box-shadow:0 20px 60px rgba(0,0,0,.3);
+  }
+  .adm-ship-hdr {
+    padding:20px 24px 16px;border-bottom:1px solid #F0E8FF;
+    display:flex;justify-content:space-between;align-items:center;
+    position:sticky;top:0;background:#fff;z-index:2;
+  }
+  .adm-ship-title {font-family:'Playfair Display',serif;font-size:1.15rem;font-weight:700;color:#2D1B4E;}
+  .adm-ship-body {padding:20px 24px 28px;}
+  .adm-rate-card {
+    border:2px solid #F0E8FF;border-radius:14px;padding:14px 16px;
+    margin-bottom:10px;display:flex;align-items:center;gap:14px;
+    cursor:pointer;transition:all .2s;
+  }
+  .adm-rate-card:hover,.adm-rate-card.selected {border-color:#9B72CF;background:#FAF7FF;}
+  .adm-rate-logo {width:60px;height:40px;object-fit:contain;border-radius:6px;background:#f5f5f5;padding:4px;}
+  .adm-rate-info {flex:1;}
+  .adm-rate-carrier {font-weight:700;color:#2D1B4E;font-size:.95rem;}
+  .adm-rate-service {font-size:.82rem;color:#9B72CF;margin-top:2px;}
+  .adm-rate-days {font-size:.78rem;color:#B8A0D8;margin-top:2px;}
+  .adm-rate-price {font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:700;color:#7B5EA7;white-space:nowrap;}
+  .adm-btn-ship {
+    width:100%;padding:14px;
+    background:linear-gradient(135deg,#9B72CF,#7B5EA7);
+    color:#fff;border:none;border-radius:12px;font-weight:700;font-size:.95rem;
+    cursor:pointer;margin-top:16px;transition:all .3s;
+  }
+  .adm-btn-ship:disabled {opacity:.6;cursor:wait;}
+  .adm-guide-box {
+    background:#E8F5E9;border:1px solid #A5D6A7;border-radius:12px;
+    padding:16px;margin-top:14px;text-align:center;
+  }
+  .adm-guide-num {font-size:1.3rem;font-weight:700;color:#2E7D32;letter-spacing:.05em;}
+
   @media(max-width:767px){
     .adm-hbg{ display:flex; }
     .adm-sidebar{
@@ -380,6 +424,153 @@ export default function AdminPanel({ onExit }) {
   }, [authed, section]);
 
   const fSet    = (k,v) => setForm(p => ({...p,[k]:v}));
+
+  // ── Envia.com — Cotizar envío ─────────────────────────────
+  const getShipRates = async (order) => {
+    setShipModal(order);
+    setShipRates([]);
+    setShipSelected(null);
+    setShipGuide(null);
+    setShipLoading(true);
+    try {
+      const body = {
+        origin: {
+          name: "Kosmica",
+          company: "Kosmica",
+          email: "hola@kosmica.com",
+          phone: "3043927148",
+          street: "Tu dirección de despacho",
+          number: "1",
+          district: "Centro",
+          city: "Medellín",
+          state: "ANT",
+          country: "CO",
+          postalCode: "050001"
+        },
+        destination: {
+          name: order.customerName || "Cliente",
+          company: "",
+          email: order.customerEmail || "",
+          phone: order.phone || "3000000000",
+          street: order.shippingAddress || "Dirección",
+          number: "1",
+          district: order.neighborhood || "Centro",
+          city: order.city || "Bogotá",
+          state: "CUN",
+          country: "CO",
+          postalCode: "110111"
+        },
+        packages: [{
+          content: "Productos Kosmica",
+          amount: 1,
+          type: "box",
+          dimensions: {
+            length: parseFloat(shipPkg.length) || 20,
+            width:  parseFloat(shipPkg.width)  || 15,
+            height: parseFloat(shipPkg.height) || 10
+          },
+          physicalWeight: parseFloat(shipPkg.weight) || 0.5,
+          weight: parseFloat(shipPkg.weight) || 0.5
+        }],
+        shipment: { carrier: "", type: 1 }
+      };
+
+      const resp = await fetch(`${ENVIA_URL}/ship/rate/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${ENVIA_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+      const data = await resp.json();
+      if (data.data && data.data.length > 0) {
+        setShipRates(data.data.sort((a,b) => a.totalPrice - b.totalPrice));
+      } else {
+        showToast('No se encontraron tarifas disponibles', 'error');
+      }
+    } catch(e) {
+      showToast('Error cotizando: ' + e.message, 'error');
+    } finally {
+      setShipLoading(false);
+    }
+  };
+
+  // ── Envia.com — Generar guía ──────────────────────────────
+  const generateGuide = async () => {
+    if (!shipSelected || !shipModal) return;
+    setShipGenerating(true);
+    try {
+      const body = {
+        origin: {
+          name: "Kosmica",
+          company: "Kosmica",
+          email: "hola@kosmica.com",
+          phone: "3043927148",
+          street: "Tu dirección de despacho",
+          number: "1",
+          district: "Centro",
+          city: "Medellín",
+          state: "ANT",
+          country: "CO",
+          postalCode: "050001"
+        },
+        destination: {
+          name: shipModal.customerName || "Cliente",
+          company: "",
+          email: shipModal.customerEmail || "",
+          phone: shipModal.phone || "3000000000",
+          street: shipModal.shippingAddress || "Dirección",
+          number: "1",
+          district: shipModal.neighborhood || "Centro",
+          city: shipModal.city || "Bogotá",
+          state: "CUN",
+          country: "CO",
+          postalCode: "110111"
+        },
+        packages: [{
+          content: "Productos Kosmica",
+          amount: 1,
+          type: "box",
+          weight: parseFloat(shipPkg.weight) || 0.5,
+          dimensions: {
+            length: parseFloat(shipPkg.length) || 20,
+            width:  parseFloat(shipPkg.width)  || 15,
+            height: parseFloat(shipPkg.height) || 10
+          }
+        }],
+        shipment: {
+          carrier: shipSelected.carrier,
+          service: shipSelected.service,
+          type: 1
+        },
+        settings: { currency: "COP", printFormat: "PDF", labelSize: "STOCK_4X6" }
+      };
+
+      const resp = await fetch(`${ENVIA_URL}/ship/generate/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${ENVIA_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+      const data = await resp.json();
+      if (data.data) {
+        const guide = data.data[0];
+        setShipGuide(guide);
+        // Cambiar estado del pedido a SHIPPED
+        await updateOrderStatus(shipModal.id, 'SHIPPED');
+        showToast('✅ Guía generada exitosamente');
+      } else {
+        showToast('Error generando guía: ' + JSON.stringify(data), 'error');
+      }
+    } catch(e) {
+      showToast('Error: ' + e.message, 'error');
+    } finally {
+      setShipGenerating(false);
+    }
+  };
   const navTo   = (id)  => { setSection(id); setEditing(null); setSidebarOpen(false); };
 
   const openNew = () => { setForm(EMPTY_PROD); setGallery([]); setVidName(''); setEditing('new'); };
@@ -813,7 +1004,7 @@ export default function AdminPanel({ onExit }) {
                                 {{'PENDING':'⏳ Pendiente','PAID':'✅ Pagado','PROCESSING':'📦 Preparando','SHIPPED':'🚚 Enviado','DELIVERED':'🎉 Entregado','CANCELLED':'❌ Cancelado'}[o.status]||o.status}
                               </span></td>
                             <td style={{fontSize:'.82rem',color:'#aaa',whiteSpace:'nowrap'}}>{o.createdAt?new Date(o.createdAt).toLocaleDateString('es-CO'):'-'}</td>
-                            <td>
+                            <td style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
                               <select className="adm-sel-status" value={o.status} onChange={e=>updateOrderStatus(o.id,e.target.value)}>
                                 <option value="PENDING">⏳ Pendiente</option>
                                 <option value="PAID">✅ Pagado</option>
@@ -822,6 +1013,10 @@ export default function AdminPanel({ onExit }) {
                                 <option value="DELIVERED">🎉 Entregado</option>
                                 <option value="CANCELLED">❌ Cancelado</option>
                               </select>
+                              <button className="adm-btn-sm adm-btn-edit" onClick={()=>getShipRates(o)}
+                                style={{background:'linear-gradient(135deg,#9B72CF,#7B5EA7)',color:'#fff',whiteSpace:'nowrap'}}>
+                                🚚 Enviar
+                              </button>
                             </td>
                           </tr>
                         ))}
@@ -889,6 +1084,83 @@ export default function AdminPanel({ onExit }) {
 
         </main>
       </div>
+
+      {/* ── MODAL ENVÍOS ENVIA.COM ── */}
+      {shipModal && (
+        <div className="adm-ship-modal" onClick={()=>setShipModal(null)}>
+          <div className="adm-ship-box" onClick={e=>e.stopPropagation()}>
+            <div className="adm-ship-hdr">
+              <div className="adm-ship-title">🚚 Generar Guía de Envío</div>
+              <button className="adm-btn-sm adm-btn-del" onClick={()=>setShipModal(null)}>✕ Cerrar</button>
+            </div>
+            <div className="adm-ship-body">
+              <div style={{background:'#FAF7FF',borderRadius:12,padding:'12px 16px',marginBottom:16,fontSize:'.88rem'}}>
+                <div style={{fontWeight:700,color:'#2D1B4E',marginBottom:4}}>📦 {shipModal.orderNumber}</div>
+                <div style={{color:'#6B5B8A'}}>👤 {shipModal.customerName}</div>
+                <div style={{color:'#6B5B8A'}}>📱 {shipModal.phone||'Sin teléfono'}</div>
+                <div style={{color:'#6B5B8A'}}>📍 {shipModal.shippingAddress}{shipModal.city?`, ${shipModal.city}`:''}</div>
+              </div>
+              <div style={{marginBottom:16}}>
+                <div style={{fontWeight:700,color:'#2D1B4E',marginBottom:10,fontSize:'.9rem'}}>📐 Dimensiones del paquete</div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:8}}>
+                  {[['Peso (kg)','weight'],['Largo (cm)','length'],['Ancho (cm)','width'],['Alto (cm)','height']].map(([label,key])=>(
+                    <div key={key}>
+                      <div style={{fontSize:'.75rem',color:'#9B72CF',marginBottom:3}}>{label}</div>
+                      <input className="adm-input" style={{padding:'8px 10px',fontSize:'.9rem'}}
+                        type="number" step="0.1" value={shipPkg[key]}
+                        onChange={e=>setShipPkg(p=>({...p,[key]:e.target.value}))}/>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {!shipGuide && (
+                <button className="adm-btn-primary" style={{width:'100%',justifyContent:'center',marginBottom:14}}
+                  onClick={()=>getShipRates(shipModal)} disabled={shipLoading}>
+                  {shipLoading?'⏳ Cotizando...':'🔍 Cotizar con todas las transportadoras'}
+                </button>
+              )}
+              {shipLoading && <div style={{textAlign:'center',padding:'20px',color:'#9B72CF'}}>⏳ Consultando tarifas...</div>}
+              {!shipLoading && shipRates.length>0 && !shipGuide && (<>
+                <div style={{fontWeight:700,color:'#2D1B4E',marginBottom:10,fontSize:'.9rem'}}>
+                  💰 Elige la transportadora más económica
+                </div>
+                {shipRates.map((rate,i)=>(
+                  <div key={i} className={`adm-rate-card${shipSelected===rate?' selected':''}`} onClick={()=>setShipSelected(rate)}>
+                    <div style={{width:24,height:24,borderRadius:'50%',border:'2px solid',
+                      borderColor:shipSelected===rate?'#9B72CF':'#E8D5FF',
+                      display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                      {shipSelected===rate&&<div style={{width:12,height:12,borderRadius:'50%',background:'#9B72CF'}}/>}
+                    </div>
+                    <div className="adm-rate-info">
+                      <div className="adm-rate-carrier">{rate.carrierName||rate.carrier}</div>
+                      <div className="adm-rate-service">{rate.serviceDescription||rate.service}</div>
+                      <div className="adm-rate-days">⏱ {rate.deliveryEstimate||rate.days||'?'} días hábiles</div>
+                    </div>
+                    <div className="adm-rate-price">${Number(rate.totalPrice||rate.price||0).toLocaleString('es-CO')} COP</div>
+                  </div>
+                ))}
+                <button className="adm-btn-ship" disabled={!shipSelected||shipGenerating} onClick={generateGuide}>
+                  {shipGenerating?'⏳ Generando guía...':'✅ Generar guía de envío'}
+                </button>
+              </>)}
+              {shipGuide && (
+                <div className="adm-guide-box">
+                  <div style={{fontSize:'2rem',marginBottom:8}}>🎉</div>
+                  <div style={{fontWeight:700,color:'#2E7D32',marginBottom:6}}>¡Guía generada!</div>
+                  <div className="adm-guide-num">{shipGuide.trackingNumber||shipGuide.label}</div>
+                  {shipGuide.label&&(
+                    <a href={shipGuide.label} target="_blank" rel="noreferrer"
+                      style={{display:'inline-block',marginTop:12,padding:'10px 20px',
+                        background:'#2E7D32',color:'#fff',borderRadius:10,textDecoration:'none',fontWeight:700,fontSize:'.88rem'}}>
+                      📄 Descargar etiqueta PDF
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
