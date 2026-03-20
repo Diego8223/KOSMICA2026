@@ -446,27 +446,28 @@ export default function AdminPanel({ onExit }) {
     setShipGuide(null);
     setShipLoading(true);
     try {
-      // Detectar estado/departamento desde la ciudad
       const getCityState = (city) => {
-        const c = (city||'').toLowerCase();
-        if (c.includes('medell') || c.includes('antioq') || c.includes('bello') || c.includes('envigado') || c.includes('itagüí')) return {state:'Antioquia', postalCode:'050001'};
-        if (c.includes('bogot') || c.includes('suba') || c.includes('usaquen') || c.includes('kennedy')) return {state:'Cundinamarca', postalCode:'110111'};
-        if (c.includes('cali') || c.includes('valle')) return {state:'Valle del Cauca', postalCode:'760001'};
-        if (c.includes('barranquill') || c.includes('atlántico') || c.includes('atlantico')) return {state:'Atlántico', postalCode:'080001'};
-        if (c.includes('cartagena') || c.includes('bolívar') || c.includes('bolivar')) return {state:'Bolívar', postalCode:'130001'};
-        if (c.includes('bucaramanga') || c.includes('santander')) return {state:'Santander', postalCode:'680001'};
-        if (c.includes('pereira') || c.includes('risaralda')) return {state:'Risaralda', postalCode:'660001'};
-        if (c.includes('manizales') || c.includes('caldas')) return {state:'Caldas', postalCode:'170001'};
-        if (c.includes('armenia') || c.includes('quindío') || c.includes('quindio')) return {state:'Quindío', postalCode:'630001'};
-        if (c.includes('ibagué') || c.includes('ibague') || c.includes('tolima')) return {state:'Tolima', postalCode:'730001'};
-        if (c.includes('villavicencio') || c.includes('meta')) return {state:'Meta', postalCode:'500001'};
-        if (c.includes('cúcuta') || c.includes('cucuta') || c.includes('norte de santander')) return {state:'Norte de Santander', postalCode:'540001'};
-        if (c.includes('pasto') || c.includes('nariño') || c.includes('narino')) return {state:'Nariño', postalCode:'520001'};
-        return {state:'Cundinamarca', postalCode:'110111'}; // default Bogotá
+        const c = (city||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        if (c.includes('medell') || c.includes('bello') || c.includes('itagui') || c.includes('envigado') || c.includes('sabaneta')) return {state:'Antioquia',cp:'050001'};
+        if (c.includes('bogot') || c.includes('soacha') || c.includes('chia') || c.includes('zipaquira')) return {state:'Cundinamarca',cp:'110111'};
+        if (c.includes('cali') || c.includes('palmira') || c.includes('buenaventura')) return {state:'Valle del Cauca',cp:'760001'};
+        if (c.includes('barranquill') || c.includes('soledad') || c.includes('malambo')) return {state:'Atlantico',cp:'080001'};
+        if (c.includes('cartagena') || c.includes('turbaco')) return {state:'Bolivar',cp:'130001'};
+        if (c.includes('bucaramanga') || c.includes('floridablanca') || c.includes('giron')) return {state:'Santander',cp:'680001'};
+        if (c.includes('pereira') || c.includes('dosquebradas')) return {state:'Risaralda',cp:'660001'};
+        if (c.includes('manizales')) return {state:'Caldas',cp:'170001'};
+        if (c.includes('armenia')) return {state:'Quindio',cp:'630001'};
+        if (c.includes('cucuta')) return {state:'Norte de Santander',cp:'540001'};
+        if (c.includes('ibague')) return {state:'Tolima',cp:'730001'};
+        if (c.includes('neiva')) return {state:'Huila',cp:'410001'};
+        if (c.includes('villavicencio')) return {state:'Meta',cp:'500001'};
+        if (c.includes('pasto')) return {state:'Narino',cp:'520001'};
+        if (c.includes('santa marta')) return {state:'Magdalena',cp:'470001'};
+        if (c.includes('monteria')) return {state:'Cordoba',cp:'230001'};
+        return {state:'Cundinamarca',cp:'110111'};
       };
-
-      const destCity = order.city || 'Bogotá';
-      const destInfo = getCityState(destCity);
+      const destInfo = getCityState(order.city);
+      const destCity = (order.city||'Bogota').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 
       const body = {
         origin: {
@@ -474,67 +475,60 @@ export default function AdminPanel({ onExit }) {
           company: "Kosmica",
           email: "hola@kosmica.com",
           phone: "3043927148",
-          street: "Calle 29 56 20",
-          number: "56",
-          district: "Laureles",
-          city: "Medellín",
+          street: "Calle 10",
+          number: "20",
+          district: "El Centro",
+          city: "Medellin",
           state: "Antioquia",
           country: "CO",
-          postalCode: "050034"
+          postalCode: "050001"
         },
         destination: {
           name: order.customerName || "Cliente",
           company: "",
-          email: order.customerEmail || "",
-          phone: (order.phone||"3000000000").replace(/\D/g,''),
-          street: order.shippingAddress || "Calle 1 # 1-1",
+          email: order.customerEmail || "cliente@email.com",
+          phone: (order.phone||"3000000000").replace(/\D/g,'').slice(-10),
+          street: (order.shippingAddress||"Calle 1").normalize('NFD').replace(/[\u0300-\u036f]/g,''),
           number: "1",
-          district: order.neighborhood || "Centro",
+          district: (order.neighborhood||"Centro").normalize('NFD').replace(/[\u0300-\u036f]/g,''),
           city: destCity,
           state: destInfo.state,
           country: "CO",
-          postalCode: destInfo.postalCode
+          postalCode: destInfo.cp
         },
         packages: [{
           content: "Productos Kosmica",
           amount: 1,
           type: "box",
-          weight: parseFloat(shipPkg.weight) || 0.5,
           dimensions: {
             length: parseFloat(shipPkg.length) || 20,
             width:  parseFloat(shipPkg.width)  || 15,
             height: parseFloat(shipPkg.height) || 10
-          }
+          },
+          physicalWeight: parseFloat(shipPkg.weight) || 0.5,
+          weight: parseFloat(shipPkg.weight) || 0.5
         }],
         shipment: { carrier: "", type: 1 }
       };
 
-      console.log('Envia.com request:', JSON.stringify(body));
-
       const resp = await fetch(`${process.env.REACT_APP_API_URL || 'https://kosmica-backend.onrender.com'}/api/shipping/rates`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
       const data = await resp.json();
       console.log('Envia.com response:', JSON.stringify(data));
-
       if (data.data && data.data.length > 0) {
         setShipRates(data.data.sort((a,b) => (a.totalPrice||a.price||0) - (b.totalPrice||b.price||0)));
-      } else if (data.meta && data.meta.length > 0) {
-        setShipRates(data.meta.sort((a,b) => (a.totalPrice||a.price||0) - (b.totalPrice||b.price||0)));
       } else {
-        // Show raw response to debug
-        console.error('No rates found:', data);
-        showToast('Sin tarifas — revisa F12 Console para detalles', 'error');
+        showToast('No se encontraron tarifas: ' + (data.error?.description || JSON.stringify(data)), 'error');
       }
     } catch(e) {
       showToast('Error cotizando: ' + e.message, 'error');
     } finally {
       setShipLoading(false);
     }
+  }
   };
 
   // ── Envia.com — Generar guía ──────────────────────────────
