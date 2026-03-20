@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 import { productAPI, orderAPI } from '../services/api';
 
 const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD || 'Kosmica2025';
+// Envia.com via backend proxy — v2
 const ENVIA_KEY = process.env.REACT_APP_ENVIA_KEY || '595ac5bf894317bb92ffaf7e3c96bb725ba32df87354fdb3b9d6e637fec10af1';
 const ENVIA_URL = 'https://api.envia.com';
 const CATEGORIES = ['BOLSOS','BILLETERAS','MAQUILLAJE','CAPILAR','CUIDADO_PERSONAL','ACCESORIOS'];
