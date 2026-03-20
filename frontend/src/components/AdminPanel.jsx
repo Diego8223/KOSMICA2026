@@ -448,23 +448,23 @@ export default function AdminPanel({ onExit }) {
     try {
       const getCityState = (city) => {
         const c = (city||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-        if (c.includes('medell') || c.includes('bello') || c.includes('itagui') || c.includes('envigado') || c.includes('sabaneta')) return {state:'Antioquia',cp:'050001'};
-        if (c.includes('bogot') || c.includes('soacha') || c.includes('chia') || c.includes('zipaquira')) return {state:'Cundinamarca',cp:'110111'};
-        if (c.includes('cali') || c.includes('palmira') || c.includes('buenaventura')) return {state:'Valle del Cauca',cp:'760001'};
-        if (c.includes('barranquill') || c.includes('soledad') || c.includes('malambo')) return {state:'Atlantico',cp:'080001'};
-        if (c.includes('cartagena') || c.includes('turbaco')) return {state:'Bolivar',cp:'130001'};
-        if (c.includes('bucaramanga') || c.includes('floridablanca') || c.includes('giron')) return {state:'Santander',cp:'680001'};
-        if (c.includes('pereira') || c.includes('dosquebradas')) return {state:'Risaralda',cp:'660001'};
-        if (c.includes('manizales')) return {state:'Caldas',cp:'170001'};
-        if (c.includes('armenia')) return {state:'Quindio',cp:'630001'};
-        if (c.includes('cucuta')) return {state:'Norte de Santander',cp:'540001'};
-        if (c.includes('ibague')) return {state:'Tolima',cp:'730001'};
-        if (c.includes('neiva')) return {state:'Huila',cp:'410001'};
-        if (c.includes('villavicencio')) return {state:'Meta',cp:'500001'};
-        if (c.includes('pasto')) return {state:'Narino',cp:'520001'};
-        if (c.includes('santa marta')) return {state:'Magdalena',cp:'470001'};
-        if (c.includes('monteria')) return {state:'Cordoba',cp:'230001'};
-        return {state:'Cundinamarca',cp:'110111'};
+        if (c.includes('medell') || c.includes('bello') || c.includes('itagui') || c.includes('envigado') || c.includes('sabaneta')) return {state:'ANT',cp:'050001'};
+        if (c.includes('bogot') || c.includes('soacha') || c.includes('chia') || c.includes('zipaquira')) return {state:'CUN',cp:'110111'};
+        if (c.includes('cali') || c.includes('palmira') || c.includes('buenaventura')) return {state:'VAC',cp:'760001'};
+        if (c.includes('barranquill') || c.includes('soledad') || c.includes('malambo')) return {state:'ATL',cp:'080001'};
+        if (c.includes('cartagena') || c.includes('turbaco')) return {state:'BOL',cp:'130001'};
+        if (c.includes('bucaramanga') || c.includes('floridablanca') || c.includes('giron')) return {state:'SAN',cp:'680001'};
+        if (c.includes('pereira') || c.includes('dosquebradas')) return {state:'RIS',cp:'660001'};
+        if (c.includes('manizales')) return {state:'CAL',cp:'170001'};
+        if (c.includes('armenia')) return {state:'QUI',cp:'630001'};
+        if (c.includes('cucuta')) return {state:'NSA',cp:'540001'};
+        if (c.includes('ibague')) return {state:'TOL',cp:'730001'};
+        if (c.includes('neiva')) return {state:'HUI',cp:'410001'};
+        if (c.includes('villavicencio')) return {state:'MET',cp:'500001'};
+        if (c.includes('pasto')) return {state:'NAR',cp:'520001'};
+        if (c.includes('santa marta')) return {state:'MAG',cp:'470001'};
+        if (c.includes('monteria')) return {state:'COR',cp:'230001'};
+        return {state:'CUN',cp:'110111'};
       };
       const destInfo = getCityState(order.city);
       const destCity = (order.city||'Bogota').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -479,7 +479,7 @@ export default function AdminPanel({ onExit }) {
           number: "20",
           district: "El Centro",
           city: "Medellin",
-          state: "Antioquia",
+          state: "ANT",
           country: "CO",
           postalCode: "050001"
         },
