@@ -528,7 +528,6 @@ export default function AdminPanel({ onExit }) {
     } finally {
       setShipLoading(false);
     }
-  }
   };
 
   // ── Envia.com — Generar guía ──────────────────────────────
