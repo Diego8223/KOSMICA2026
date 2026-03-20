@@ -335,16 +335,18 @@ const CSS = `
     .adm-sidebar{
       position:fixed; left:0; top:0; height:100vh; z-index:500;
       transform:translateX(-100%); transition:transform .3s ease;
+      width:250px;
     }
-    .adm-sidebar.open{ transform:translateX(0); }
-    .adm-main{ padding:16px 14px; padding-top:76px; }
+    .adm-sidebar.open{ transform:translateX(0); box-shadow:4px 0 30px rgba(0,0,0,.3); }
+    .adm-layout{ display:block; }
+    .adm-main{ padding:16px 14px; padding-top:76px; min-height:100vh; display:block; }
     .adm-h1{ font-size:1.5rem; }
     .adm-sub{ font-size:.88rem; margin-bottom:16px; }
     .adm-stats{ grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:18px; }
     .adm-stat{ padding:16px 14px; }
     .adm-stat-n{ font-size:1.6rem; }
     .adm-stat-lbl{ font-size:.78rem; }
-    .adm-card-top{ padding:14px 16px; }
+    .adm-card-top{ padding:14px 16px; flex-wrap:wrap; }
     .adm-card-title{ font-size:.95rem; }
     .adm-btn-primary{ padding:9px 16px; font-size:.85rem; }
     .adm-form{ padding:18px 16px; }
@@ -356,6 +358,9 @@ const CSS = `
     .adm-search{ width:100%; margin-top:8px; }
     .adm-login-box{ padding:32px 22px; }
     .adm-login-title{ font-size:1.75rem; }
+    .adm-ship-box{ max-height:95vh; border-radius:16px; }
+    .adm-rate-card{ flex-wrap:wrap; }
+    .adm-tbl-wrap{ -webkit-overflow-scrolling:touch; }
   }
 `;
 
@@ -376,8 +381,15 @@ export default function AdminPanel({ onExit }) {
   const [vidProg, setVidProg] = useState(0);
   const [gallery, setGallery] = useState([]);
   const [vidName, setVidName] = useState('');
-  const [orderSearch,   setOrderSearch]   = useState('');
-  const [prodCatFilter, setProdCatFilter] = useState('');
+  const [orderSearch,    setOrderSearch]    = useState('');
+  const [prodCatFilter,  setProdCatFilter]  = useState('');
+  const [shipModal,      setShipModal]      = useState(null);
+  const [shipRates,      setShipRates]      = useState([]);
+  const [shipLoading,    setShipLoading]    = useState(false);
+  const [shipSelected,   setShipSelected]   = useState(null);
+  const [shipGuide,      setShipGuide]      = useState(null);
+  const [shipGenerating, setShipGenerating] = useState(false);
+  const [shipPkg,        setShipPkg]        = useState({weight:'0.5',length:'20',width:'15',height:'10'});
   // ── FIX: refs declarados fuera del map ──────────────────────
   const [uploadedImgUrl, setUploadedImgUrl] = useState('');
   const [uploadedVidUrl, setUploadedVidUrl] = useState('');
