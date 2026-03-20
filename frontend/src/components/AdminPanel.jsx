@@ -588,7 +588,9 @@ export default function AdminPanel({ onExit }) {
                         <td style={{fontWeight:700,color:'#7B5EA7'}}>{o.orderNumber}</td>
                         <td>{o.customerName}</td>
                         <td style={{fontWeight:700}}>${Number(o.total||0).toLocaleString("es-CO",{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
-                        <td><span className={`adm-status ${o.status}`}>{o.status}</span></td>
+                        <td><span className={`adm-status ${o.status}`}>
+                                {{'PENDING':'⏳ Pendiente','PAID':'✅ Pagado','PROCESSING':'📦 Preparando','SHIPPED':'🚚 Enviado','DELIVERED':'🎉 Entregado','CANCELLED':'❌ Cancelado'}[o.status]||o.status}
+                              </span></td>
                       </tr>
                     ))}
                   </tbody>
@@ -807,11 +809,18 @@ export default function AdminPanel({ onExit }) {
                               <div style={{fontSize:'.8rem',color:'#9B72CF'}}>{o.customerEmail}</div>
                             </td>
                             <td style={{fontWeight:700,whiteSpace:'nowrap'}}>${Number(o.total||0).toLocaleString("es-CO",{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
-                            <td><span className={`adm-status ${o.status}`}>{o.status}</span></td>
+                            <td><span className={`adm-status ${o.status}`}>
+                                {{'PENDING':'⏳ Pendiente','PAID':'✅ Pagado','PROCESSING':'📦 Preparando','SHIPPED':'🚚 Enviado','DELIVERED':'🎉 Entregado','CANCELLED':'❌ Cancelado'}[o.status]||o.status}
+                              </span></td>
                             <td style={{fontSize:'.82rem',color:'#aaa',whiteSpace:'nowrap'}}>{o.createdAt?new Date(o.createdAt).toLocaleDateString('es-CO'):'-'}</td>
                             <td>
                               <select className="adm-sel-status" value={o.status} onChange={e=>updateOrderStatus(o.id,e.target.value)}>
-                                {['PENDING','PAID','PROCESSING','SHIPPED','DELIVERED','CANCELLED'].map(s=><option key={s}>{s}</option>)}
+                                <option value="PENDING">⏳ Pendiente</option>
+                                <option value="PAID">✅ Pagado</option>
+                                <option value="PROCESSING">📦 Preparando</option>
+                                <option value="SHIPPED">🚚 Enviado</option>
+                                <option value="DELIVERED">🎉 Entregado</option>
+                                <option value="CANCELLED">❌ Cancelado</option>
                               </select>
                             </td>
                           </tr>
