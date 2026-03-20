@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 import { productAPI, orderAPI } from '../services/api';
 
 const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD || 'Kosmica2025';
-const ENVIA_KEY = process.env.REACT_APP_ENVIA_KEY || '';
+const ENVIA_KEY = process.env.REACT_APP_ENVIA_KEY || '595ac5bf894317bb92ffaf7e3c96bb725ba32df87354fdb3b9d6e637fec10af1';
 const ENVIA_URL = 'https://api.envia.com';
 const CATEGORIES = ['BOLSOS','BILLETERAS','MAQUILLAJE','CAPILAR','CUIDADO_PERSONAL','ACCESORIOS'];
 const BADGES     = ['','VIRAL','HOT','BESTSELLER','NUEVO'];
@@ -445,61 +445,89 @@ export default function AdminPanel({ onExit }) {
     setShipGuide(null);
     setShipLoading(true);
     try {
+      // Detectar estado/departamento desde la ciudad
+      const getCityState = (city) => {
+        const c = (city||'').toLowerCase();
+        if (c.includes('medell') || c.includes('antioq') || c.includes('bello') || c.includes('envigado') || c.includes('itagüí')) return {state:'Antioquia', postalCode:'050001'};
+        if (c.includes('bogot') || c.includes('suba') || c.includes('usaquen') || c.includes('kennedy')) return {state:'Cundinamarca', postalCode:'110111'};
+        if (c.includes('cali') || c.includes('valle')) return {state:'Valle del Cauca', postalCode:'760001'};
+        if (c.includes('barranquill') || c.includes('atlántico') || c.includes('atlantico')) return {state:'Atlántico', postalCode:'080001'};
+        if (c.includes('cartagena') || c.includes('bolívar') || c.includes('bolivar')) return {state:'Bolívar', postalCode:'130001'};
+        if (c.includes('bucaramanga') || c.includes('santander')) return {state:'Santander', postalCode:'680001'};
+        if (c.includes('pereira') || c.includes('risaralda')) return {state:'Risaralda', postalCode:'660001'};
+        if (c.includes('manizales') || c.includes('caldas')) return {state:'Caldas', postalCode:'170001'};
+        if (c.includes('armenia') || c.includes('quindío') || c.includes('quindio')) return {state:'Quindío', postalCode:'630001'};
+        if (c.includes('ibagué') || c.includes('ibague') || c.includes('tolima')) return {state:'Tolima', postalCode:'730001'};
+        if (c.includes('villavicencio') || c.includes('meta')) return {state:'Meta', postalCode:'500001'};
+        if (c.includes('cúcuta') || c.includes('cucuta') || c.includes('norte de santander')) return {state:'Norte de Santander', postalCode:'540001'};
+        if (c.includes('pasto') || c.includes('nariño') || c.includes('narino')) return {state:'Nariño', postalCode:'520001'};
+        return {state:'Cundinamarca', postalCode:'110111'}; // default Bogotá
+      };
+
+      const destCity = order.city || 'Bogotá';
+      const destInfo = getCityState(destCity);
+
       const body = {
         origin: {
           name: "Kosmica",
           company: "Kosmica",
           email: "hola@kosmica.com",
           phone: "3043927148",
-          street: "Tu dirección de despacho",
-          number: "1",
-          district: "Centro",
+          street: "Calle 29 56 20",
+          number: "56",
+          district: "Laureles",
           city: "Medellín",
-          state: "ANT",
+          state: "Antioquia",
           country: "CO",
-          postalCode: "050001"
+          postalCode: "050034"
         },
         destination: {
           name: order.customerName || "Cliente",
           company: "",
           email: order.customerEmail || "",
-          phone: order.phone || "3000000000",
-          street: order.shippingAddress || "Dirección",
+          phone: (order.phone||"3000000000").replace(/\D/g,''),
+          street: order.shippingAddress || "Calle 1 # 1-1",
           number: "1",
           district: order.neighborhood || "Centro",
-          city: order.city || "Bogotá",
-          state: "CUN",
+          city: destCity,
+          state: destInfo.state,
           country: "CO",
-          postalCode: "110111"
+          postalCode: destInfo.postalCode
         },
         packages: [{
           content: "Productos Kosmica",
           amount: 1,
           type: "box",
+          weight: parseFloat(shipPkg.weight) || 0.5,
           dimensions: {
             length: parseFloat(shipPkg.length) || 20,
             width:  parseFloat(shipPkg.width)  || 15,
             height: parseFloat(shipPkg.height) || 10
-          },
-          physicalWeight: parseFloat(shipPkg.weight) || 0.5,
-          weight: parseFloat(shipPkg.weight) || 0.5
+          }
         }],
         shipment: { carrier: "", type: 1 }
       };
 
-      const resp = await fetch(`${ENVIA_URL}/ship/rate/`, {
+      console.log('Envia.com request:', JSON.stringify(body));
+
+      const resp = await fetch(`${process.env.REACT_APP_API_URL || 'https://kosmica-backend.onrender.com'}/api/shipping/rates`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${ENVIA_KEY}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(body)
       });
       const data = await resp.json();
+      console.log('Envia.com response:', JSON.stringify(data));
+
       if (data.data && data.data.length > 0) {
-        setShipRates(data.data.sort((a,b) => a.totalPrice - b.totalPrice));
+        setShipRates(data.data.sort((a,b) => (a.totalPrice||a.price||0) - (b.totalPrice||b.price||0)));
+      } else if (data.meta && data.meta.length > 0) {
+        setShipRates(data.meta.sort((a,b) => (a.totalPrice||a.price||0) - (b.totalPrice||b.price||0)));
       } else {
-        showToast('No se encontraron tarifas disponibles', 'error');
+        // Show raw response to debug
+        console.error('No rates found:', data);
+        showToast('Sin tarifas — revisa F12 Console para detalles', 'error');
       }
     } catch(e) {
       showToast('Error cotizando: ' + e.message, 'error');
@@ -559,10 +587,9 @@ export default function AdminPanel({ onExit }) {
         settings: { currency: "COP", printFormat: "PDF", labelSize: "STOCK_4X6" }
       };
 
-      const resp = await fetch(`${ENVIA_URL}/ship/generate/`, {
+      const resp = await fetch(`${process.env.REACT_APP_API_URL || 'https://kosmica-backend.onrender.com'}/api/shipping/generate`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${ENVIA_KEY}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(body)
