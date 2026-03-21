@@ -269,7 +269,7 @@ const STYLES = `
   .ai-send:disabled { opacity: .5; cursor: default; }
 `;
 
-const SYSTEM_PROMPT = (products) => `Eres Kosmica, la asistente virtual de LuxShop, una tienda de belleza y accesorios de lujo colombiana. Tu rol es recomendar productos de forma cálida, personal y experta.
+const SYSTEM_PROMPT = (products) => `Eres Kosmica, la asistente virtual de una tienda de belleza y accesorios de lujo colombiana. Tu rol es recomendar productos de forma cálida, personal y experta.
 
 CATÁLOGO ACTUAL DE PRODUCTOS:
 ${JSON.stringify(products.map(p => ({
@@ -310,7 +310,7 @@ export default function AIChatBot({ products = [], onProductClick }) {
   const [messages, setMessages] = useState([
     {
       role: "bot",
-      content: "¡Hola! Soy Kosmica ✨ Tu asistente de belleza en LuxShop. Cuéntame, ¿qué estás buscando hoy?",
+      content: "¡Hola! Soy Kosmica ✨ Tu asistente de belleza personal. Cuéntame, ¿qué estás buscando hoy?",
       products: [],
     },
   ]);
@@ -378,7 +378,19 @@ export default function AIChatBot({ products = [], onProductClick }) {
       });
 
       const data = await resp.json();
-      const rawText = data.content?.[0]?.text || "Lo siento, tuve un problema. ¿Puedes intentarlo de nuevo?";
+
+      // Si el backend devolvió un error
+      if (!resp.ok || data.error) {
+        const errMsg = data.error || `Error del servidor (${resp.status})`;
+        console.error("Error API IA:", errMsg);
+        setMessages((prev) => [
+          ...prev,
+          { role: "bot", content: `No pude conectarme ahora mismo. (${errMsg}) ¿Intentamos de nuevo?`, products: [] },
+        ]);
+        return;
+      }
+
+      const rawText = data.content?.[0]?.text || "Lo siento, no pude procesar tu mensaje. ¿Intentamos de nuevo?";
       const productIds = extractProductIds(rawText);
       const cleanedText = cleanText(rawText);
       const recommendedProducts = getProductsById(productIds);
@@ -390,10 +402,10 @@ export default function AIChatBot({ products = [], onProductClick }) {
 
       if (!open) setUnread((u) => u + 1);
     } catch (e) {
-      console.error("Error chat IA:", e);
+      console.error("Error chat Kosmica:", e);
       setMessages((prev) => [
         ...prev,
-        { role: "bot", content: "Ups, tuve un problema conectándome. Verifica que el servidor esté activo e intenta de nuevo. 🔄", products: [] },
+        { role: "bot", content: "No pude conectarme al servidor. Verifica tu conexión e intenta de nuevo. 🔄", products: [] },
       ]);
     } finally {
       setLoading(false);
@@ -421,7 +433,7 @@ export default function AIChatBot({ products = [], onProductClick }) {
           <div className="ai-header">
             <div className="ai-header-avatar">✨</div>
             <div className="ai-header-info">
-              <div className="ai-header-name">Kosmica — Asistente LuxShop</div>
+              <div className="ai-header-name">Kosmica ✨ Asistente</div>
               <div className="ai-header-status">
                 <span className="ai-header-dot" />
                 En línea ahora
