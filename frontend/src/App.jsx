@@ -382,6 +382,31 @@ const CSS = `
   .card-add:active { transform: scale(.97); }
   .card-add:hover { filter: brightness(1.08); }
 
+  .card-stock {
+    display: flex; align-items: center; gap: 6px;
+    font-size: .74rem; font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .card-stock-bar {
+    flex: 1; height: 3px; border-radius: 4px;
+    background: #EDE8F5; overflow: hidden;
+  }
+  .card-stock-fill {
+    height: 100%; border-radius: 4px;
+    transition: width .4s ease;
+  }
+  .card-stock.high  .card-stock-fill  { background: var(--lila); }
+  .card-stock.mid   .card-stock-fill  { background: #F4A261; }
+  .card-stock.low   .card-stock-fill  { background: #E74C3C; }
+  .card-stock.high  .card-stock-label { color: var(--brown); }
+  .card-stock.mid   .card-stock-label { color: #E07A2A; }
+  .card-stock.low   .card-stock-label { color: #E74C3C; }
+  .card-add-disabled {
+    width: 100%; padding: 10px; border-radius: 10px;
+    border: none; font-size: .88rem; font-weight: 600;
+    background: #EDE8F5; color: #B8A0D8; cursor: not-allowed;
+  }
+
   /* Skeleton */
   .skeleton {
     background: linear-gradient(90deg,#f0eaff 25%,#f8f4ff 50%,#f0eaff 75%);
@@ -1123,7 +1148,25 @@ export default function App() {
                           {p.originalPrice&&<span className="card-original">{fmtCOP(p.originalPrice)}</span>}
                           {pct>0&&<span className="card-discount">-{pct}%</span>}
                         </div>
-                        <button className="card-add" onClick={()=>addToCart(p)}>🛒 Agregar al carrito</button>
+                        {/* ── STOCK ── */}
+                        {(p.stock != null) && (() => {
+                          const s = p.stock;
+                          const level = s === 0 ? 'low' : s <= 5 ? 'low' : s <= 15 ? 'mid' : 'high';
+                          const pctBar = s === 0 ? 100 : Math.min(100, Math.round((s / 30) * 100));
+                          const label = s === 0 ? 'Agotado' : s === 1 ? '¡Último disponible!' : s <= 5 ? `¡Solo ${s} unidades!` : `${s} disponibles`;
+                          return (
+                            <div className={`card-stock ${level}`}>
+                              <div className="card-stock-bar">
+                                <div className="card-stock-fill" style={{width:`${pctBar}%`}}/>
+                              </div>
+                              <span className="card-stock-label">{label}</span>
+                            </div>
+                          );
+                        })()}
+                        {p.stock === 0
+                          ? <button className="card-add-disabled" disabled>😔 Agotado</button>
+                          : <button className="card-add" onClick={()=>addToCart(p)}>🛒 Agregar al carrito</button>
+                        }
                       </div>
                     </div>
                   );
