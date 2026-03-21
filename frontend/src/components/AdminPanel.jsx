@@ -611,7 +611,7 @@ export default function AdminPanel({ onExit }) {
           service: shipSelected.service,
           type: 1
         },
-        settings: { currency: "COP", printFormat: "PDF", labelSize: "STOCK_4X6" }
+        settings: { currency: "COP", printFormat: "PDF", labelSize: "STOCK_4X6", printSize: "STOCK_4X6" }
       };
 
       const resp = await fetch(`${process.env.REACT_APP_API_URL || 'https://kosmica-backend.onrender.com'}/api/shipping/generate`, {
