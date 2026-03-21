@@ -1,7 +1,6 @@
 // ============================================================
 //  AIChatBot.jsx — Asistente IA de recomendaciones LuxShop
-//  Usa Claude API (claude-sonnet-4-20250514) desde el frontend
-//  Conoce el catálogo real de productos en tiempo real
+//  Llama al backend /api/ai/chat (que hace proxy a Claude API)
 // ============================================================
 import { useState, useEffect, useRef } from "react";
 
@@ -270,7 +269,7 @@ const STYLES = `
   .ai-send:disabled { opacity: .5; cursor: default; }
 `;
 
-const SYSTEM_PROMPT = (products) => `Eres Luna, la asistente virtual de LuxShop, una tienda de belleza y accesorios de lujo colombiana. Tu rol es recomendar productos de forma cálida, personal y experta.
+const SYSTEM_PROMPT = (products) => `Eres Kosmica, la asistente virtual de LuxShop, una tienda de belleza y accesorios de lujo colombiana. Tu rol es recomendar productos de forma cálida, personal y experta.
 
 CATÁLOGO ACTUAL DE PRODUCTOS:
 ${JSON.stringify(products.map(p => ({
@@ -311,7 +310,7 @@ export default function AIChatBot({ products = [], onProductClick }) {
   const [messages, setMessages] = useState([
     {
       role: "bot",
-      content: "¡Hola! Soy Luna ✨ Tu asistente de belleza en LuxShop. Cuéntame, ¿qué estás buscando hoy?",
+      content: "¡Hola! Soy Kosmica ✨ Tu asistente de belleza en LuxShop. Cuéntame, ¿qué estás buscando hoy?",
       products: [],
     },
   ]);
@@ -365,7 +364,9 @@ export default function AIChatBot({ products = [], onProductClick }) {
     }
 
     try {
-      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      const backendUrl = process.env.REACT_APP_API_URL || 'https://kosmica-backend.onrender.com';
+
+      const resp = await fetch(`${backendUrl}/api/ai/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -389,9 +390,10 @@ export default function AIChatBot({ products = [], onProductClick }) {
 
       if (!open) setUnread((u) => u + 1);
     } catch (e) {
+      console.error("Error chat IA:", e);
       setMessages((prev) => [
         ...prev,
-        { role: "bot", content: "Ups, tuve un problema de conexión. ¿Intentamos de nuevo?", products: [] },
+        { role: "bot", content: "Ups, tuve un problema conectándome. Verifica que el servidor esté activo e intenta de nuevo. 🔄", products: [] },
       ]);
     } finally {
       setLoading(false);
@@ -419,7 +421,7 @@ export default function AIChatBot({ products = [], onProductClick }) {
           <div className="ai-header">
             <div className="ai-header-avatar">✨</div>
             <div className="ai-header-info">
-              <div className="ai-header-name">Luna — Asistente LuxShop</div>
+              <div className="ai-header-name">Kosmica — Asistente LuxShop</div>
               <div className="ai-header-status">
                 <span className="ai-header-dot" />
                 En línea ahora
