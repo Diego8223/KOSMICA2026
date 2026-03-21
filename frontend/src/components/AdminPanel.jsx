@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 import { productAPI, orderAPI } from '../services/api';
 
 const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD || 'Kosmica2025';
-// Envia.com via backend proxy — v3 (auth manejada en el backend)
+// Envia.com via backend proxy — v3 (auth y fan-out manejados en el backend)
 const CATEGORIES = ['BOLSOS','BILLETERAS','MAQUILLAJE','CAPILAR','CUIDADO_PERSONAL','ACCESORIOS'];
 const BADGES     = ['','VIRAL','HOT','BESTSELLER','NUEVO'];
 const EMPTY_PROD = {
@@ -444,25 +444,32 @@ export default function AdminPanel({ onExit }) {
     setShipGuide(null);
     setShipLoading(true);
     try {
+      // ✅ Colombia usa Código DANE (no postal codes) para la API de Envia.com
+      // city y postalCode deben ser el mismo Código DANE según documentación oficial
       const getCityState = (city) => {
         const c = (city||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-        if (c.includes('medell') || c.includes('bello') || c.includes('itagui') || c.includes('envigado') || c.includes('sabaneta')) return {state:'ANT',cp:'050001'};
-        if (c.includes('bogot') || c.includes('soacha') || c.includes('chia') || c.includes('zipaquira')) return {state:'CUN',cp:'110111'};
-        if (c.includes('cali') || c.includes('palmira') || c.includes('buenaventura')) return {state:'VAC',cp:'760001'};
-        if (c.includes('barranquill') || c.includes('soledad') || c.includes('malambo')) return {state:'ATL',cp:'080001'};
-        if (c.includes('cartagena') || c.includes('turbaco')) return {state:'BOL',cp:'130001'};
-        if (c.includes('bucaramanga') || c.includes('floridablanca') || c.includes('giron')) return {state:'SAN',cp:'680001'};
-        if (c.includes('pereira') || c.includes('dosquebradas')) return {state:'RIS',cp:'660001'};
-        if (c.includes('manizales')) return {state:'CAL',cp:'170001'};
-        if (c.includes('armenia')) return {state:'QUI',cp:'630001'};
-        if (c.includes('cucuta')) return {state:'NSA',cp:'540001'};
-        if (c.includes('ibague')) return {state:'TOL',cp:'730001'};
-        if (c.includes('neiva')) return {state:'HUI',cp:'410001'};
-        if (c.includes('villavicencio')) return {state:'MET',cp:'500001'};
-        if (c.includes('pasto')) return {state:'NAR',cp:'520001'};
-        if (c.includes('santa marta')) return {state:'MAG',cp:'470001'};
-        if (c.includes('monteria')) return {state:'COR',cp:'230001'};
-        return {state:'CUN',cp:'110111'};
+        if (c.includes('medell') || c.includes('bello') || c.includes('itagui') || c.includes('envigado') || c.includes('sabaneta')) return {state:'ANT',cp:'05001'};
+        if (c.includes('bogot') || c.includes('soacha') || c.includes('chia') || c.includes('zipaquira')) return {state:'CUN',cp:'11001'};
+        if (c.includes('cali') || c.includes('palmira') || c.includes('buenaventura')) return {state:'VAL',cp:'76001'};
+        if (c.includes('barranquill') || c.includes('soledad') || c.includes('malambo')) return {state:'ATL',cp:'08001'};
+        if (c.includes('cartagena') || c.includes('turbaco')) return {state:'BOL',cp:'13001'};
+        if (c.includes('bucaramanga') || c.includes('floridablanca') || c.includes('giron')) return {state:'SAN',cp:'68001'};
+        if (c.includes('pereira') || c.includes('dosquebradas')) return {state:'RIS',cp:'66001'};
+        if (c.includes('manizales')) return {state:'CAL',cp:'17001'};
+        if (c.includes('armenia')) return {state:'QUI',cp:'63001'};
+        if (c.includes('cucuta')) return {state:'NSA',cp:'54001'};
+        if (c.includes('ibague')) return {state:'TOL',cp:'73001'};
+        if (c.includes('neiva')) return {state:'HUI',cp:'41001'};
+        if (c.includes('villavicencio')) return {state:'MET',cp:'50001'};
+        if (c.includes('pasto')) return {state:'NAR',cp:'52001'};
+        if (c.includes('santa marta')) return {state:'MAG',cp:'47001'};
+        if (c.includes('monteria')) return {state:'COR',cp:'23001'};
+        if (c.includes('sincelejo')) return {state:'SUC',cp:'70001'};
+        if (c.includes('valledupar')) return {state:'CES',cp:'20001'};
+        if (c.includes('riohacha')) return {state:'LAG',cp:'44001'};
+        if (c.includes('quibdo')) return {state:'CHO',cp:'27001'};
+        if (c.includes('popayan')) return {state:'CAU',cp:'19001'};
+        return {state:'CUN',cp:'11001'}; // Bogotá por defecto
       };
       const destInfo = getCityState(order.city);
       const destCity = (order.city||'Bogota').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -476,10 +483,10 @@ export default function AdminPanel({ onExit }) {
           street: "Calle 10",
           number: "20",
           district: "El Centro",
-          city: "Medellin",
+          city: "05001",
           state: "ANT",
           country: "CO",
-          postalCode: "050001"
+          postalCode: "05001"
         },
         destination: {
           name: order.customerName || "Cliente",
@@ -489,7 +496,7 @@ export default function AdminPanel({ onExit }) {
           street: (order.shippingAddress||"Calle 1").normalize('NFD').replace(/[\u0300-\u036f]/g,''),
           number: "1",
           district: (order.neighborhood||"Centro").normalize('NFD').replace(/[\u0300-\u036f]/g,''),
-          city: destCity,
+          city: destInfo.cp,
           state: destInfo.state,
           country: "CO",
           postalCode: destInfo.cp
@@ -505,8 +512,8 @@ export default function AdminPanel({ onExit }) {
           },
           physicalWeight: parseFloat(shipPkg.weight) || 0.5,
           weight: parseFloat(shipPkg.weight) || 0.5
-        }],
-        shipment: { carrier: "", type: 1 }
+        }]
+        // ✅ Sin shipment aquí — el backend hace fan-out por cada transportadora
       };
 
       const resp = await fetch(`${process.env.REACT_APP_API_URL || 'https://kosmica-backend.onrender.com'}/api/shipping/rates`, {
@@ -532,6 +539,34 @@ export default function AdminPanel({ onExit }) {
   const generateGuide = async () => {
     if (!shipSelected || !shipModal) return;
     setShipGenerating(true);
+
+    // ✅ Reutilizar la misma función getCityState que getShipRates
+    const getCityStateFn = (city) => {
+      const c = (city||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      if (c.includes('medell') || c.includes('bello') || c.includes('itagui') || c.includes('envigado') || c.includes('sabaneta')) return {state:'ANT',cp:'05001'};
+      if (c.includes('bogot') || c.includes('soacha') || c.includes('chia') || c.includes('zipaquira')) return {state:'CUN',cp:'11001'};
+      if (c.includes('cali') || c.includes('palmira') || c.includes('buenaventura')) return {state:'VAL',cp:'76001'};
+      if (c.includes('barranquill') || c.includes('soledad') || c.includes('malambo')) return {state:'ATL',cp:'08001'};
+      if (c.includes('cartagena') || c.includes('turbaco')) return {state:'BOL',cp:'13001'};
+      if (c.includes('bucaramanga') || c.includes('floridablanca') || c.includes('giron')) return {state:'SAN',cp:'68001'};
+      if (c.includes('pereira') || c.includes('dosquebradas')) return {state:'RIS',cp:'66001'};
+      if (c.includes('manizales')) return {state:'CAL',cp:'17001'};
+      if (c.includes('armenia')) return {state:'QUI',cp:'63001'};
+      if (c.includes('cucuta')) return {state:'NSA',cp:'54001'};
+      if (c.includes('ibague')) return {state:'TOL',cp:'73001'};
+      if (c.includes('neiva')) return {state:'HUI',cp:'41001'};
+      if (c.includes('villavicencio')) return {state:'MET',cp:'50001'};
+      if (c.includes('pasto')) return {state:'NAR',cp:'52001'};
+      if (c.includes('santa marta')) return {state:'MAG',cp:'47001'};
+      if (c.includes('monteria')) return {state:'COR',cp:'23001'};
+      if (c.includes('sincelejo')) return {state:'SUC',cp:'70001'};
+      if (c.includes('valledupar')) return {state:'CES',cp:'20001'};
+      if (c.includes('popayan')) return {state:'CAU',cp:'19001'};
+      return {state:'CUN',cp:'11001'};
+    };
+
+    const destInfo = getCityStateFn(shipModal.city);
+
     try {
       const body = {
         origin: {
@@ -539,26 +574,26 @@ export default function AdminPanel({ onExit }) {
           company: "Kosmica",
           email: "hola@kosmica.com",
           phone: "3043927148",
-          street: "Tu dirección de despacho",
-          number: "1",
-          district: "Centro",
-          city: "Medellín",
+          street: "Calle 10",
+          number: "20",
+          district: "El Centro",
+          city: "05001",
           state: "ANT",
           country: "CO",
-          postalCode: "050001"
+          postalCode: "05001"
         },
         destination: {
           name: shipModal.customerName || "Cliente",
           company: "",
           email: shipModal.customerEmail || "",
-          phone: shipModal.phone || "3000000000",
-          street: shipModal.shippingAddress || "Dirección",
+          phone: (shipModal.phone||"3000000000").replace(/\D/g,'').slice(-10),
+          street: (shipModal.shippingAddress||"Dirección").normalize('NFD').replace(/[\u0300-\u036f]/g,''),
           number: "1",
-          district: shipModal.neighborhood || "Centro",
-          city: (shipModal.city||'Bogota').normalize('NFD').replace(/[\u0300-\u036f]/g,''),
-          state: getCityState(shipModal.city).state,
+          district: (shipModal.neighborhood||"Centro").normalize('NFD').replace(/[\u0300-\u036f]/g,''),
+          city: destInfo.cp,
+          state: destInfo.state,
           country: "CO",
-          postalCode: getCityState(shipModal.city).cp
+          postalCode: destInfo.cp
         },
         packages: [{
           content: "Productos Kosmica",
