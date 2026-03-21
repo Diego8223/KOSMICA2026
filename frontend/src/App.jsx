@@ -6,6 +6,7 @@ import { productAPI, orderAPI } from "./services/api";
 import ProductDetailModal from "./components/ProductDetailModal";
 import AdminPanel from "./components/AdminPanel";
 import OrderTracking from "./components/OrderTracking";
+import AIChatBot from "./components/AIChatBot";
 
 const CSS = `
   /* ✅ FUENTE: cargada en index.html con display=swap — no bloquea render */
@@ -1381,6 +1382,12 @@ export default function App() {
           </div>
         </>
       )}
+
+      {/* ── ASISTENTE IA LUNA ── */}
+      <AIChatBot
+        products={products}
+        onProductClick={(product) => setSelectedProduct(product)}
+      />
 
       {/* ── WHATSAPP ── */}
       <a className="wa-float" href="https://wa.me/573043927148?text=Hola%20Kosmica%2C%20quiero%20información"
