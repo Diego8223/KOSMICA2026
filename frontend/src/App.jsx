@@ -617,25 +617,25 @@ const CSS = `
   .wa-float {
     position: fixed; bottom: 22px; left: 16px; z-index: 800;
     display: flex; align-items: center; gap: 10px;
-    background: linear-gradient(135deg,#25D366,#128C7E);
+    background: linear-gradient(135deg, #9B72CF, #6B3FA0);
     color: #fff; text-decoration: none;
-    padding: 12px 18px 12px 14px;
+    padding: 11px 18px 11px 13px;
     border-radius: 50px;
-    box-shadow: 0 6px 24px rgba(37,211,102,.45);
+    box-shadow: 0 6px 24px rgba(107,63,160,.45);
     font-weight: 700; font-size: .9rem;
     transition: transform .25s, box-shadow .25s;
     border: none; cursor: pointer;
   }
-  .wa-float:hover, .wa-float:active { transform: scale(1.05); box-shadow: 0 10px 32px rgba(37,211,102,.6); }
+  .wa-float:hover, .wa-float:active { transform: scale(1.05); box-shadow: 0 10px 32px rgba(107,63,160,.6); }
   .wa-float-icon {
     width: 34px; height: 34px;
     background: rgba(255,255,255,.2);
     border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-size: 1.2rem; flex-shrink: 0;
+    font-size: 1.15rem; flex-shrink: 0;
   }
   .wa-float-text { display: flex; flex-direction: column; line-height: 1.2; }
-  .wa-float-label { font-size: .72rem; opacity: .85; font-weight: 400; }
+  .wa-float-label { font-size: .7rem; opacity: .8; font-weight: 400; }
   .wa-float-cta { font-size: .88rem; font-weight: 700; }
 
   /* ════════════════════════════════════════
@@ -663,7 +663,7 @@ const CSS = `
     .modal { border-radius: 24px; max-width: 500px; max-height: 90vh; }
     @keyframes slideUp { from{transform:scale(.9) translateY(20px);opacity:0} to{transform:scale(1) translateY(0);opacity:1} }
     .toast { left: 20px; right: auto; max-width: 320px; text-align: left; }
-    .wa-float { bottom: 28px; left: 24px; padding: 13px 20px 13px 15px; }
+    .wa-float { bottom: 28px; left: 24px; padding: 12px 20px 12px 14px; }
   }
 
   /* ════════════════════════════════════════
