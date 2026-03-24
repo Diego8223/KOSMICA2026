@@ -903,8 +903,18 @@ export default function App() {
 
   const cartTotal=cart.reduce((s,i)=>s+Number(i.price)*i.qty,0);
   const cartCount=cart.reduce((s,i)=>s+i.qty,0);
-  const shipping=cartTotal>=80?0:cartTotal*.08;
-  const grandTotal=cartTotal+shipping;
+  // ── Transportadoras Colombia (tarifas reales 2025) ──────────
+  const CARRIERS = [
+    { name:"Servientrega", price:8900,  time:"1–2 días",  logo:"🟡" },
+    { name:"Coordinadora", price:9500,  time:"1–3 días",  logo:"🔵" },
+    { name:"Interrapidísimo", price:7900, time:"2–3 días", logo:"🟠" },
+    { name:"TCC",          price:10500, time:"1–2 días",  logo:"🔴" },
+    { name:"Envia",        price:7500,  time:"2–4 días",  logo:"🟢" },
+  ];
+  const bestCarrier = CARRIERS.reduce((a,b)=>a.price<b.price?a:b);
+  const [selectedCarrier, setSelectedCarrier] = useState(bestCarrier);
+  const shipping = selectedCarrier.price;
+  const grandTotal = cartTotal + shipping;
 
   const handleCheckout=async e=>{
     e.preventDefault(); setPaying(true);
@@ -1308,8 +1318,36 @@ export default function App() {
             {cart.length>0&&(
               <div className="cart-footer">
                 <div className="cart-row"><span>Subtotal</span><span>{fmtCOP(cartTotal)}</span></div>
-                <div className="cart-row" style={{}}>
-                  <span>Envío</span><span>{fmtCOP(shipping)}</span>
+                {/* ── Selector transportadora ── */}
+                <div style={{margin:"10px 0 6px"}}>
+                  <div style={{fontSize:".8rem",fontWeight:700,color:"var(--brown)",marginBottom:6,textTransform:"uppercase",letterSpacing:".08em"}}>
+                    📦 Elige tu envío
+                  </div>
+                  {CARRIERS.map(c=>(
+                    <div key={c.name}
+                      onClick={()=>setSelectedCarrier(c)}
+                      style={{
+                        display:"flex",alignItems:"center",justifyContent:"space-between",
+                        padding:"8px 11px",marginBottom:5,borderRadius:10,cursor:"pointer",
+                        border:`2px solid ${selectedCarrier.name===c.name?"var(--lila)":"var(--lila-xlight)"}`,
+                        background: selectedCarrier.name===c.name?"var(--lila-xlight)":"#fff",
+                        transition:"all .18s"
+                      }}>
+                      <span style={{display:"flex",alignItems:"center",gap:7,fontSize:".88rem",fontWeight:600}}>
+                        <span>{c.logo}</span>
+                        <span style={{color:"var(--dark)"}}>{c.name}</span>
+                        {c.price===bestCarrier.price&&<span style={{background:"#27AE60",color:"#fff",fontSize:".68rem",fontWeight:800,padding:"1px 7px",borderRadius:20}}>MEJOR PRECIO</span>}
+                      </span>
+                      <span style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:1}}>
+                        <span style={{fontWeight:700,color:"var(--lila)",fontSize:".9rem"}}>{fmtCOP(c.price)}</span>
+                        <span style={{fontSize:".72rem",color:"var(--muted)"}}>{c.time}</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="cart-row" style={{borderTop:"1px solid var(--lila-xlight)",paddingTop:8,marginTop:4}}>
+                  <span>Envío <span style={{fontWeight:400,fontSize:".82rem",color:"var(--muted)"}}>({selectedCarrier.name})</span></span>
+                  <span>{fmtCOP(shipping)}</span>
                 </div>
                 <div className="cart-total-row">
                   <span>Total</span>
@@ -1339,8 +1377,8 @@ export default function App() {
                       <span>{i.name} ×{i.qty}</span><span>{fmtCOP(Number(i.price)*i.qty)}</span>
                     </div>
                   ))}
-                  <div className="summary-item" style={{}}>
-                    <span>Envío</span><span>{fmtCOP(shipping)}</span>
+                  <div className="summary-item">
+                    <span>Envío ({selectedCarrier.name})</span><span>{fmtCOP(shipping)}</span>
                   </div>
                   <div className="summary-total">
                     <span>Total</span><span style={{color:"var(--lila)"}}>{fmtCOP(grandTotal)}</span>
