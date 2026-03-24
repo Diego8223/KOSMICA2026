@@ -903,18 +903,7 @@ export default function App() {
 
   const cartTotal=cart.reduce((s,i)=>s+Number(i.price)*i.qty,0);
   const cartCount=cart.reduce((s,i)=>s+i.qty,0);
-  // ── Transportadoras Colombia (tarifas reales 2025) ──────────
-  const CARRIERS = [
-    { name:"Envia",           price:7500,  time:"2–4 días",  logo:"🟢" },
-    { name:"Interrapidísimo", price:7900,  time:"2–3 días",  logo:"🟠" },
-    { name:"Servientrega",    price:8900,  time:"1–2 días",  logo:"🟡" },
-    { name:"Coordinadora",    price:9500,  time:"1–3 días",  logo:"🔵" },
-    { name:"TCC",             price:10500, time:"1–2 días",  logo:"🔴" },
-  ];
-  const [selectedCarrier, setSelectedCarrier] = useState(null);
-  const [carrierModalOpen, setCarrierModalOpen] = useState(false);
-  const shipping = selectedCarrier ? selectedCarrier.price : 0;
-  const grandTotal = cartTotal + shipping;
+  const grandTotal = cartTotal;
 
   const handleCheckout=async e=>{
     e.preventDefault(); setPaying(true);
@@ -1320,7 +1309,7 @@ export default function App() {
                 <div className="cart-row"><span>Subtotal</span><span>{fmtCOP(cartTotal)}</span></div>
                 <div className="cart-row">
                   <span style={{color:"var(--muted)",fontSize:".88rem"}}>Envío</span>
-                  <span style={{color:"var(--muted)",fontSize:".88rem",fontStyle:"italic"}}>Se calcula al finalizar</span>
+                  <span style={{background:"#EAF7EE",color:"#27AE60",fontSize:".82rem",fontWeight:700,padding:"3px 10px",borderRadius:20}}>📦 Coordinamos contigo</span>
                 </div>
                 <div className="cart-total-row">
                   <span>Total productos</span>
@@ -1352,7 +1341,7 @@ export default function App() {
                   ))}
                   <div className="summary-item">
                     <span>Envío</span>
-                    <span>{selectedCarrier ? `${fmtCOP(shipping)} (${selectedCarrier.name})` : <em style={{color:"var(--muted)",fontStyle:"italic",fontSize:".85rem"}}>Pendiente</em>}</span>
+                    <span style={{color:"#27AE60",fontWeight:600,fontSize:".88rem"}}>📦 Te contactamos</span>
                   </div>
                   <div className="summary-total">
                     <span>Total</span><span style={{color:"var(--lila)"}}>{fmtCOP(grandTotal)}</span>
@@ -1399,22 +1388,21 @@ export default function App() {
                   <input required type="text" className="form-input" value={form.address} placeholder="Calle 10 #20-30, Apto 501"
                     onChange={e=>setForm(p=>({...p,address:e.target.value}))}/>
                 </div>
-                {/* ── Botón calcular envío ── */}
+                {/* ── Nota envío ── */}
                 {form.city && form.address && (
-                  <button type="button"
-                    onClick={()=>setCarrierModalOpen(true)}
-                    style={{
-                      width:"100%",padding:"12px",marginBottom:14,borderRadius:12,
-                      border:"2px dashed var(--lila)",background:"var(--lila-xlight)",
-                      color:"var(--lila-dark)",fontWeight:700,fontSize:".95rem",
-                      cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,
-                      transition:"all .2s"
-                    }}>
-                    {selectedCarrier
-                      ? <><span>✅</span> {selectedCarrier.name} — {fmtCOP(shipping)} <span style={{fontWeight:400,fontSize:".85rem",opacity:.7}}>({selectedCarrier.time}) · Cambiar</span></>
-                      : <><span>🚚</span> Ver opciones de envío para {form.city}</>
-                    }
-                  </button>
+                  <div style={{
+                    background:"#EAF7EE",border:"1.5px solid #A8DEC4",
+                    borderRadius:12,padding:"11px 14px",marginBottom:14,
+                    display:"flex",gap:10,alignItems:"flex-start"
+                  }}>
+                    <span style={{fontSize:"1.2rem"}}>📦</span>
+                    <div>
+                      <div style={{fontWeight:700,color:"#1E7E45",fontSize:".9rem",marginBottom:2}}>Envío coordinado por WhatsApp</div>
+                      <div style={{color:"#2D6A4F",fontSize:".83rem",lineHeight:1.5}}>
+                        Después de tu pedido te contactamos para confirmar el costo de envío a <strong>{form.city}</strong> con la transportadora más conveniente.
+                      </div>
+                    </div>
+                  </div>
                 )}
                 <div className="form-group">
                   <label className="form-label">Nota para el envío (opcional)</label>
@@ -1437,14 +1425,9 @@ export default function App() {
                 <div className="secure-note">
                   🔒 Serás redirigido a MercadoPago para completar tu pago de forma segura
                 </div>
-                {!selectedCarrier && form.city && form.address && (
-                  <div style={{background:"#FFF8E1",border:"1px solid #FFD54F",borderRadius:10,padding:"10px 14px",marginTop:12,fontSize:".88rem",color:"#795548",display:"flex",gap:8,alignItems:"center"}}>
-                    ⚠️ Selecciona una transportadora para continuar
-                  </div>
-                )}
-                <button type="submit" className="pay-btn" disabled={paying || !selectedCarrier}
-                  style={{background: selectedCarrier ? 'linear-gradient(135deg,#009EE3,#0070B8)' : '#ccc', cursor: selectedCarrier ? 'pointer' : 'not-allowed'}}>
-                  {paying?"⏳ Redirigiendo...": selectedCarrier ? `Ir a pagar ${fmtCOP(grandTotal)} COP →` : "🚚 Elige transportadora primero"}
+                <button type="submit" className="pay-btn" disabled={paying}
+                  style={{background:'linear-gradient(135deg,#009EE3,#0070B8)'}}>
+                  {paying?"⏳ Redirigiendo...":`Ir a pagar ${fmtCOP(grandTotal)} COP →`}
                 </button>
               </form>
             </div>
@@ -1475,57 +1458,6 @@ export default function App() {
         </>
       )}
 
-      {/* ── MODAL TRANSPORTADORAS ── */}
-      {carrierModalOpen && (
-        <>
-          <div className="overlay" onClick={()=>setCarrierModalOpen(false)}/>
-          <div className="modal-wrap">
-            <div className="modal" style={{maxWidth:480}}>
-              <div className="modal-header">
-                <h2 className="modal-title">🚚 Opciones de envío</h2>
-                <button className="close-btn" onClick={()=>setCarrierModalOpen(false)}>✕</button>
-              </div>
-              <div className="modal-body" style={{paddingTop:8}}>
-                <div style={{background:"var(--lila-xlight)",borderRadius:12,padding:"10px 14px",marginBottom:16,fontSize:".88rem",color:"var(--brown)"}}>
-                  📍 Enviando a: <strong>{form.city}{form.neighborhood?`, ${form.neighborhood}`:""}</strong>
-                </div>
-                {CARRIERS.map((c,i)=>(
-                  <div key={c.name}
-                    onClick={()=>{setSelectedCarrier(c);setCarrierModalOpen(false);}}
-                    style={{
-                      display:"flex",alignItems:"center",justifyContent:"space-between",
-                      padding:"14px 16px",marginBottom:10,borderRadius:14,cursor:"pointer",
-                      border:`2px solid ${selectedCarrier?.name===c.name?"var(--lila)":"var(--lila-xlight)"}`,
-                      background: selectedCarrier?.name===c.name?"var(--lila-xlight)":"#fff",
-                      boxShadow:"0 2px 10px rgba(120,80,180,.07)",
-                      transition:"all .18s"
-                    }}>
-                    <div style={{display:"flex",alignItems:"center",gap:12}}>
-                      <span style={{fontSize:"1.6rem"}}>{c.logo}</span>
-                      <div>
-                        <div style={{fontWeight:700,color:"var(--dark)",fontSize:".97rem",display:"flex",alignItems:"center",gap:7}}>
-                          {c.name}
-                          {i===0 && <span style={{background:"#27AE60",color:"#fff",fontSize:".68rem",fontWeight:800,padding:"2px 8px",borderRadius:20}}>MEJOR PRECIO</span>}
-                        </div>
-                        <div style={{fontSize:".8rem",color:"var(--muted)",marginTop:2}}>⏱ Entrega estimada: {c.time}</div>
-                      </div>
-                    </div>
-                    <div style={{textAlign:"right"}}>
-                      <div style={{fontWeight:800,color:"var(--lila)",fontSize:"1.1rem"}}>{fmtCOP(c.price)}</div>
-                      {selectedCarrier?.name===c.name && <div style={{fontSize:".75rem",color:"var(--lila)",fontWeight:600}}>✓ Seleccionado</div>}
-                    </div>
-                  </div>
-                ))}
-                <div style={{textAlign:"center",fontSize:".82rem",color:"var(--muted)",marginTop:8,paddingTop:8,borderTop:"1px solid var(--lila-xlight)"}}>
-                  💡 Precios estimados — pueden variar según el peso del paquete
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* ── MODAL TRANSPORTADORAS ── */}
 
       {/* ── ASISTENTE IA LUNA ── */}
       <AIChatBot
