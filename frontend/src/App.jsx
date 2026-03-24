@@ -720,6 +720,7 @@ const CSS = `
     }
     .mosaic-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s; }
     .mosaic-img:hover img { transform: scale(1.05); }
+    .mosaic-img.wide { grid-column: 2 / 4; }
     .hero-title { font-size: 3.6rem; }
     .hero-btns { flex-direction: row; }
     .stat-n { font-size: 1.9rem; }
@@ -1065,13 +1066,13 @@ export default function App() {
             {[
               {src:"https://images.unsplash.com/photo-1483985988355-763728e1935b?w=340&q=80",h:220,eager:true},
               {src:"https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=340&q=80",h:180,mt:30},
-              {src:"https://images.unsplash.com/photo-1599744331096-44b7a09e1059?w=340&q=80",h:180,mt:30},
+              {src:"https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=340&q=80",h:180,mt:30},
               {src:"https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=340&q=80",h:220},
             ].map((img,i)=>(
               <div key={i} className="mosaic-img" style={{height:img.h,marginTop:img.mt||0}}>
-                <img src={img.src} alt="" style={{height:"100%"}}
+                <img src={img.src} alt="" style={{height:"100%",width:"100%",objectFit:"cover"}}
                   loading={img.eager ? "eager" : "lazy"}
-                  fetchpriority={img.eager ? "high" : "auto"}
+                  fetchPriority={img.eager ? "high" : "auto"}
                 />
               </div>
             ))}
