@@ -903,7 +903,43 @@ export default function App() {
 
   const cartTotal=cart.reduce((s,i)=>s+Number(i.price)*i.qty,0);
   const cartCount=cart.reduce((s,i)=>s+i.qty,0);
-  const grandTotal = cartTotal;
+  const [carriers, setCarriers]             = useState([]);
+  const [carriersLoading, setCarriersLoading] = useState(false);
+  const [carriersError, setCarriersError]   = useState(null);
+  const [selectedCarrier, setSelectedCarrier] = useState(null);
+  const [carrierModalOpen, setCarrierModalOpen] = useState(false);
+  const shipping   = selectedCarrier ? selectedCarrier.price : 0;
+  const grandTotal = cartTotal + shipping;
+
+  // Llama al backend que consulta la API real de Envia
+  const fetchRates = async () => {
+    setCarriersLoading(true);
+    setCarriersError(null);
+    setSelectedCarrier(null);
+    setCarriers([]);
+    try {
+      const backendUrl = process.env.REACT_APP_API_URL || 'https://kosmica-backend.onrender.com';
+      const resp = await fetch(`${backendUrl}/api/shipping/rates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name:         form.name  || 'Cliente',
+          phone:        form.phone || '3000000000',
+          city:         form.city,
+          neighborhood: form.neighborhood,
+          address:      form.address,
+        }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || data.error) throw new Error(data.error || 'Error al cotizar');
+      const sorted = (data.carriers || []).sort((a, b) => a.price - b.price);
+      setCarriers(sorted);
+    } catch (e) {
+      setCarriersError(e.message);
+    } finally {
+      setCarriersLoading(false);
+    }
+  };
 
   const handleCheckout=async e=>{
     e.preventDefault(); setPaying(true);
@@ -1309,7 +1345,7 @@ export default function App() {
                 <div className="cart-row"><span>Subtotal</span><span>{fmtCOP(cartTotal)}</span></div>
                 <div className="cart-row">
                   <span style={{color:"var(--muted)",fontSize:".88rem"}}>Envío</span>
-                  <span style={{background:"#EAF7EE",color:"#27AE60",fontSize:".82rem",fontWeight:700,padding:"3px 10px",borderRadius:20}}>📦 Coordinamos contigo</span>
+                  <span style={{color:"var(--muted)",fontSize:".85rem",fontStyle:"italic"}}>Se elige al finalizar</span>
                 </div>
                 <div className="cart-total-row">
                   <span>Total productos</span>
@@ -1341,7 +1377,7 @@ export default function App() {
                   ))}
                   <div className="summary-item">
                     <span>Envío</span>
-                    <span style={{color:"#27AE60",fontWeight:600,fontSize:".88rem"}}>📦 Te contactamos</span>
+                    <span>{selectedCarrier ? fmtCOP(shipping) : <em style={{color:"var(--muted)",fontSize:".85rem"}}>pendiente</em>}</span>
                   </div>
                   <div className="summary-total">
                     <span>Total</span><span style={{color:"var(--lila)"}}>{fmtCOP(grandTotal)}</span>
@@ -1350,63 +1386,74 @@ export default function App() {
                 <p className="form-section">📋 Datos Personales</p>
                 <div className="form-group">
                   <label className="form-label">Nombre completo *</label>
-                  <input required type="text" className="form-input" value={form.name} placeholder="Ej: María García López"
+                  <input required type="text" className="form-input" value={form.name} placeholder=""
                     onChange={e=>setForm(p=>({...p,name:e.target.value}))}/>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
                   <div className="form-group">
                     <label className="form-label">Teléfono / WhatsApp *</label>
-                    <input required type="tel" className="form-input" value={form.phone} placeholder="3001234567"
+                    <input required type="tel" className="form-input" value={form.phone} placeholder=""
                       onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/>
                   </div>
                   <div className="form-group">
                     <label className="form-label">Cédula *</label>
-                    <input required type="text" className="form-input" value={form.document} placeholder="1234567890"
+                    <input required type="text" className="form-input" value={form.document} placeholder=""
                       onChange={e=>setForm(p=>({...p,document:e.target.value}))}/>
                   </div>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Correo electrónico *</label>
-                  <input required type="email" className="form-input" value={form.email} placeholder="tu@email.com"
+                  <input required type="email" className="form-input" value={form.email} placeholder=""
                     onChange={e=>setForm(p=>({...p,email:e.target.value}))}/>
                 </div>
                 <p className="form-section">📦 Datos de Envío</p>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
                   <div className="form-group">
                     <label className="form-label">Ciudad *</label>
-                    <input required type="text" className="form-input" value={form.city} placeholder="Ej: Medellín"
+                    <input required type="text" className="form-input" value={form.city} placeholder=""
                       onChange={e=>setForm(p=>({...p,city:e.target.value}))}/>
                   </div>
                   <div className="form-group">
                     <label className="form-label">Barrio</label>
-                    <input type="text" className="form-input" value={form.neighborhood} placeholder="Ej: El Poblado"
+                    <input type="text" className="form-input" value={form.neighborhood} placeholder=""
                       onChange={e=>setForm(p=>({...p,neighborhood:e.target.value}))}/>
                   </div>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Dirección completa *</label>
-                  <input required type="text" className="form-input" value={form.address} placeholder="Calle 10 #20-30, Apto 501"
+                  <input required type="text" className="form-input" value={form.address} placeholder=""
                     onChange={e=>setForm(p=>({...p,address:e.target.value}))}/>
                 </div>
-                {/* ── Nota envío ── */}
+                {/* ── Botón elegir transportadora — aparece al tener ciudad y dirección ── */}
                 {form.city && form.address && (
-                  <div style={{
-                    background:"#EAF7EE",border:"1.5px solid #A8DEC4",
-                    borderRadius:12,padding:"11px 14px",marginBottom:14,
-                    display:"flex",gap:10,alignItems:"flex-start"
-                  }}>
-                    <span style={{fontSize:"1.2rem"}}>📦</span>
-                    <div>
-                      <div style={{fontWeight:700,color:"#1E7E45",fontSize:".9rem",marginBottom:2}}>Envío coordinado por WhatsApp</div>
-                      <div style={{color:"#2D6A4F",fontSize:".83rem",lineHeight:1.5}}>
-                        Después de tu pedido te contactamos para confirmar el costo de envío a <strong>{form.city}</strong> con la transportadora más conveniente.
-                      </div>
-                    </div>
-                  </div>
+                  <button type="button" onClick={()=>{ fetchRates(); setCarrierModalOpen(true); }}
+                    style={{
+                      width:"100%",marginBottom:14,padding:"13px 16px",
+                      borderRadius:13,cursor:"pointer",
+                      border:`2px solid ${selectedCarrier?"var(--lila)":"#FFB347"}`,
+                      background: selectedCarrier?"var(--lila-xlight)":"#FFF8EE",
+                      display:"flex",alignItems:"center",justifyContent:"space-between",
+                      transition:"all .2s"
+                    }}>
+                    <span style={{display:"flex",alignItems:"center",gap:9}}>
+                      <span style={{fontSize:"1.3rem"}}>{selectedCarrier ? selectedCarrier.logo : "🚚"}</span>
+                      <span style={{textAlign:"left"}}>
+                        <span style={{display:"block",fontWeight:700,color:"var(--dark)",fontSize:".92rem"}}>
+                          {selectedCarrier ? selectedCarrier.name : "Elige tu transportadora"}
+                        </span>
+                        <span style={{display:"block",fontSize:".78rem",color:"var(--muted)",marginTop:1}}>
+                          {selectedCarrier ? `${selectedCarrier.time} · Toca para cambiar` : `Envío a ${form.city}`}
+                        </span>
+                      </span>
+                    </span>
+                    <span style={{fontWeight:800,fontSize:"1rem",color: selectedCarrier?"var(--lila)":"#E07A2A"}}>
+                      {selectedCarrier ? fmtCOP(shipping) : "Ver precios →"}
+                    </span>
+                  </button>
                 )}
                 <div className="form-group">
                   <label className="form-label">Nota para el envío (opcional)</label>
-                  <input type="text" className="form-input" value={form.notes} placeholder="Ej: Casa azul, timbre no funciona"
+                  <input type="text" className="form-input" value={form.notes} placeholder=""
                     onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/>
                 </div>
                 <p className="form-section">Método de Pago</p>
@@ -1425,9 +1472,23 @@ export default function App() {
                 <div className="secure-note">
                   🔒 Serás redirigido a MercadoPago para completar tu pago de forma segura
                 </div>
-                <button type="submit" className="pay-btn" disabled={paying}
-                  style={{background:'linear-gradient(135deg,#009EE3,#0070B8)'}}>
-                  {paying?"⏳ Redirigiendo...":`Ir a pagar ${fmtCOP(grandTotal)} COP →`}
+                {form.city && form.address && !selectedCarrier && (
+                  <div style={{background:"#FFF8E1",border:"1px solid #FFD54F",borderRadius:10,
+                    padding:"10px 14px",marginBottom:10,fontSize:".87rem",color:"#795548",
+                    display:"flex",gap:8,alignItems:"center"}}>
+                    ⚠️ Elige una transportadora para continuar
+                  </div>
+                )}
+                <button type="submit" className="pay-btn"
+                  disabled={paying || !selectedCarrier}
+                  style={{background: selectedCarrier
+                    ? "linear-gradient(135deg,#009EE3,#0070B8)"
+                    : "linear-gradient(135deg,#ccc,#bbb)",
+                    cursor: selectedCarrier ? "pointer" : "not-allowed"}}>
+                  {paying ? "⏳ Redirigiendo..."
+                    : selectedCarrier
+                      ? `Ir a pagar ${fmtCOP(grandTotal)} COP →`
+                      : "🚚 Primero elige transportadora"}
                 </button>
               </form>
             </div>
@@ -1458,6 +1519,84 @@ export default function App() {
         </>
       )}
 
+
+      {/* ── MODAL TRANSPORTADORAS ── */}
+      {carrierModalOpen && (
+        <>
+          <div className="overlay" onClick={()=>setCarrierModalOpen(false)}/>
+          <div className="modal-wrap">
+            <div className="modal" style={{maxWidth:460}}>
+              <div className="modal-header">
+                <div>
+                  <h2 className="modal-title">🚚 Elige tu envío</h2>
+                  <div style={{fontSize:".82rem",color:"var(--muted)",marginTop:2}}>
+                    Enviando a <strong style={{color:"var(--lila)"}}>{form.city}{form.neighborhood?`, ${form.neighborhood}`:""}</strong>
+                  </div>
+                </div>
+                <button className="close-btn" onClick={()=>setCarrierModalOpen(false)}>✕</button>
+              </div>
+              <div className="modal-body" style={{paddingTop:10,paddingBottom:28}}>
+                {carriersLoading && (
+                  <div style={{textAlign:"center",padding:"32px 16px"}}>
+                    <div style={{fontSize:"2rem",marginBottom:12}}>🚚</div>
+                    <div style={{fontWeight:600,color:"var(--lila)",marginBottom:6}}>Cotizando precios reales...</div>
+                    <div style={{fontSize:".85rem",color:"var(--muted)"}}>Consultando transportadoras disponibles para <strong>{form.city}</strong></div>
+                    <div style={{marginTop:16,display:"flex",gap:6,justifyContent:"center"}}>
+                      {[0,1,2].map(i=><div key={i} style={{width:10,height:10,borderRadius:"50%",background:"var(--lila)",animation:`dotBounce 1.2s ${i*0.2}s infinite ease-in-out`}}/>)}
+                    </div>
+                  </div>
+                )}
+                {carriersError && !carriersLoading && (
+                  <div style={{background:"#FFF0F0",border:"1px solid #FFCDD2",borderRadius:12,padding:"14px 16px",marginBottom:12,color:"#C62828",fontSize:".88rem"}}>
+                    ⚠️ {carriersError}
+                    <button onClick={fetchRates} style={{display:"block",marginTop:8,background:"none",border:"1px solid #C62828",borderRadius:8,padding:"4px 14px",cursor:"pointer",color:"#C62828",fontSize:".82rem",fontWeight:700}}>
+                      Reintentar
+                    </button>
+                  </div>
+                )}
+                {!carriersLoading && !carriersError && carriers.length === 0 && (
+                  <div style={{textAlign:"center",padding:"24px",color:"var(--muted)",fontSize:".9rem"}}>
+                    No se encontraron opciones de envío para esta ciudad.
+                  </div>
+                )}
+                {!carriersLoading && carriers.map((c,i)=>(
+                  <div key={c.name}
+                    onClick={()=>{ setSelectedCarrier(c); setCarrierModalOpen(false); }}
+                    style={{
+                      display:"flex",alignItems:"center",justifyContent:"space-between",
+                      padding:"14px 16px",marginBottom:10,borderRadius:14,cursor:"pointer",
+                      border:`2px solid ${selectedCarrier?.name===c.name?"var(--lila)":"var(--lila-xlight)"}`,
+                      background: selectedCarrier?.name===c.name?"var(--lila-xlight)":"#fff",
+                      boxShadow:"0 2px 10px rgba(120,80,180,.07)",
+                      transition:"all .18s"
+                    }}>
+                    <div style={{display:"flex",alignItems:"center",gap:12}}>
+                      <span style={{fontSize:"1.7rem",lineHeight:1}}>{c.logo}</span>
+                      <div>
+                        <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:3}}>
+                          <span style={{fontWeight:700,color:"var(--dark)",fontSize:".97rem"}}>{c.name}</span>
+                          {i===0&&<span style={{background:"#27AE60",color:"#fff",fontSize:".67rem",
+                            fontWeight:800,padding:"2px 8px",borderRadius:20,letterSpacing:".03em"}}>
+                            MEJOR PRECIO
+                          </span>}
+                          {selectedCarrier?.name===c.name&&<span style={{background:"var(--lila)",color:"#fff",
+                            fontSize:".67rem",fontWeight:800,padding:"2px 8px",borderRadius:20}}>
+                            ✓ ELEGIDO
+                          </span>}
+                        </div>
+                        <div style={{fontSize:".8rem",color:"var(--muted)"}}>⏱ {c.days || c.time}</div>
+                      </div>
+                    </div>
+                    <div style={{fontWeight:800,color:"var(--lila)",fontSize:"1.15rem",flexShrink:0}}>
+                      {fmtCOP(c.price)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ── ASISTENTE IA LUNA ── */}
       <AIChatBot
