@@ -713,13 +713,20 @@ const CSS = `
 
     .hero { padding: 140px 5% 70px; }
     .hero-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 55px; align-items: center; }
-    .hero-mosaic { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+    .hero-mosaic {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-rows: 220px 180px;
+      gap: 13px;
+    }
     .mosaic-img {
       border-radius: 20px; overflow: hidden;
       box-shadow: 0 14px 44px rgba(120,80,180,.2); border: 3px solid rgba(255,255,255,.85);
     }
     .mosaic-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s; }
     .mosaic-img:hover img { transform: scale(1.05); }
+    .mosaic-img.tall { grid-row: 1 / 3; }
+    .mosaic-img.wide { grid-column: 2 / 4; }
     .hero-title { font-size: 3.6rem; }
     .hero-btns { flex-direction: row; }
     .stat-n { font-size: 1.9rem; }
@@ -1062,19 +1069,36 @@ export default function App() {
             </div>
           </div>
           <div className="hero-mosaic">
-            {[
-              {src:"https://images.unsplash.com/photo-1483985988355-763728e1935b?w=340&q=80",h:220,eager:true},
-              {src:"https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=340&q=80",h:180,mt:30},
-              {src:"https://images.unsplash.com/photo-1599744331096-44b7a09e1059?w=340&q=80",h:180,mt:30},
-              {src:"https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=340&q=80",h:220},
-            ].map((img,i)=>(
-              <div key={i} className="mosaic-img" style={{height:img.h,marginTop:img.mt||0}}>
-                <img src={img.src} alt="" style={{height:"100%"}}
-                  loading={img.eager ? "eager" : "lazy"}
-                  fetchpriority={img.eager ? "high" : "auto"}
-                />
-              </div>
-            ))}
+            {/* Foto 1 — izquierda, ocupa las 2 filas */}
+            <div className="mosaic-img tall">
+              <img src="https://images.unsplash.com/photo-1483985988355-763728e1935b?w=400&q=80"
+                alt="Moda femenina" style={{width:"100%",height:"100%",objectFit:"cover"}}
+                loading="eager" fetchPriority="high" />
+            </div>
+            {/* Foto 2 — arriba centro */}
+            <div className="mosaic-img">
+              <img src="https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=400&q=80"
+                alt="Bolso de lujo" style={{width:"100%",height:"100%",objectFit:"cover"}}
+                loading="lazy" />
+            </div>
+            {/* Foto 3 — arriba derecha */}
+            <div className="mosaic-img">
+              <img src="https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=400&q=80"
+                alt="Look femenino" style={{width:"100%",height:"100%",objectFit:"cover"}}
+                loading="lazy" />
+            </div>
+            {/* Foto 4 — abajo centro, nueva! */}
+            <div className="mosaic-img">
+              <img src="https://images.unsplash.com/photo-1599744331096-44b7a09e1059?w=400&q=80"
+                alt="Accesorios premium" style={{width:"100%",height:"100%",objectFit:"cover"}}
+                loading="lazy" />
+            </div>
+            {/* Foto 5 — abajo derecha */}
+            <div className="mosaic-img">
+              <img src="https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=400&q=80"
+                alt="Maquillaje y belleza" style={{width:"100%",height:"100%",objectFit:"cover"}}
+                loading="lazy" />
+            </div>
           </div>
         </div>
       </section>
