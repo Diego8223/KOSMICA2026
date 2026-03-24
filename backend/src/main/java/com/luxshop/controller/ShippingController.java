@@ -116,9 +116,9 @@ public class ShippingController {
             body.set("packages", packages);
 
             // Tipo de envío
-            body.put("shipment_type", "envelope");
+            body.put("shipment_type", "package");
 
-            log.info("Cotizando envío Envia → destino DANE: {}", daneCode);
+            log.info("Cotizando envío Envia → destino DANE: {} | body enviado: {}", daneCode, body);
 
             HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(ENVIA_RATES_URL))
@@ -131,6 +131,7 @@ public class ShippingController {
                 .send(request, HttpResponse.BodyHandlers.ofString());
 
             log.info("Envia API → HTTP {}", response.statusCode());
+            log.info("Envia API → body respuesta: {}", response.body());
 
             if (response.statusCode() != 200) {
                 log.error("Envia error {}: {}", response.statusCode(), response.body());
