@@ -166,8 +166,9 @@ public class ShippingController {
 
         } catch (Exception e) {
             log.error("Error llamando a Envia API: {}", e.getMessage());
-            return ResponseEntity.internalServerError()
-                .body("{\"error\":\"" + e.getMessage() + "\"}");
+            ObjectNode errBody = mapper.createObjectNode();
+            errBody.put("error", e.getMessage() != null ? e.getMessage() : "Error interno del servidor");
+            return ResponseEntity.internalServerError().body(errBody.toString());
         }
     }
 

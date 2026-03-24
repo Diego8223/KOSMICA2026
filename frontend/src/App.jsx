@@ -931,7 +931,12 @@ export default function App() {
         }),
       });
       const data = await resp.json();
-      if (!resp.ok || data.error) throw new Error(data.error || 'Error al cotizar');
+      if (!resp.ok || data.error) {
+        const errMsg = typeof data.error === 'string'
+          ? data.error
+          : data.error?.message || data.message || `Error ${resp.status} al cotizar`;
+        throw new Error(errMsg);
+      }
       const sorted = (data.carriers || []).sort((a, b) => a.price - b.price);
       setCarriers(sorted);
     } catch (e) {
