@@ -92,3 +92,9 @@ export const orderAPI = {
 };
 
 export default api;
+
+// ── Cloudinary: optimización automática de imágenes ──────
+export function imgUrl(url, width = 400) {
+  if (!url || !url.includes('cloudinary.com')) return url;
+  return url.replace('/upload/', `/upload/w_${width},q_auto,f_auto/`);
+}

@@ -2,7 +2,7 @@
 //  src/App.jsx — Kosmica v5  MOBILE-FIRST  Amazon-Style UX
 // ============================================================
 import { useState, useEffect, useCallback, useRef } from "react";
-import { productAPI, orderAPI } from "./services/api";
+import { productAPI, orderAPI, imgUrl } from "./services/api";
 import ProductDetailModal from "./components/ProductDetailModal";
 import AdminPanel from "./components/AdminPanel";
 import OrderTracking from "./components/OrderTracking";
@@ -318,11 +318,25 @@ const CSS = `
     object-fit: contain;
     display: block;
     background: #F8F4FF;
-    transition: transform .6s cubic-bezier(.25,.46,.45,.94);
+    transition: transform .6s cubic-bezier(.25,.46,.45,.94), opacity .4s ease;
     padding: 8px;
     box-sizing: border-box;
+    opacity: 0;
   }
+  .card-img.loaded { opacity: 1; }
   .product-card:hover .card-img { transform: scale(1.06); }
+
+  /* Skeleton shimmer */
+  .img-skeleton {
+    position: absolute; inset: 0; z-index: 1;
+    background: linear-gradient(90deg, #EDE8F7 25%, #F5F0FF 50%, #EDE8F7 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+  }
+  @keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
 
   .card-see-more {
     position: absolute; bottom: 0; left: 0; right: 0;
@@ -1164,13 +1178,15 @@ export default function App() {
                   return (
                     <div key={p.id} className="product-card">
                       <div className="card-img-wrap" onClick={()=>setSelectedProduct(p)}>
+                        <div className="img-skeleton" />
                         <img className="card-img"
-                          src={p.imageUrl||"https://images.unsplash.com/photo-1483985988355-763728e1935b?w=400&q=80"}
+                          src={imgUrl(p.imageUrl)||"https://images.unsplash.com/photo-1483985988355-763728e1935b?w=400&q=80"}
                           alt={p.name}
                           loading="lazy"
                           width="400"
                           height="240"
                           decoding="async"
+                          onLoad={e=>{e.target.classList.add("loaded");const sk=e.target.previousSibling;if(sk)sk.style.display="none";}}
                         />
                         <div className="card-see-more">{p.videoUrl?"🎥 Ver fotos y video →":"🔍 Ver más →"}</div>
                         {p.badge&&<span className={`card-badge ${p.badge}`}>{p.badge}</span>}
