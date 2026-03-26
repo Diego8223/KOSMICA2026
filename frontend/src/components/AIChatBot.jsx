@@ -269,7 +269,7 @@ const STYLES = `
   .ai-send:disabled { opacity: .5; cursor: default; }
 `;
 
-const SYSTEM_PROMPT = (products) => `Eres LUNA, la asistente personal de Kosmica — una tienda colombiana de belleza y accesorios premium. No eres un bot genérico: eres la mejor amiga fashion de cada clienta, que conoce el catálogo de memoria y tiene el don de hacer sentir especial a quien le escribe.
+const SYSTEM_PROMPT = (products) => `Eres ISABEL, la asistente personal de Kosmica — una tienda colombiana de belleza y accesorios premium. No eres un bot genérico: eres la mejor amiga fashion de cada clienta, que conoce el catálogo de memoria y tiene el don de hacer sentir especial a quien le escribe.
 
 ═══════════════════════════════════════
 PERSONALIDAD Y VOZ
@@ -292,7 +292,8 @@ ${JSON.stringify(products.filter(p => p.stock > 0).map(p => ({
   categoria: p.category,
   rating: p.rating,
   stock: p.stock,
-  badge: p.badge
+  badge: p.badge,
+  imagen: p.imageUrl || null
 })), null, 2)}
 
 Categorías disponibles: Bolsos y Morrales, Maquillaje, Capilar, Accesorios.
@@ -348,7 +349,7 @@ export default function AIChatBot({ products = [], onProductClick }) {
   const [messages, setMessages] = useState([
     {
       role: "bot",
-      content: "Hola hermosa, soy Luna ✨ Tu asistente personal de Kosmica. Dime, ¿estás buscando algo para ti o es un regalo especial?",
+      content: "Hola hermosa, soy Isabel ✨ Tu asistente personal de Kosmica. Dime, ¿estás buscando algo para ti o es un regalo especial?",
       products: [],
     },
   ]);
@@ -471,7 +472,7 @@ export default function AIChatBot({ products = [], onProductClick }) {
           <div className="ai-header">
             <div className="ai-header-avatar">✨</div>
             <div className="ai-header-info">
-              <div className="ai-header-name">Luna ✨ Tu stylist personal</div>
+              <div className="ai-header-name">Isabel ✨ Tu asesora de Kosmica</div>
               <div className="ai-header-status">
                 <span className="ai-header-dot" />
                 Lista para ayudarte 💜
