@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://www.kosmica.com.co/sitemap.xml

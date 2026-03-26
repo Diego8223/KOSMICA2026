@@ -2,15 +2,61 @@
 <html lang="es">
   <head>
     <meta charset="utf-8" />
-    <!-- ✅ ESTO ES LO QUE HACE QUE FUNCIONE EN MÓVIL -->
+
+    <!-- ✅ VIEWPORT MÓVIL -->
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
     <meta name="theme-color" content="#9B72CF" />
-    <meta name="description" content="Kosmica — Moda femenina premium. Bolsos, maquillaje, capilar y ropa." />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <title>Kosmica</title>
 
-    <!-- ✅ FUENTES: preload + media=print truco evita bloqueo del render -->
+    <!-- ✅ SEO BÁSICO -->
+    <title>Kosmica — Moda femenina premium Colombia</title>
+    <meta name="description" content="Kosmica — Bolsos, maquillaje, capilar y ropa femenina premium. Envíos a toda Colombia. ¡Compra ahora en kosmica.com.co!" />
+    <meta name="keywords" content="moda femenina colombia, bolsos mujer, maquillaje, ropa mujer colombia, capilar, tienda online colombia, kosmica" />
+    <meta name="author" content="Kosmica" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://www.kosmica.com.co/" />
+
+    <!-- ✅ OPEN GRAPH (WhatsApp, Facebook, Instagram, LinkedIn, TikTok) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://www.kosmica.com.co/" />
+    <meta property="og:title" content="Kosmica — Moda femenina premium 💜" />
+    <meta property="og:description" content="Bolsos, maquillaje, capilar y ropa femenina premium. Envíos a toda Colombia. ¡Descubre tu estilo en Kosmica!" />
+    <meta property="og:image" content="https://www.kosmica.com.co/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Kosmica — Moda femenina premium Colombia" />
+    <meta property="og:locale" content="es_CO" />
+    <meta property="og:site_name" content="Kosmica" />
+
+    <!-- ✅ TWITTER CARD -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@kosmica" />
+    <meta name="twitter:title" content="Kosmica — Moda femenina premium 💜" />
+    <meta name="twitter:description" content="Bolsos, maquillaje, capilar y ropa femenina premium. Envíos a toda Colombia." />
+    <meta name="twitter:image" content="https://www.kosmica.com.co/og-image.jpg" />
+
+    <!-- ✅ SCHEMA.ORG (Google entiende mejor tu tienda) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "ClothingStore",
+      "name": "Kosmica",
+      "url": "https://www.kosmica.com.co",
+      "logo": "https://www.kosmica.com.co/og-image.jpg",
+      "description": "Tienda de moda femenina premium en Colombia. Bolsos y morrales , maquillaje, capilar, cuidado personal y accesorios.",
+      "address": {
+        "@type": "PostalAddress",
+        "addressCountry": "CO"
+      },
+      "sameAs": [
+        "https://www.instagram.com/kosmica",
+        "https://www.tiktok.com/@kosmica"
+      ]
+    }
+    </script>
+
+    <!-- ✅ FUENTES: preload + media=print evita bloqueo del render -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preload" as="style"
