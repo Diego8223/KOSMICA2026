@@ -1,376 +1,406 @@
 // ============================================================
-//  AIChatBot.jsx — Isabel, asesora IA de Kosmica
-//  Llama al backend /api/ai/chat (que hace proxy a Claude API)
+//  AIChatBot.jsx — Isabel, asesora IA premium de Kosmica
+//  Diseño: panel lateral de productos + chat principal
 // ============================================================
 import { useState, useEffect, useRef } from "react";
 
 const STYLES = `
-  .ai-fab {
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&family=Inter:wght@400;500;600&display=swap');
+
+  /* ── FAB ─────────────────────────────────────────── */
+  .kb-fab {
     position: fixed;
-    bottom: 28px;
-    right: 28px;
-    width: 64px;
-    height: 64px;
+    bottom: 28px; right: 28px;
+    width: 62px; height: 62px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #9B72CF, #6B3FA0);
-    border: none;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 28px;
-    box-shadow: 0 4px 24px rgba(107,63,160,0.45);
-    z-index: 9999;
-    transition: transform .2s, box-shadow .2s;
-  }
-  .ai-fab:hover { transform: scale(1.1); box-shadow: 0 8px 32px rgba(107,63,160,0.6); }
-  .ai-fab .ai-fab-badge {
-    position: absolute;
-    top: -4px; right: -4px;
-    width: 20px; height: 20px;
-    background: #FF4D6D;
-    border-radius: 50%;
-    border: 2px solid #fff;
-    font-size: 10px;
-    color: #fff;
+    background: linear-gradient(135deg, #C084FC, #7C3AED);
+    border: none; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    font-weight: 700;
+    font-size: 26px;
+    box-shadow: 0 8px 32px rgba(124,58,237,0.5);
+    z-index: 10000;
+    transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s;
+  }
+  .kb-fab:hover { transform: scale(1.12); box-shadow: 0 12px 40px rgba(124,58,237,0.65); }
+  .kb-fab-badge {
+    position: absolute; top: -3px; right: -3px;
+    width: 20px; height: 20px;
+    background: #F43F5E; border-radius: 50%;
+    border: 2.5px solid #fff;
+    font-size: 10px; font-weight: 700; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Inter', sans-serif;
   }
 
-  .ai-window {
+  /* ── OVERLAY ─────────────────────────────────────── */
+  .kb-overlay {
+    position: fixed; inset: 0;
+    background: rgba(15, 10, 30, 0.55);
+    backdrop-filter: blur(6px);
+    z-index: 9998;
+    animation: kbFadeIn .2s ease;
+  }
+  @keyframes kbFadeIn { from { opacity:0 } to { opacity:1 } }
+
+  /* ── PANEL PRINCIPAL ─────────────────────────────── */
+  .kb-panel {
     position: fixed;
-    bottom: 106px;
-    right: 28px;
-    width: 420px;
-    max-height: 680px;
-    background: #fff;
-    border-radius: 24px;
-    box-shadow: 0 20px 80px rgba(0,0,0,0.2);
-    display: flex;
-    flex-direction: column;
+    bottom: 0; right: 0;
+    width: 820px; height: 90vh;
+    max-width: 100vw; max-height: 100vh;
+    background: #0F0A1E;
+    border-radius: 24px 24px 0 0;
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    grid-template-rows: auto 1fr;
     overflow: hidden;
     z-index: 9999;
-    animation: aiSlideIn .28s cubic-bezier(.34,1.56,.64,1);
+    box-shadow: -4px 0 60px rgba(0,0,0,0.6);
+    animation: kbSlideUp .35s cubic-bezier(.34,1.2,.64,1);
+    font-family: 'Inter', sans-serif;
   }
-  @keyframes aiSlideIn {
-    from { opacity: 0; transform: translateY(24px) scale(.95); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
+  @keyframes kbSlideUp {
+    from { transform: translateY(40px); opacity: 0; }
+    to   { transform: translateY(0); opacity: 1; }
   }
-  @media (max-width: 460px) {
-    .ai-window { right: 8px; left: 8px; width: auto; bottom: 90px; border-radius: 18px; }
+  @media (max-width: 860px) {
+    .kb-panel { width: 100vw; border-radius: 20px 20px 0 0; grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; height: 92vh; }
+    .kb-products-panel { display: none; }
+    .kb-products-panel.mobile-open { display: flex; position: absolute; inset: 0; z-index: 10; }
   }
 
-  .ai-header {
-    background: linear-gradient(135deg, #9B72CF, #6B3FA0);
-    padding: 14px 18px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    color: #fff;
-    flex-shrink: 0;
+  /* ── HEADER (ocupa ambas columnas) ───────────────── */
+  .kb-header {
+    grid-column: 1 / -1;
+    background: linear-gradient(135deg, #1A0A3B 0%, #0D0621 50%, #1A0533 100%);
+    padding: 20px 24px 16px;
+    display: flex; align-items: center; gap: 16px;
+    border-bottom: 1px solid rgba(192,132,252,0.15);
+    position: relative;
+    overflow: hidden;
   }
-  .ai-header-avatar {
-    width: 44px; height: 44px;
-    background: rgba(255,255,255,.2);
+  .kb-header::before {
+    content: '';
+    position: absolute; top: -40px; right: 80px;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(192,132,252,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .kb-header-left { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
+  .kb-avatar-wrap {
+    position: relative; flex-shrink: 0;
+  }
+  .kb-avatar {
+    width: 52px; height: 52px;
     border-radius: 50%;
+    background: linear-gradient(135deg, #C084FC, #7C3AED);
     display: flex; align-items: center; justify-content: center;
-    font-size: 22px;
-    flex-shrink: 0;
-    border: 2px solid rgba(255,255,255,.35);
+    font-size: 24px;
+    border: 2px solid rgba(192,132,252,0.4);
+    box-shadow: 0 0 20px rgba(192,132,252,0.3);
   }
-  .ai-header-info { flex: 1; }
-  .ai-header-name { font-weight: 700; font-size: 1rem; letter-spacing: .01em; }
-  .ai-header-status { font-size: .73rem; opacity: .9; display: flex; align-items: center; gap: 5px; margin-top: 2px; }
-  .ai-header-dot { width: 7px; height: 7px; background: #4DFFA0; border-radius: 50%; animation: pulse 2s infinite; }
-  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.4; } }
-  .ai-header-close {
-    background: rgba(255,255,255,.15);
-    border: none; color: #fff;
-    width: 32px; height: 32px;
-    border-radius: 50%;
-    cursor: pointer; font-size: 16px;
-    display: flex; align-items: center; justify-content: center;
-    transition: background .2s;
-    flex-shrink: 0;
+  .kb-online-dot {
+    position: absolute; bottom: 2px; right: 2px;
+    width: 12px; height: 12px;
+    background: #34D399; border-radius: 50%;
+    border: 2px solid #0F0A1E;
+    animation: pulse-dot 2s infinite;
   }
-  .ai-header-close:hover { background: rgba(255,255,255,.3); }
+  @keyframes pulse-dot {
+    0%,100% { box-shadow: 0 0 0 0 rgba(52,211,153,0.5); }
+    50%      { box-shadow: 0 0 0 5px rgba(52,211,153,0); }
+  }
+  .kb-header-info { min-width: 0; }
+  .kb-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.15rem; font-weight: 600;
+    color: #F3E8FF;
+    letter-spacing: .02em;
+    line-height: 1.2;
+  }
+  .kb-subtitle {
+    font-size: .73rem; color: rgba(216,180,254,0.7);
+    margin-top: 2px; display: flex; align-items: center; gap: 6px;
+  }
+  .kb-status-dot { width: 6px; height: 6px; background: #34D399; border-radius: 50%; }
 
-  .ai-categories {
-    display: flex;
-    gap: 6px;
-    padding: 10px 14px;
-    overflow-x: auto;
-    background: #fff;
-    border-bottom: 1px solid #EDE8F5;
-    scrollbar-width: none;
+  /* Categorías en el header */
+  .kb-cats {
+    display: flex; gap: 6px; align-items: center;
     flex-shrink: 0;
   }
-  .ai-categories::-webkit-scrollbar { display: none; }
-  .ai-cat-btn {
-    display: flex;
-    align-items: center;
-    gap: 5px;
+  @media (max-width: 640px) { .kb-cats { display: none; } }
+  .kb-cat {
     padding: 5px 12px;
     border-radius: 20px;
-    border: 1.5px solid #E0D4F0;
-    background: #F9F6FF;
-    color: #6B3FA0;
-    font-size: .75rem;
-    font-weight: 600;
+    background: rgba(192,132,252,0.1);
+    border: 1px solid rgba(192,132,252,0.25);
+    color: #D8B4FE;
+    font-size: .72rem; font-weight: 500;
     cursor: pointer;
-    white-space: nowrap;
     transition: all .15s;
-    flex-shrink: 0;
+    white-space: nowrap;
   }
-  .ai-cat-btn:hover {
-    background: linear-gradient(135deg, #9B72CF, #6B3FA0);
-    color: #fff;
-    border-color: transparent;
-    transform: translateY(-1px);
+  .kb-cat:hover {
+    background: rgba(192,132,252,0.25);
+    border-color: rgba(192,132,252,0.5);
+    color: #F3E8FF;
   }
-  .ai-cat-btn:disabled { opacity: .5; cursor: default; transform: none; }
+  .kb-close {
+    width: 34px; height: 34px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 50%;
+    color: #D8B4FE; font-size: 16px;
+    cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s;
+  }
+  .kb-close:hover { background: rgba(255,255,255,0.14); color: #fff; }
 
-  .ai-messages {
+  /* ── ZONA CHAT ────────────────────────────────────── */
+  .kb-chat-zone {
+    display: flex; flex-direction: column;
+    background: #0A0618;
+    overflow: hidden;
+    border-right: 1px solid rgba(192,132,252,0.1);
+  }
+  .kb-messages {
     flex: 1;
     overflow-y: auto;
-    padding: 14px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    background: #F9F6FF;
-    min-height: 0;
+    padding: 20px 20px 8px;
+    display: flex; flex-direction: column; gap: 16px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(124,58,237,0.3) transparent;
   }
-  .ai-messages::-webkit-scrollbar { width: 4px; }
-  .ai-messages::-webkit-scrollbar-thumb { background: #D8C8F0; border-radius: 4px; }
+  .kb-messages::-webkit-scrollbar { width: 4px; }
+  .kb-messages::-webkit-scrollbar-thumb { background: rgba(124,58,237,0.35); border-radius: 4px; }
 
-  .ai-msg {
-    display: flex;
-    gap: 8px;
-    align-items: flex-end;
-    max-width: 100%;
-  }
-  .ai-msg.user { flex-direction: row-reverse; }
-  .ai-msg-avatar {
-    width: 30px; height: 30px;
-    border-radius: 50%;
-    flex-shrink: 0;
+  /* Mensajes */
+  .kb-msg { display: flex; gap: 10px; align-items: flex-end; }
+  .kb-msg.user { flex-direction: row-reverse; }
+  .kb-msg-av {
+    width: 32px; height: 32px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-size: 15px;
+    font-size: 15px; flex-shrink: 0;
   }
-  .ai-msg.bot .ai-msg-avatar { background: linear-gradient(135deg,#9B72CF,#6B3FA0); }
-  .ai-msg.user .ai-msg-avatar { background: #E8E0F0; }
-
-  .ai-bubble {
-    padding: 10px 14px;
+  .kb-msg.bot  .kb-msg-av { background: linear-gradient(135deg,#C084FC,#7C3AED); }
+  .kb-msg.user .kb-msg-av { background: rgba(255,255,255,0.08); font-size: 13px; }
+  .kb-bubble {
+    padding: 11px 15px;
     border-radius: 18px;
-    font-size: .875rem;
-    line-height: 1.55;
-    max-width: 290px;
-    word-break: break-word;
+    font-size: .855rem; line-height: 1.6;
+    max-width: 320px; word-break: break-word;
     white-space: pre-line;
   }
-  .ai-msg.bot .ai-bubble {
-    background: #fff;
-    color: #2D1B4E;
+  .kb-msg.bot  .kb-bubble {
+    background: rgba(255,255,255,0.06);
+    color: #E9D5FF;
+    border: 1px solid rgba(192,132,252,0.15);
     border-bottom-left-radius: 4px;
-    box-shadow: 0 2px 10px rgba(0,0,0,.07);
   }
-  .ai-msg.user .ai-bubble {
-    background: linear-gradient(135deg,#9B72CF,#6B3FA0);
-    color: #fff;
+  .kb-msg.user .kb-bubble {
+    background: linear-gradient(135deg,#7C3AED,#5B21B6);
+    color: #F3E8FF;
     border-bottom-right-radius: 4px;
   }
 
-  .ai-typing {
-    display: flex; gap: 5px; align-items: center; padding: 4px 2px;
-  }
-  .ai-typing span {
+  /* Typing */
+  .kb-typing { display: flex; gap: 5px; align-items: center; padding: 4px 0; }
+  .kb-typing span {
     width: 7px; height: 7px;
-    background: #9B72CF;
-    border-radius: 50%;
-    animation: aiTyping 1.2s infinite;
+    background: #A855F7; border-radius: 50%;
+    animation: kbDot 1.3s infinite;
   }
-  .ai-typing span:nth-child(2) { animation-delay: .2s; }
-  .ai-typing span:nth-child(3) { animation-delay: .4s; }
-  @keyframes aiTyping {
-    0%,60%,100% { transform: translateY(0); opacity: .4; }
+  .kb-typing span:nth-child(2) { animation-delay: .2s; }
+  .kb-typing span:nth-child(3) { animation-delay: .4s; }
+  @keyframes kbDot {
+    0%,60%,100% { transform: translateY(0); opacity: .3; }
     30%          { transform: translateY(-7px); opacity: 1; }
   }
 
-  .ai-products-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-    gap: 10px;
-    padding: 8px 0 4px;
-    margin-left: 38px;
+  /* Sugerencias */
+  .kb-suggestions {
+    display: flex; flex-wrap: wrap; gap: 7px;
+    padding: 4px 0 0; margin-left: 42px;
   }
-  .ai-product-card {
-    background: #fff;
-    border-radius: 14px;
-    overflow: hidden;
-    box-shadow: 0 3px 12px rgba(0,0,0,.09);
-    cursor: pointer;
-    transition: transform .2s, box-shadow .2s;
-    border: 2px solid transparent;
-    position: relative;
+  .kb-sug {
+    background: rgba(192,132,252,0.08);
+    border: 1px solid rgba(192,132,252,0.28);
+    color: #C084FC;
+    border-radius: 20px; padding: 6px 13px;
+    font-size: .77rem; font-weight: 500;
+    cursor: pointer; transition: all .15s; white-space: nowrap;
   }
-  .ai-product-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 24px rgba(107,63,160,.22);
-    border-color: #9B72CF;
-  }
-  .ai-product-badge {
-    position: absolute;
-    top: 6px; left: 6px;
-    color: #fff;
-    font-size: .6rem;
-    font-weight: 700;
-    padding: 2px 7px;
-    border-radius: 10px;
-    letter-spacing: .04em;
-    z-index: 1;
-    text-transform: uppercase;
-  }
-  .ai-product-badge.nuevo  { background: #6B3FA0; }
-  .ai-product-badge.oferta { background: #FF4D6D; }
-  .ai-product-img {
-    width: 100%; height: 110px;
-    object-fit: cover;
-    background: #F0EAF8;
-    display: block;
-  }
-  .ai-product-img-placeholder {
-    width: 100%; height: 110px;
-    background: linear-gradient(135deg,#E8D5F8,#D4B8F0);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 34px;
-  }
-  .ai-product-info { padding: 9px 9px 10px; }
-  .ai-product-name {
-    font-size: .73rem;
-    font-weight: 600;
-    color: #2D1B4E;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    line-height: 1.35;
-    margin-bottom: 3px;
-  }
-  .ai-product-desc {
-    font-size: .67rem;
-    color: #7A6899;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    line-height: 1.35;
-    margin-bottom: 5px;
-  }
-  .ai-product-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 4px;
-  }
-  .ai-product-price {
-    font-size: .76rem;
-    font-weight: 700;
-    color: #9B72CF;
-  }
-  .ai-product-rating {
-    font-size: .65rem;
-    color: #F5A623;
-    font-weight: 600;
-  }
-  .ai-product-ver {
-    font-size: .63rem;
-    color: #9B72CF;
-    font-weight: 600;
-    background: #F0EAF8;
-    padding: 3px 7px;
-    border-radius: 8px;
-    margin-top: 5px;
-    text-align: center;
-    transition: background .15s;
-  }
-  .ai-product-card:hover .ai-product-ver {
-    background: #9B72CF;
-    color: #fff;
-  }
+  .kb-sug:hover { background: rgba(192,132,252,0.2); color: #E9D5FF; border-color: rgba(192,132,252,0.55); transform: translateY(-1px); }
 
-  .ai-suggestions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    padding: 4px 0;
-    margin-left: 38px;
+  /* Input */
+  .kb-input-row {
+    padding: 14px 16px;
+    border-top: 1px solid rgba(192,132,252,0.1);
+    display: flex; gap: 10px;
+    background: rgba(15,10,30,0.9);
   }
-  .ai-suggestion-btn {
-    background: #fff;
-    border: 1.5px solid #D4B8F0;
-    color: #6B3FA0;
-    border-radius: 20px;
-    padding: 6px 13px;
-    font-size: .78rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all .15s;
-    white-space: nowrap;
-  }
-  .ai-suggestion-btn:hover {
-    background: #9B72CF;
-    color: #fff;
-    border-color: #9B72CF;
-    transform: translateY(-1px);
-  }
-
-  .ai-input-area {
-    padding: 12px 14px;
-    border-top: 1px solid #EDE8F5;
-    display: flex;
-    gap: 8px;
-    background: #fff;
-    flex-shrink: 0;
-  }
-  .ai-input {
+  .kb-input {
     flex: 1;
-    border: 1.5px solid #E0D4F0;
-    border-radius: 24px;
-    padding: 10px 16px;
-    font-size: .875rem;
-    outline: none;
-    color: #2D1B4E;
-    transition: border-color .2s, box-shadow .2s;
-    background: #F9F6FF;
-    font-family: inherit;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(192,132,252,0.2);
+    border-radius: 24px; padding: 10px 18px;
+    font-size: .875rem; color: #F3E8FF;
+    outline: none; transition: border-color .2s, box-shadow .2s;
+    font-family: 'Inter', sans-serif;
   }
-  .ai-input:focus { border-color: #9B72CF; box-shadow: 0 0 0 3px rgba(155,114,207,.12); }
-  .ai-input::placeholder { color: #B8A8D4; }
-  .ai-send {
-    width: 40px; height: 40px;
-    background: linear-gradient(135deg,#9B72CF,#6B3FA0);
-    border: none;
-    border-radius: 50%;
-    color: #fff;
-    font-size: 16px;
-    cursor: pointer;
+  .kb-input::placeholder { color: rgba(216,180,254,0.35); }
+  .kb-input:focus { border-color: rgba(192,132,252,0.55); box-shadow: 0 0 0 3px rgba(124,58,237,0.15); }
+  .kb-send {
+    width: 42px; height: 42px;
+    background: linear-gradient(135deg,#A855F7,#7C3AED);
+    border: none; border-radius: 50%; color: #fff;
+    font-size: 16px; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     transition: transform .15s, opacity .15s;
     flex-shrink: 0;
+    box-shadow: 0 4px 16px rgba(124,58,237,0.4);
   }
-  .ai-send:hover:not(:disabled) { transform: scale(1.1); }
-  .ai-send:disabled { opacity: .45; cursor: default; }
+  .kb-send:hover:not(:disabled) { transform: scale(1.1); }
+  .kb-send:disabled { opacity: .35; cursor: default; }
+
+  /* ── PANEL DE PRODUCTOS ───────────────────────────── */
+  .kb-products-panel {
+    background: #0D0921;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    border-left: 1px solid rgba(192,132,252,0.08);
+  }
+  .kb-prod-header {
+    padding: 16px 16px 12px;
+    border-bottom: 1px solid rgba(192,132,252,0.1);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .kb-prod-title {
+    font-family: 'Playfair Display', serif;
+    font-size: .9rem; font-weight: 500; color: #E9D5FF;
+    letter-spacing: .02em;
+  }
+  .kb-prod-count {
+    font-size: .7rem; color: #A855F7;
+    background: rgba(168,85,247,0.12);
+    border: 1px solid rgba(168,85,247,0.25);
+    padding: 2px 8px; border-radius: 10px; font-weight: 600;
+  }
+  .kb-prod-scroll {
+    flex: 1; overflow-y: auto;
+    padding: 12px;
+    display: flex; flex-direction: column; gap: 10px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(124,58,237,0.2) transparent;
+  }
+  .kb-prod-scroll::-webkit-scrollbar { width: 3px; }
+  .kb-prod-scroll::-webkit-scrollbar-thumb { background: rgba(124,58,237,0.25); border-radius: 3px; }
+
+  /* Tarjeta de producto — modo lista lateral */
+  .kb-prod-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(192,132,252,0.12);
+    border-radius: 14px; overflow: hidden;
+    cursor: pointer;
+    transition: transform .2s, border-color .2s, box-shadow .2s;
+    position: relative;
+  }
+  .kb-prod-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(192,132,252,0.45);
+    box-shadow: 0 8px 28px rgba(124,58,237,0.2);
+  }
+  .kb-prod-img-wrap { position: relative; }
+  .kb-prod-img {
+    width: 100%; height: 160px;
+    object-fit: cover; display: block;
+    background: rgba(255,255,255,0.04);
+  }
+  .kb-prod-img-ph {
+    width: 100%; height: 160px;
+    background: linear-gradient(135deg, rgba(124,58,237,0.2), rgba(192,132,252,0.1));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 44px;
+  }
+  .kb-prod-badge {
+    position: absolute; top: 8px; left: 8px;
+    font-size: .62rem; font-weight: 700;
+    padding: 3px 9px; border-radius: 10px;
+    letter-spacing: .05em; text-transform: uppercase;
+    font-family: 'Inter', sans-serif;
+  }
+  .kb-prod-badge.oferta { background: #F43F5E; color: #fff; }
+  .kb-prod-badge.nuevo  { background: #7C3AED; color: #fff; }
+  .kb-prod-body { padding: 12px 12px 14px; }
+  .kb-prod-name {
+    font-size: .82rem; font-weight: 600; color: #E9D5FF;
+    line-height: 1.4; margin-bottom: 5px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .kb-prod-desc {
+    font-size: .73rem; color: rgba(216,180,254,0.55);
+    line-height: 1.45; margin-bottom: 8px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .kb-prod-meta {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 6px;
+  }
+  .kb-prod-price {
+    font-size: .9rem; font-weight: 700;
+    color: #C084FC; letter-spacing: -.01em;
+  }
+  .kb-prod-stars { display: flex; align-items: center; gap: 3px; }
+  .kb-star { font-size: 11px; }
+  .kb-star.on  { color: #FBBF24; }
+  .kb-star.off { color: rgba(255,255,255,0.15); }
+  .kb-prod-rating-val { font-size: .68rem; color: rgba(216,180,254,0.5); margin-left: 2px; }
+  .kb-ver-btn {
+    display: block; width: 100%;
+    margin-top: 9px; padding: 7px 0;
+    background: rgba(192,132,252,0.1);
+    border: 1px solid rgba(192,132,252,0.22);
+    border-radius: 8px;
+    font-size: .73rem; font-weight: 600; color: #C084FC;
+    text-align: center; cursor: pointer;
+    transition: background .15s, color .15s;
+    font-family: 'Inter', sans-serif;
+  }
+  .kb-ver-btn:hover { background: rgba(192,132,252,0.22); color: #F3E8FF; }
+
+  /* Estado vacío del panel */
+  .kb-prod-empty {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 10px; padding: 24px;
+    text-align: center;
+  }
+  .kb-prod-empty-icon { font-size: 36px; opacity: .3; }
+  .kb-prod-empty-text { font-size: .8rem; color: rgba(216,180,254,0.35); line-height: 1.5; }
+
+  /* Mensaje de "asesoría" destacada en el panel */
+  .kb-insight {
+    margin: 0 12px 8px;
+    padding: 10px 13px;
+    background: rgba(192,132,252,0.07);
+    border: 1px solid rgba(192,132,252,0.18);
+    border-radius: 10px;
+    font-size: .73rem; color: #D8B4FE; line-height: 1.5;
+    font-style: italic;
+  }
 `;
 
 const CATEGORIAS = [
-  { label: "Bolsos",      emoji: "👜", query: "Muéstrame los bolsos y morrales disponibles" },
-  { label: "Maquillaje",  emoji: "💄", query: "¿Qué productos de maquillaje tienen?" },
-  { label: "Capilar",     emoji: "✨", query: "Quiero ver productos para el cabello" },
-  { label: "Accesorios",  emoji: "💍", query: "¿Qué accesorios tienen disponibles?" },
-  { label: "Billeteras",  emoji: "💳", query: "Quiero ver las billeteras" },
-  { label: "Ofertas",     emoji: "🏷️", query: "¿Qué productos están en oferta?" },
-  { label: "Novedades",   emoji: "🆕", query: "¿Qué hay de nuevo en Kosmica?" },
+  { label: "👜 Bolsos",     query: "Muéstrame los bolsos disponibles" },
+  { label: "💄 Maquillaje", query: "¿Qué maquillaje tienen?" },
+  { label: "✨ Capilar",    query: "Productos para el cabello" },
+  { label: "💍 Accesorios", query: "Muéstrame los accesorios" },
+  { label: "🏷️ Ofertas",   query: "¿Qué está en oferta?" },
+  { label: "🆕 Novedades",  query: "¿Qué hay de nuevo?" },
 ];
 
 const SUGGESTIONS = [
@@ -379,23 +409,22 @@ const SUGGESTIONS = [
   "Los más vendidos ⭐",
   "¿Tienen algo para el cabello?",
   "¿Qué hay en oferta? 💜",
-  "Recomiéndame algo nuevo ✨",
+  "Sorpréndeme con algo nuevo ✨",
 ];
 
-const SYSTEM_PROMPT = (products) => `Eres ISABEL, la asesora personal de Kosmica — una tienda colombiana de belleza y accesorios premium. Eres la mejor amiga fashion de cada clienta: conoces el catálogo de memoria, tienes criterio estético y el don de hacer sentir especial a quien te escribe.
+const SYSTEM_PROMPT = (products) => `Eres ISABEL, la asesora personal de Kosmica — tienda colombiana de belleza y accesorios premium. Eres la amiga fashion más sofisticada de cada clienta: conoces el catálogo de memoria, tienes criterio estético impecable y el don de hacer sentir especial a quien te escribe.
 
 ═══════════════════════════════════════
 PERSONALIDAD Y VOZ
 ═══════════════════════════════════════
-- Hablas como una amiga cercana, cálida, elegante y divertida — nunca robótica ni formal
-- Usas el tuteo siempre. Puedes usar "amiga", "hermosa", "mi amor" con moderación y naturalidad
-- Tu tono es el de una asesora personal que quiere genuinamente que la clienta quede enamorada
-- Máximo 2 emojis por mensaje, bien elegidos
-- NUNCA empieces con "¡Claro!", "¡Por supuesto!", "¡Entendido!" — ve directo al valor
-- Arranca con una observación interesante, una recomendación, o una pregunta que enganche
+- Cálida, elegante, cercana — nunca robótica
+- Tuteo siempre. "amiga", "hermosa", "mi amor" con naturalidad
+- NUNCA empieces con "¡Claro!", "¡Por supuesto!" — ve directo al valor
+- Máximo 2 emojis por mensaje
+- Respuestas con gancho: 2-3 líneas antes de los productos
 
 ═══════════════════════════════════════
-CATÁLOGO DISPONIBLE (solo stock > 0)
+CATÁLOGO (solo stock > 0)
 ═══════════════════════════════════════
 ${JSON.stringify(products.filter(p => p.stock > 0).map(p => ({
   id: p.id,
@@ -409,90 +438,96 @@ ${JSON.stringify(products.filter(p => p.stock > 0).map(p => ({
   imagen: p.imageUrl || null
 })), null, 2)}
 
-Categorías disponibles: Bolsos y Morrales, Maquillaje, Capilar, Accesorios, Billeteras.
+Categorías: Bolsos y Morrales, Maquillaje, Capilar, Accesorios, Billeteras.
 
 ═══════════════════════════════════════
 CÓMO RECOMENDAR
 ═══════════════════════════════════════
-- Antes de recomendar, entiende QUÉ necesita: ¿es para ella o de regalo? ¿tiene ocasión especial? ¿qué estilo le gusta? ¿cuál es su presupuesto?
-- Si no tienes suficiente info, haz UNA sola pregunta clave (no un interrogatorio)
-- Cuando recomiendes, explica en 1 frase POR QUÉ ese producto es perfecto para ella — no solo listarlo
-- Resalta materiales, detalles, para qué ocasión sirve, cómo combina
-- Menciona la descripción del producto de forma natural en tu mensaje
-- Si un producto tiene badge "OFERTA" o "NUEVO", menciónalo con entusiasmo
+- Entiende primero: ¿para ella o regalo? ¿ocasión? ¿estilo? ¿presupuesto?
+- Si falta info, haz UNA pregunta clave
+- Explica en 1 frase POR QUÉ ese producto es perfecto para ella
+- Menciona materiales, detalles, ocasión, cómo combina
+- Menciona la descripción del producto de forma natural
+- Badge "OFERTA" o "NUEVO" → menciónalo con entusiasmo
 - Máximo 3 productos por recomendación
-- NUNCA recomiendes productos con stock 0
-- Precios siempre en pesos colombianos (COP)
+- NUNCA stock 0. Precios en COP
 
 ═══════════════════════════════════════
-RECORRIDO POR CATEGORÍAS
+RECORRIDO DE CATEGORÍAS
 ═══════════════════════════════════════
-Cuando la clienta pide ver una categoría:
-- Presenta los 3 mejores productos de esa categoría con entusiasmo
-- Explica qué hace especial a cada uno
-- Si hay variedad de precios, muestra opciones para distintos presupuestos
-- Invítala a preguntar más detalles
+Al explorar una categoría: presenta los 3 mejores, explica qué hace único a cada uno, muestra opciones para distintos presupuestos, invítala a pedir más detalles.
 
 ═══════════════════════════════════════
 SITUACIONES ESPECIALES
 ═══════════════════════════════════════
-REGALO: Pregunta presupuesto y a quién es. Recomienda con frases como "para una mamá que ama cuidarse, esto es perfecto..."
-PRESUPUESTO LIMITADO: Sé honesta, muestra lo mejor en ese rango sin hacerla sentir mal
-DUDA ENTRE DOS: Ayúdala a decidir según su estilo/necesidad
-PRODUCTO AGOTADO: Ofrece la alternativa más similar con entusiasmo
-QUEJA O PROBLEMA: Muestra empatía real primero, luego oriéntala a contactar a Kosmica
-SOLO EXPLORANDO: Engancha con una pregunta curiosa o muéstrale lo más nuevo
+REGALO → pregunta presupuesto y destinataria
+PRESUPUESTO LIMITADO → honesta, sin hacerla sentir mal
+DUDA ENTRE DOS → ayúdala a decidir según su estilo
+AGOTADO → ofrece la alternativa más similar
+QUEJA → empatía primero, luego orienta a Kosmica
+EXPLORANDO → pregunta curiosa sobre su estilo
 
 ═══════════════════════════════════════
 LÍMITES
 ═══════════════════════════════════════
-- Solo hablas de productos de Kosmica y temas de belleza/moda relacionados
-- Si preguntan algo fuera de tema, redirige con gracia
-- Nunca inventes precios, características o disponibilidad — usa SOLO el catálogo
-- Nunca hagas sentir mal a la clienta por su presupuesto o gustos
-- Respuestas con gancho: máximo 4 líneas de texto antes de los productos
+- Solo productos Kosmica y temas belleza/moda
+- Nunca inventes datos — usa SOLO el catálogo
+- Respuesta corta y con gancho antes de los productos
 
 ═══════════════════════════════════════
 FORMATO OBLIGATORIO
 ═══════════════════════════════════════
-Al final de CADA mensaje con recomendaciones de productos escribe EXACTAMENTE (sin markdown ni backticks):
+Al final de mensajes con recomendaciones, escribe EXACTAMENTE (sin markdown, sin backticks):
 PRODUCTOS_RECOMENDADOS:[id1,id2,id3]
 
 Si no recomiendas productos, NO incluyas esa línea.`;
 
+// ─── helpers ─────────────────────────────────────────────────
 const formatPrice = (p) =>
   new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(p);
 
-const getCategoryEmoji = (cat = "") => {
+const catEmoji = (cat = "") => {
   const c = cat.toUpperCase();
   if (c.includes("BOLSO") || c.includes("MORRAL")) return "👜";
-  if (c.includes("MAQUILLAJE"))  return "💄";
-  if (c.includes("CAPILAR"))     return "✨";
-  if (c.includes("ACCESORIO"))   return "💍";
-  if (c.includes("BILLETERA"))   return "💳";
-  return "🧴";
+  if (c.includes("MAQUILLAJE")) return "💄";
+  if (c.includes("CAPILAR"))    return "✨";
+  if (c.includes("ACCESORIO"))  return "💍";
+  if (c.includes("BILLETERA"))  return "💳";
+  return "🛍️";
 };
 
+const StarRating = ({ rating = 0 }) => {
+  const r = Math.round(rating);
+  return (
+    <div className="kb-prod-stars">
+      {[1,2,3,4,5].map(i => (
+        <span key={i} className={`kb-star ${i <= r ? "on" : "off"}`}>★</span>
+      ))}
+      {rating > 0 && <span className="kb-prod-rating-val">{Number(rating).toFixed(1)}</span>}
+    </div>
+  );
+};
+
+// ─── componente principal ─────────────────────────────────────
 export default function AIChatBot({ products = [], onProductClick }) {
-  const [open, setOpen]         = useState(false);
-  const [messages, setMessages] = useState([
+  const [open, setOpen]             = useState(false);
+  const [messages, setMessages]     = useState([
     {
       role: "bot",
-      content: "Hola hermosa, soy Isabel ✨ Tu asesora personal de Kosmica. Cuéntame, ¿estás buscando algo para ti o es un regalo especial?",
+      content: "Hola hermosa, soy Isabel ✨\nTu asesora personal de Kosmica. Cuéntame, ¿estás buscando algo especial para ti o es un regalo?",
       products: [],
     },
   ]);
-  const [input, setInput]       = useState("");
-  const [loading, setLoading]   = useState(false);
-  const [unread, setUnread]     = useState(1);
-  const messagesEndRef          = useRef(null);
-  const inputRef                = useRef(null);
+  const [shownProducts, setShownProducts] = useState([]);
+  const [lastInsight, setLastInsight]     = useState("");
+  const [input, setInput]           = useState("");
+  const [loading, setLoading]       = useState(false);
+  const [unread, setUnread]         = useState(1);
+  const messagesEndRef              = useRef(null);
+  const inputRef                    = useRef(null);
 
   useEffect(() => {
-    if (open) {
-      setUnread(0);
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
+    if (open) { setUnread(0); setTimeout(() => inputRef.current?.focus(), 120); }
   }, [open]);
 
   useEffect(() => {
@@ -502,14 +537,14 @@ export default function AIChatBot({ products = [], onProductClick }) {
   const extractProductIds = (text) => {
     const match = text.match(/PRODUCTOS_RECOMENDADOS:\[([^\]]*)\]/);
     if (!match) return [];
-    return match[1].split(",").map((id) => parseInt(id.trim())).filter(Boolean);
+    return match[1].split(",").map(id => parseInt(id.trim())).filter(Boolean);
   };
 
   const cleanText = (text) =>
     text.replace(/PRODUCTOS_RECOMENDADOS:\[[^\]]*\]/g, "").trim();
 
   const getProductsById = (ids) =>
-    ids.map((id) => products.find((p) => p.id === id)).filter(Boolean);
+    ids.map(id => products.find(p => p.id === id)).filter(Boolean);
 
   const sendMessage = async (text) => {
     const userText = text || input.trim();
@@ -522,12 +557,11 @@ export default function AIChatBot({ products = [], onProductClick }) {
     setLoading(true);
 
     const apiMessages = history
-      .filter((m) => m.role === "user" || m.role === "bot")
-      .map((m) => ({ role: m.role === "bot" ? "assistant" : "user", content: m.content }));
+      .filter(m => m.role === "user" || m.role === "bot")
+      .map(m => ({ role: m.role === "bot" ? "assistant" : "user", content: m.content }));
 
     try {
       const backendUrl = process.env.REACT_APP_API_URL || "https://kosmica-backend.onrender.com";
-
       const resp = await fetch(`${backendUrl}/api/ai/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -540,34 +574,30 @@ export default function AIChatBot({ products = [], onProductClick }) {
       });
 
       const data = await resp.json();
-
       if (!resp.ok || data.error) {
-        const errMsg = data.error || `Error del servidor (${resp.status})`;
-        console.error("Error API IA:", errMsg);
-        setMessages((prev) => [
-          ...prev,
-          { role: "bot", content: `No pude conectarme ahora mismo (${errMsg}). ¿Intentamos de nuevo?`, products: [] },
-        ]);
+        const errMsg = data.error || `Error ${resp.status}`;
+        setMessages(prev => [...prev, { role: "bot", content: `No pude conectarme ahora (${errMsg}). ¿Intentamos de nuevo?`, products: [] }]);
         return;
       }
 
-      const rawText             = data.content?.[0]?.text || "Lo siento, no pude procesar tu mensaje. ¿Intentamos de nuevo?";
-      const productIds          = extractProductIds(rawText);
-      const cleanedText         = cleanText(rawText);
-      const recommendedProducts = getProductsById(productIds);
+      const rawText   = data.content?.[0]?.text || "Lo siento, no pude procesar tu mensaje. ¿Intentamos de nuevo?";
+      const ids       = extractProductIds(rawText);
+      const cleaned   = cleanText(rawText);
+      const prods     = getProductsById(ids);
 
-      setMessages((prev) => [
-        ...prev,
-        { role: "bot", content: cleanedText, products: recommendedProducts },
-      ]);
+      setMessages(prev => [...prev, { role: "bot", content: cleaned, products: prods }]);
 
-      if (!open) setUnread((u) => u + 1);
+      if (prods.length > 0) {
+        setShownProducts(prods);
+        // Extraer primera frase del texto como insight
+        const insight = cleaned.split(/[.!?]/)[0]?.trim();
+        if (insight && insight.length > 10) setLastInsight(insight);
+      }
+
+      if (!open) setUnread(u => u + 1);
     } catch (e) {
       console.error("Error chat Kosmica:", e);
-      setMessages((prev) => [
-        ...prev,
-        { role: "bot", content: "No pude conectarme al servidor. Verifica tu conexión e intenta de nuevo. 🔄", products: [] },
-      ]);
+      setMessages(prev => [...prev, { role: "bot", content: "No pude conectarme. Verifica tu conexión e intenta de nuevo. 🔄", products: [] }]);
     } finally {
       setLoading(false);
     }
@@ -581,140 +611,151 @@ export default function AIChatBot({ products = [], onProductClick }) {
     <>
       <style>{STYLES}</style>
 
-      {/* Botón flotante */}
-      <button className="ai-fab" onClick={() => setOpen((o) => !o)} title="Habla con Isabel">
+      {/* FAB */}
+      <button className="kb-fab" onClick={() => setOpen(o => !o)} title="Habla con Isabel">
         {open ? "✕" : "✨"}
-        {!open && unread > 0 && <span className="ai-fab-badge">{unread}</span>}
+        {!open && unread > 0 && <span className="kb-fab-badge">{unread}</span>}
       </button>
 
-      {/* Ventana del chat */}
       {open && (
-        <div className="ai-window">
+        <>
+          <div className="kb-overlay" onClick={() => setOpen(false)} />
 
-          {/* Header */}
-          <div className="ai-header">
-            <div className="ai-header-avatar">✨</div>
-            <div className="ai-header-info">
-              <div className="ai-header-name">Isabel — Tu asesora de Kosmica</div>
-              <div className="ai-header-status">
-                <span className="ai-header-dot" />
-                En línea y lista para asesorarte 💜
+          <div className="kb-panel">
+
+            {/* ── HEADER COMPLETO ── */}
+            <div className="kb-header">
+              <div className="kb-header-left">
+                <div className="kb-avatar-wrap">
+                  <div className="kb-avatar">✨</div>
+                  <span className="kb-online-dot" />
+                </div>
+                <div className="kb-header-info">
+                  <div className="kb-name">Isabel · Asesora de Kosmica</div>
+                  <div className="kb-subtitle">
+                    <span className="kb-status-dot" />
+                    En línea · Lista para asesorarte con todo nuestro catálogo
+                  </div>
+                </div>
+              </div>
+
+              {/* Categorías en el header */}
+              <div className="kb-cats">
+                {CATEGORIAS.map(c => (
+                  <button key={c.label} className="kb-cat" onClick={() => sendMessage(c.query)} disabled={loading}>
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+
+              <button className="kb-close" onClick={() => setOpen(false)}>✕</button>
+            </div>
+
+            {/* ── CHAT ── */}
+            <div className="kb-chat-zone">
+              <div className="kb-messages">
+                {messages.map((msg, i) => (
+                  <div key={i}>
+                    <div className={`kb-msg ${msg.role}`}>
+                      <div className="kb-msg-av">{msg.role === "bot" ? "✨" : "👤"}</div>
+                      <div className="kb-bubble">{msg.content}</div>
+                    </div>
+
+                    {/* Sugerencias solo en bienvenida */}
+                    {i === 0 && messages.length === 1 && (
+                      <div className="kb-suggestions">
+                        {SUGGESTIONS.map(s => (
+                          <button key={s} className="kb-sug" onClick={() => sendMessage(s)}>{s}</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {loading && (
+                  <div className="kb-msg bot">
+                    <div className="kb-msg-av">✨</div>
+                    <div className="kb-bubble">
+                      <div className="kb-typing"><span/><span/><span/></div>
+                    </div>
+                  </div>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+
+              <div className="kb-input-row">
+                <input
+                  ref={inputRef}
+                  className="kb-input"
+                  placeholder="Cuéntame qué estás buscando..."
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={handleKey}
+                  disabled={loading}
+                />
+                <button className="kb-send" onClick={() => sendMessage()} disabled={loading || !input.trim()}>➤</button>
               </div>
             </div>
-            <button className="ai-header-close" onClick={() => setOpen(false)}>✕</button>
-          </div>
 
-          {/* Barra de categorías */}
-          <div className="ai-categories">
-            {CATEGORIAS.map((cat) => (
-              <button
-                key={cat.label}
-                className="ai-cat-btn"
-                onClick={() => sendMessage(cat.query)}
-                disabled={loading}
-              >
-                <span>{cat.emoji}</span>
-                <span>{cat.label}</span>
-              </button>
-            ))}
-          </div>
+            {/* ── PANEL LATERAL DE PRODUCTOS ── */}
+            <div className="kb-products-panel">
+              <div className="kb-prod-header">
+                <span className="kb-prod-title">Productos recomendados</span>
+                {shownProducts.length > 0 && (
+                  <span className="kb-prod-count">{shownProducts.length}</span>
+                )}
+              </div>
 
-          {/* Mensajes */}
-          <div className="ai-messages">
-            {messages.map((msg, i) => (
-              <div key={i}>
-                <div className={`ai-msg ${msg.role}`}>
-                  <div className="ai-msg-avatar">
-                    {msg.role === "bot" ? "✨" : "👤"}
+              {shownProducts.length === 0 ? (
+                <div className="kb-prod-empty">
+                  <div className="kb-prod-empty-icon">✨</div>
+                  <div className="kb-prod-empty-text">
+                    Cuéntale a Isabel qué necesitas y aquí verás las recomendaciones con fotos, descripción y precio.
                   </div>
-                  <div className="ai-bubble">{msg.content}</div>
                 </div>
-
-                {/* Tarjetas con foto + descripción */}
-                {msg.products?.length > 0 && (
-                  <div className="ai-products-grid">
-                    {msg.products.map((prod) => (
-                      <div
-                        key={prod.id}
-                        className="ai-product-card"
-                        onClick={() => { onProductClick?.(prod); setOpen(false); }}
-                        title={`Ver ${prod.name}`}
-                      >
-                        {prod.badge && (
-                          <span className={`ai-product-badge ${prod.badge.toLowerCase()}`}>
-                            {prod.badge}
-                          </span>
-                        )}
-                        {prod.imageUrl ? (
-                          <img src={prod.imageUrl} alt={prod.name} className="ai-product-img" loading="lazy" />
-                        ) : (
-                          <div className="ai-product-img-placeholder">
-                            {getCategoryEmoji(prod.category)}
-                          </div>
-                        )}
-                        <div className="ai-product-info">
-                          <div className="ai-product-name">{prod.name}</div>
-                          {prod.description && (
-                            <div className="ai-product-desc">{prod.description}</div>
+              ) : (
+                <>
+                  {lastInsight && (
+                    <div className="kb-insight">"{lastInsight}..."</div>
+                  )}
+                  <div className="kb-prod-scroll">
+                    {shownProducts.map(prod => (
+                      <div key={prod.id} className="kb-prod-card">
+                        <div className="kb-prod-img-wrap">
+                          {prod.imageUrl ? (
+                            <img src={prod.imageUrl} alt={prod.name} className="kb-prod-img" loading="lazy" />
+                          ) : (
+                            <div className="kb-prod-img-ph">{catEmoji(prod.category)}</div>
                           )}
-                          <div className="ai-product-footer">
-                            <span className="ai-product-price">{formatPrice(prod.price)}</span>
-                            {prod.rating > 0 && (
-                              <span className="ai-product-rating">⭐ {prod.rating}</span>
-                            )}
+                          {prod.badge && (
+                            <span className={`kb-prod-badge ${prod.badge.toLowerCase()}`}>{prod.badge}</span>
+                          )}
+                        </div>
+                        <div className="kb-prod-body">
+                          <div className="kb-prod-name">{prod.name}</div>
+                          {prod.description && (
+                            <div className="kb-prod-desc">{prod.description}</div>
+                          )}
+                          <div className="kb-prod-meta">
+                            <span className="kb-prod-price">{formatPrice(prod.price)}</span>
+                            <StarRating rating={prod.rating} />
                           </div>
-                          <div className="ai-product-ver">Ver producto →</div>
+                          <button
+                            className="kb-ver-btn"
+                            onClick={() => { onProductClick?.(prod); setOpen(false); }}
+                          >
+                            Ver en la tienda →
+                          </button>
                         </div>
                       </div>
                     ))}
                   </div>
-                )}
+                </>
+              )}
+            </div>
 
-                {/* Sugerencias rápidas solo en el primer mensaje */}
-                {i === 0 && messages.length === 1 && (
-                  <div className="ai-suggestions">
-                    {SUGGESTIONS.map((s) => (
-                      <button key={s} className="ai-suggestion-btn" onClick={() => sendMessage(s)}>
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {loading && (
-              <div className="ai-msg bot">
-                <div className="ai-msg-avatar">✨</div>
-                <div className="ai-bubble">
-                  <div className="ai-typing"><span /><span /><span /></div>
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
           </div>
-
-          {/* Input */}
-          <div className="ai-input-area">
-            <input
-              ref={inputRef}
-              className="ai-input"
-              placeholder="Cuéntame qué estás buscando..."
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKey}
-              disabled={loading}
-            />
-            <button
-              className="ai-send"
-              onClick={() => sendMessage()}
-              disabled={loading || !input.trim()}
-            >
-              ➤
-            </button>
-          </div>
-
-        </div>
+        </>
       )}
     </>
   );
