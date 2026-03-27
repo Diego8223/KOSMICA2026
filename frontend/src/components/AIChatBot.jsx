@@ -1,29 +1,38 @@
 // ============================================================
-//  AIChatBot.jsx — Isabel, asesora IA de Kosmica  v5.0
-//  FIXES: regex IDs sin corchetes, imágenes, categorías, UX ventas
+//  AIChatBot.jsx — Isabel, asesora IA de Kosmica  v6.0 DEFINITIVO
+//  ✅ Regex IDs: acepta con y sin corchetes
+//  ✅ Imágenes: carga progresiva + spinner + fallback emoji
+//  ✅ Categorías: barra propia, scroll horizontal, nunca recortada
+//  ✅ Panel lateral productos: fotos grandes, CTA destacado
+//  ✅ Historial API: mapeo correcto bot→assistant
+//  ✅ Toast de nuevos productos
+//  ✅ Responsive móvil
 // ============================================================
 import { useState, useEffect, useRef, useCallback } from "react";
 
+// ─────────────────────────────────────────────────────────────
+// ESTILOS
+// ─────────────────────────────────────────────────────────────
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Playfair+Display:wght@600&display=swap');
-
-  * { box-sizing: border-box; }
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   .kb-fab {
     position: fixed; bottom: 28px; right: 28px;
     width: 64px; height: 64px; border-radius: 50%;
-    background: linear-gradient(135deg, #9B72CF, #6B3FA0);
+    background: linear-gradient(135deg,#9B72CF,#6B3FA0);
     border: none; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    font-size: 26px;
-    box-shadow: 0 8px 32px rgba(107,63,160,0.55);
+    font-size: 27px;
+    box-shadow: 0 8px 32px rgba(107,63,160,.55);
     z-index: 10000; transition: transform .2s, box-shadow .2s;
   }
-  .kb-fab:hover { transform: scale(1.1); box-shadow: 0 14px 40px rgba(107,63,160,0.7); }
+  .kb-fab:hover { transform: scale(1.12); box-shadow: 0 14px 44px rgba(107,63,160,.7); }
   .kb-fab-badge {
-    position: absolute; top: -3px; right: -3px;
-    width: 22px; height: 22px; background: #FF4D6D;
-    border-radius: 50%; border: 2.5px solid #fff;
+    position: absolute; top: -4px; right: -4px;
+    width: 22px; height: 22px;
+    background: #FF4D6D; border-radius: 50%;
+    border: 2.5px solid #fff;
     font-size: 10px; font-weight: 700; color: #fff;
     display: flex; align-items: center; justify-content: center;
     font-family: 'DM Sans', sans-serif;
@@ -31,130 +40,134 @@ const STYLES = `
 
   .kb-overlay {
     position: fixed; inset: 0;
-    background: rgba(20,10,40,0.55);
-    backdrop-filter: blur(6px);
-    z-index: 9998; animation: kbFade .2s ease;
+    background: rgba(18,8,40,.52);
+    backdrop-filter: blur(7px);
+    z-index: 9998; animation: kbFade .22s ease;
   }
-  @keyframes kbFade { from { opacity:0 } to { opacity:1 } }
+  @keyframes kbFade { from{opacity:0} to{opacity:1} }
 
-  /* ══ PANEL ══ */
   .kb-panel {
     position: fixed; bottom: 0; right: 0;
-    width: 860px; height: 90vh;
+    width: 870px; height: 92vh;
     max-width: 100vw; max-height: 100vh;
     background: #fff;
-    border-radius: 20px 20px 0 0;
+    border-radius: 22px 22px 0 0;
     display: grid;
-    grid-template-columns: 1fr 310px;
+    grid-template-columns: 1fr 315px;
     grid-template-rows: auto auto 1fr auto;
     overflow: hidden;
     z-index: 9999;
-    box-shadow: -4px 0 80px rgba(0,0,0,0.28);
+    box-shadow: -6px 0 80px rgba(0,0,0,.26);
     animation: kbUp .32s cubic-bezier(.34,1.2,.64,1);
     font-family: 'DM Sans', sans-serif;
   }
   @keyframes kbUp {
-    from { transform: translateY(40px); opacity: 0; }
-    to   { transform: translateY(0); opacity: 1; }
+    from { transform: translateY(50px); opacity:0; }
+    to   { transform: translateY(0);    opacity:1; }
   }
-  @media (max-width: 900px) {
-    .kb-panel { width: 100vw; border-radius: 16px 16px 0 0; grid-template-columns: 1fr; grid-template-rows: auto auto 1fr auto; }
-    .kb-prod-panel { display: none; }
-    .kb-cats-bar { display: flex !important; }
+  @media (max-width: 880px) {
+    .kb-panel {
+      width: 100vw; border-radius: 18px 18px 0 0;
+      grid-template-columns: 1fr;
+      grid-template-rows: auto auto 1fr auto;
+    }
+    .kb-prod-panel { display: none !important; }
   }
 
-  /* ══ HEADER ══ */
+  /* HEADER */
   .kb-header {
     grid-column: 1 / -1;
-    background: linear-gradient(135deg, #9B72CF 0%, #6B3FA0 100%);
+    background: linear-gradient(135deg,#9B72CF 0%,#6B3FA0 100%);
     padding: 14px 20px;
-    display: flex; align-items: center; gap: 14px;
-    flex-shrink: 0;
-    position: relative;
+    display: flex; align-items: center; gap: 13px;
+    flex-shrink: 0; position: relative; overflow: hidden;
   }
-  .kb-header::after {
+  .kb-header::before {
     content: '';
-    position: absolute; inset: 0;
-    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-    pointer-events: none;
+    position: absolute; top: -40px; right: -40px;
+    width: 160px; height: 160px; border-radius: 50%;
+    background: rgba(255,255,255,.06); pointer-events: none;
   }
   .kb-av-wrap { position: relative; flex-shrink: 0; z-index: 1; }
   .kb-av {
     width: 48px; height: 48px; border-radius: 50%;
-    background: rgba(255,255,255,0.2);
-    border: 2.5px solid rgba(255,255,255,0.4);
+    background: rgba(255,255,255,.18);
+    border: 2.5px solid rgba(255,255,255,.38);
     display: flex; align-items: center; justify-content: center;
     font-size: 22px;
-    box-shadow: 0 0 0 4px rgba(255,255,255,0.1);
+    box-shadow: 0 0 0 5px rgba(255,255,255,.08);
   }
-  .kb-dot-online {
+  .kb-online-dot {
     position: absolute; bottom: 2px; right: 2px;
-    width: 12px; height: 12px; background: #4DFFA0;
-    border-radius: 50%; border: 2.5px solid #7B50B0;
-    animation: kbPulse 2s infinite;
+    width: 12px; height: 12px;
+    background: #4DFFA0; border-radius: 50%;
+    border: 2.5px solid #7850B8;
+    animation: kbPulse 2.2s infinite;
   }
   @keyframes kbPulse {
-    0%,100% { box-shadow: 0 0 0 0 rgba(77,255,160,0.5); }
-    50%      { box-shadow: 0 0 0 5px rgba(77,255,160,0); }
+    0%,100%{ box-shadow: 0 0 0 0 rgba(77,255,160,.45); }
+    50%    { box-shadow: 0 0 0 6px rgba(77,255,160,0); }
   }
   .kb-hinfo { flex: 1; min-width: 0; z-index: 1; }
   .kb-hname {
     font-family: 'Playfair Display', serif;
-    font-weight: 600; font-size: 1rem; color: #fff;
+    font-size: 1.02rem; font-weight: 700; color: #fff;
     white-space: nowrap; line-height: 1.2;
-    letter-spacing: 0.01em;
   }
   .kb-hsub {
-    font-size: .72rem; color: rgba(255,255,255,0.85);
-    white-space: nowrap; display: flex; align-items: center; gap: 5px;
+    font-size: .72rem; color: rgba(255,255,255,.85);
+    display: flex; align-items: center; gap: 5px;
     margin-top: 3px; font-weight: 500;
   }
-  .kb-hsub-dot { width: 6px; height: 6px; background: #4DFFA0; border-radius: 50%; flex-shrink: 0; }
+  .kb-hsub-dot { width: 6px; height: 6px; background: #4DFFA0; border-radius: 50%; }
   .kb-close {
     width: 34px; height: 34px; flex-shrink: 0; z-index: 1;
-    background: rgba(255,255,255,0.15);
-    border: 1.5px solid rgba(255,255,255,0.3);
+    background: rgba(255,255,255,.14);
+    border: 1.5px solid rgba(255,255,255,.28);
     border-radius: 50%; color: #fff; font-size: 14px;
     cursor: pointer; display: flex; align-items: center; justify-content: center;
-    transition: background .15s, transform .15s;
+    transition: background .15s, transform .2s;
   }
-  .kb-close:hover { background: rgba(255,255,255,0.28); transform: rotate(90deg); }
+  .kb-close:hover { background: rgba(255,255,255,.28); transform: rotate(90deg); }
 
-  /* ══ BARRA CATEGORÍAS — fila separada ══ */
+  /* BARRA CATEGORÍAS — fila independiente */
   .kb-cats-bar {
     grid-column: 1 / -1;
-    background: linear-gradient(135deg, #8060BE 0%, #5D35A0 100%);
-    padding: 8px 18px;
+    background: linear-gradient(135deg,#7E56BB,#5B34A0);
+    padding: 9px 18px;
     display: flex; align-items: center; gap: 7px;
-    overflow-x: auto;
-    scrollbar-width: none;
+    overflow-x: auto; scrollbar-width: none;
     flex-shrink: 0;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
+    border-bottom: 1px solid rgba(0,0,0,.08);
   }
   .kb-cats-bar::-webkit-scrollbar { display: none; }
-  .kb-hcat {
-    flex-shrink: 0; padding: 6px 14px; border-radius: 20px;
-    background: rgba(255,255,255,0.12);
-    border: 1.5px solid rgba(255,255,255,0.25);
+  .kb-cat-btn {
+    flex-shrink: 0; padding: 6px 15px; border-radius: 22px;
+    background: rgba(255,255,255,.13);
+    border: 1.5px solid rgba(255,255,255,.26);
     color: #fff; font-size: .73rem; font-weight: 600;
     cursor: pointer; white-space: nowrap;
-    transition: all .15s; font-family: 'DM Sans', sans-serif;
-    letter-spacing: 0.01em;
+    transition: all .16s; font-family: 'DM Sans', sans-serif;
+    letter-spacing: .01em;
   }
-  .kb-hcat:hover { background: rgba(255,255,255,0.25); border-color: rgba(255,255,255,0.5); transform: translateY(-1px); }
-  .kb-hcat:disabled { opacity: .45; cursor: default; transform: none; }
-  .kb-hcat.active { background: rgba(255,255,255,0.28); border-color: #fff; }
+  .kb-cat-btn:hover, .kb-cat-btn.active {
+    background: rgba(255,255,255,.28);
+    border-color: rgba(255,255,255,.7);
+    transform: translateY(-1px);
+  }
+  .kb-cat-btn:disabled { opacity: .4; cursor: default; transform: none; }
 
-  /* ══ CHAT ══ */
+  /* CHAT */
   .kb-chat {
     display: flex; flex-direction: column;
     background: #F8F5FE; overflow: hidden;
     border-right: 1px solid #EDE8F5;
+    position: relative;
   }
   .kb-msgs {
     flex: 1; overflow-y: auto;
-    padding: 18px 16px 10px;
-    display: flex; flex-direction: column; gap: 12px;
+    padding: 18px 15px 10px;
+    display: flex; flex-direction: column; gap: 13px;
     scrollbar-width: thin; scrollbar-color: #D8C8F0 transparent;
   }
   .kb-msgs::-webkit-scrollbar { width: 4px; }
@@ -166,12 +179,12 @@ const STYLES = `
     width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center; font-size: 14px;
   }
-  .kb-msg.bot  .kb-msgav { background: linear-gradient(135deg,#9B72CF,#6B3FA0); box-shadow: 0 3px 10px rgba(107,63,160,0.35); }
-  .kb-msg.user .kb-msgav { background: #E8E0F4; }
+  .kb-msg.bot  .kb-msgav { background: linear-gradient(135deg,#9B72CF,#6B3FA0); box-shadow: 0 3px 10px rgba(107,63,160,.3); }
+  .kb-msg.user .kb-msgav { background: #E5DDF5; }
   .kb-bbl {
     padding: 11px 15px; border-radius: 18px;
     font-size: .875rem; line-height: 1.6;
-    max-width: 285px; word-break: break-word; white-space: pre-line;
+    max-width: 290px; word-break: break-word; white-space: pre-line;
     font-family: 'DM Sans', sans-serif;
   }
   .kb-msg.bot  .kb-bbl {
@@ -183,10 +196,8 @@ const STYLES = `
   .kb-msg.user .kb-bbl {
     background: linear-gradient(135deg,#9B72CF,#6B3FA0);
     color: #fff; border-bottom-right-radius: 4px;
-    box-shadow: 0 4px 14px rgba(107,63,160,0.35);
+    box-shadow: 0 4px 16px rgba(107,63,160,.35);
   }
-
-  /* Indicador escribiendo */
   .kb-typing { display: flex; gap: 5px; align-items: center; padding: 3px 0; }
   .kb-typing span {
     width: 7px; height: 7px; background: #9B72CF;
@@ -198,11 +209,9 @@ const STYLES = `
     0%,60%,100% { transform: translateY(0); opacity:.3; }
     30%          { transform: translateY(-8px); opacity:1; }
   }
-
-  /* Sugerencias rápidas */
   .kb-sugs {
     display: flex; flex-wrap: wrap; gap: 7px;
-    padding: 4px 0 0; margin-left: 40px;
+    padding: 5px 0 0; margin-left: 40px;
   }
   .kb-sug {
     background: #fff; border: 1.5px solid #D4B8F0;
@@ -210,22 +219,20 @@ const STYLES = `
     padding: 7px 14px; font-size: .76rem; font-weight: 600;
     cursor: pointer; transition: all .18s; white-space: nowrap;
     font-family: 'DM Sans', sans-serif;
-    box-shadow: 0 2px 6px rgba(107,63,160,0.08);
+    box-shadow: 0 2px 8px rgba(107,63,160,.08);
   }
   .kb-sug:hover {
     background: linear-gradient(135deg,#9B72CF,#6B3FA0);
     color: #fff; border-color: transparent;
-    transform: translateY(-2px); box-shadow: 0 5px 14px rgba(107,63,160,0.3);
+    transform: translateY(-2px); box-shadow: 0 5px 16px rgba(107,63,160,.32);
   }
-
-  /* Input */
   .kb-input-row {
     padding: 12px 14px; border-top: 1px solid #EDE8F5;
-    display: flex; gap: 9px; background: #fff; align-items: center;
+    display: flex; gap: 9px; align-items: center; background: #fff;
   }
   .kb-input {
     flex: 1; border: 1.5px solid #E0D4F0; border-radius: 24px;
-    padding: 10px 18px; font-size: .875rem; color: #2D1B4E;
+    padding: 11px 18px; font-size: .875rem; color: #2D1B4E;
     outline: none; background: #F9F6FF;
     transition: border-color .2s, box-shadow .2s;
     font-family: 'DM Sans', sans-serif;
@@ -235,165 +242,150 @@ const STYLES = `
   .kb-send {
     width: 44px; height: 44px; flex-shrink: 0;
     background: linear-gradient(135deg,#9B72CF,#6B3FA0);
-    border: none; border-radius: 50%; color: #fff; font-size: 17px;
+    border: none; border-radius: 50%; color: #fff; font-size: 18px;
     cursor: pointer; display: flex; align-items: center; justify-content: center;
-    transition: transform .15s, opacity .15s, box-shadow .15s;
-    box-shadow: 0 4px 16px rgba(107,63,160,0.45);
+    transition: transform .15s, box-shadow .15s;
+    box-shadow: 0 4px 16px rgba(107,63,160,.45);
   }
-  .kb-send:hover:not(:disabled) { transform: scale(1.1); box-shadow: 0 7px 22px rgba(107,63,160,0.55); }
-  .kb-send:disabled { opacity: .35; cursor: default; box-shadow: none; }
+  .kb-send:hover:not(:disabled) { transform: scale(1.11); box-shadow: 0 7px 22px rgba(107,63,160,.55); }
+  .kb-send:disabled { opacity: .32; cursor: default; box-shadow: none; }
 
-  /* ══ PANEL PRODUCTOS ══ */
+  /* PANEL PRODUCTOS */
   .kb-prod-panel {
     background: #fff; display: flex; flex-direction: column;
-    overflow: hidden;
-    border-left: 1px solid #EDE8F5;
+    overflow: hidden; border-left: 1px solid #EDE8F5;
   }
   .kb-prod-hdr {
-    padding: 14px 16px 12px;
+    padding: 15px 16px 13px;
     border-bottom: 1px solid #EDE8F5;
     display: flex; align-items: center; justify-content: space-between;
     flex-shrink: 0; background: #FDFBFF;
   }
-  .kb-prod-hdr-title {
+  .kb-prod-hdr-ttl {
     font-family: 'Playfair Display', serif;
-    font-weight: 600; font-size: .92rem; color: #2D1B4E;
-    letter-spacing: 0.01em;
+    font-size: .93rem; font-weight: 700; color: #2D1B4E;
   }
   .kb-prod-cnt {
-    font-size: .7rem; font-weight: 700; color: #fff;
+    font-size: .69rem; font-weight: 800; color: #fff;
     background: linear-gradient(135deg,#9B72CF,#6B3FA0);
-    padding: 3px 10px; border-radius: 12px;
+    padding: 3px 11px; border-radius: 12px; letter-spacing: .03em;
   }
   .kb-prod-scroll {
-    flex: 1; overflow-y: auto; padding: 12px;
-    display: flex; flex-direction: column; gap: 12px;
+    flex: 1; overflow-y: auto; padding: 13px 12px;
+    display: flex; flex-direction: column; gap: 13px;
     scrollbar-width: thin; scrollbar-color: #E0D4F0 transparent;
   }
   .kb-prod-scroll::-webkit-scrollbar { width: 3px; }
   .kb-prod-scroll::-webkit-scrollbar-thumb { background: #E0D4F0; border-radius: 3px; }
 
-  /* Tarjeta producto */
+  /* Tarjeta */
   .kb-pcard {
     border-radius: 14px; overflow: hidden;
-    border: 1.5px solid #EDE8F5;
+    border: 1.5px solid #EDE8F5; background: #fff;
     cursor: pointer; transition: transform .22s, box-shadow .22s, border-color .22s;
-    position: relative; background: #fff;
+    position: relative;
   }
   .kb-pcard:hover {
     transform: translateY(-5px);
-    box-shadow: 0 12px 32px rgba(107,63,160,0.2);
+    box-shadow: 0 14px 36px rgba(107,63,160,.2);
     border-color: #9B72CF;
   }
-  .kb-pcard-badge {
+  .kb-pbadge {
     position: absolute; top: 9px; left: 9px;
     font-size: .58rem; font-weight: 800; letter-spacing: .08em;
-    padding: 4px 10px; border-radius: 10px; text-transform: uppercase; z-index: 2;
+    padding: 4px 10px; border-radius: 10px; text-transform: uppercase; z-index: 3;
     font-family: 'DM Sans', sans-serif;
   }
-  .kb-pcard-badge.oferta { background: #FF4D6D; color: #fff; box-shadow: 0 3px 10px rgba(255,77,109,0.4); }
-  .kb-pcard-badge.nuevo  { background: #6B3FA0; color: #fff; box-shadow: 0 3px 10px rgba(107,63,160,0.4); }
+  .kb-pbadge.oferta { background: #FF4D6D; color: #fff; box-shadow: 0 3px 10px rgba(255,77,109,.4); }
+  .kb-pbadge.nuevo  { background: #6B3FA0; color: #fff; box-shadow: 0 3px 10px rgba(107,63,160,.4); }
 
-  /* ════ IMAGEN — el fix principal ════ */
+  /* IMAGEN — fix definitivo */
   .kb-pimg-wrap {
-    width: 100%; height: 165px;
-    overflow: hidden; background: linear-gradient(135deg,#F0EAF8,#E8D8F8);
-    position: relative; display: block;
-  }
-  .kb-pimg {
-    width: 100%; height: 100%;
-    object-fit: cover; display: block;
-    transition: transform .35s ease, opacity .3s;
-    opacity: 0;
-  }
-  .kb-pimg.loaded { opacity: 1; }
-  .kb-pimg:hover { transform: scale(1.05); }
-  .kb-pimg-ph {
-    width: 100%; height: 100%;
-    display: flex; align-items: center; justify-content: center; font-size: 44px;
+    width: 100%; height: 168px; position: relative; overflow: hidden;
     background: linear-gradient(135deg,#F0EAF8,#E8D8F8);
-  }
-  .kb-pimg-loading {
-    position: absolute; inset: 0;
     display: flex; align-items: center; justify-content: center;
-    background: linear-gradient(135deg,#F0EAF8,#E8D8F8);
-    transition: opacity .3s;
   }
+  .kb-pimg-real {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; opacity: 0; transition: opacity .4s ease; display: block;
+  }
+  .kb-pimg-real.vis { opacity: 1; }
   .kb-pimg-spinner {
-    width: 28px; height: 28px; border-radius: 50%;
-    border: 3px solid #D4B8F0; border-top-color: #9B72CF;
-    animation: kbSpin .8s linear infinite;
+    width: 30px; height: 30px; border-radius: 50%;
+    border: 3px solid #E0D4F0; border-top-color: #9B72CF;
+    animation: kbSpin .85s linear infinite; position: absolute;
   }
+  .kb-pimg-spinner.hide { display: none; }
   @keyframes kbSpin { to { transform: rotate(360deg); } }
+  .kb-pimg-emoji { font-size: 46px; position: absolute; opacity: 0; transition: opacity .3s; }
+  .kb-pimg-emoji.vis { opacity: 1; }
 
   .kb-pbody { padding: 11px 13px 13px; }
   .kb-pname {
-    font-family: 'DM Sans', sans-serif;
-    font-size: .82rem; font-weight: 700; color: #2D1B4E;
+    font-size: .83rem; font-weight: 700; color: #2D1B4E;
     line-height: 1.35; margin-bottom: 5px;
     display: -webkit-box; -webkit-line-clamp: 2;
     -webkit-box-orient: vertical; overflow: hidden;
   }
   .kb-pdesc {
-    font-size: .71rem; color: #7A6899; line-height: 1.45; margin-bottom: 8px;
+    font-size: .71rem; color: #7A6899; line-height: 1.45; margin-bottom: 9px;
     display: -webkit-box; -webkit-line-clamp: 2;
     -webkit-box-orient: vertical; overflow: hidden;
   }
-  .kb-pmeta { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-bottom: 9px; }
-  .kb-pprice { font-size: .9rem; font-weight: 700; color: #6B3FA0; font-family: 'DM Sans', sans-serif; }
+  .kb-pmeta { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-bottom: 10px; }
+  .kb-pprice { font-size: .92rem; font-weight: 800; color: #6B3FA0; }
   .kb-pstars { display: flex; gap: 2px; align-items: center; }
-  .kb-pstar { font-size: 12px; }
+  .kb-pstar  { font-size: 12px; }
   .kb-pstar.on  { color: #FBBF24; }
-  .kb-pstar.off { color: #E0D4F0; }
+  .kb-pstar.off { color: #E5DDF5; }
   .kb-prating { font-size: .67rem; color: #A89BC0; margin-left: 2px; }
-
-  /* Botón Ver — llamada a la acción */
   .kb-pver {
     display: block; width: 100%; padding: 9px 0;
     background: linear-gradient(135deg,#9B72CF,#6B3FA0);
     border: none; border-radius: 10px;
-    font-size: .75rem; font-weight: 700; color: #fff;
+    font-size: .76rem; font-weight: 700; color: #fff;
     text-align: center; cursor: pointer;
     transition: opacity .15s, transform .15s, box-shadow .15s;
-    letter-spacing: 0.04em; font-family: 'DM Sans', sans-serif;
-    box-shadow: 0 4px 14px rgba(107,63,160,0.35);
+    letter-spacing: .04em; font-family: 'DM Sans', sans-serif;
+    box-shadow: 0 4px 14px rgba(107,63,160,.35);
   }
-  .kb-pver:hover { opacity: .88; transform: translateY(-1px); box-shadow: 0 7px 20px rgba(107,63,160,0.45); }
+  .kb-pver:hover { opacity: .88; transform: translateY(-1px); box-shadow: 0 8px 22px rgba(107,63,160,.45); }
 
-  /* Panel vacío */
   .kb-pempty {
     flex: 1; display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     gap: 14px; padding: 32px 24px; text-align: center;
   }
-  .kb-pempty-icon { font-size: 42px; opacity: .2; }
-  .kb-pempty-txt { font-size: .82rem; color: #B8A8D4; line-height: 1.65; }
+  .kb-pempty-icon { font-size: 42px; opacity: .18; }
+  .kb-pempty-txt { font-size: .82rem; color: #B8A8D4; line-height: 1.7; }
 
-  /* Toast notificación nuevos productos */
+  /* Toast */
   .kb-toast {
     position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
     background: linear-gradient(135deg,#9B72CF,#6B3FA0);
-    color: #fff; padding: 7px 18px; border-radius: 20px;
+    color: #fff; padding: 7px 20px; border-radius: 22px;
     font-size: .73rem; font-weight: 700; white-space: nowrap;
-    box-shadow: 0 6px 20px rgba(107,63,160,0.45);
-    animation: kbToast .4s ease; z-index: 10; pointer-events: none;
+    box-shadow: 0 6px 22px rgba(107,63,160,.45);
+    animation: kbToast .35s ease; z-index: 20; pointer-events: none;
     font-family: 'DM Sans', sans-serif;
   }
   @keyframes kbToast {
-    from { opacity:0; transform: translateX(-50%) translateY(-8px); }
+    from { opacity:0; transform: translateX(-50%) translateY(-10px); }
     to   { opacity:1; transform: translateX(-50%) translateY(0); }
   }
 `;
 
-/* ════ DATOS ════ */
+// ─────────────────────────────────────────────────────────────
+// DATOS
+// ─────────────────────────────────────────────────────────────
 const CATEGORIAS = [
-  { label: "👜 Bolsos",      query: "Muéstrame los bolsos disponibles" },
-  { label: "💄 Maquillaje",  query: "¿Qué maquillaje tienen?" },
-  { label: "✨ Capilar",     query: "Productos para el cabello" },
-  { label: "💍 Accesorios",  query: "Muéstrame los accesorios" },
-  { label: "💳 Billeteras",  query: "Quiero ver las billeteras" },
-  { label: "🏷️ Ofertas",    query: "¿Qué está en oferta hoy?" },
-  { label: "🆕 Novedades",   query: "¿Qué hay de nuevo?" },
+  { label: "👜 Bolsos",       query: "Muéstrame los bolsos disponibles" },
+  { label: "💄 Maquillaje",   query: "¿Qué maquillaje tienen?" },
+  { label: "✨ Capilar",      query: "Productos para el cabello" },
+  { label: "💍 Accesorios",   query: "Muéstrame los accesorios" },
+  { label: "💳 Billeteras",   query: "Quiero ver las billeteras" },
+  { label: "🏷️ Ofertas",     query: "¿Qué está en oferta hoy?" },
+  { label: "🆕 Novedades",    query: "¿Qué hay de nuevo?" },
   { label: "⭐ Más vendidos", query: "¿Cuáles son los más vendidos?" },
 ];
 
@@ -406,65 +398,61 @@ const SUGGESTIONS = [
   "Sorpréndeme ✨",
 ];
 
-/* ════ SYSTEM PROMPT MEJORADO ════ */
-const SYSTEM_PROMPT = (products) => `Eres ISABEL, la asesora personal de belleza de Kosmica — tienda colombiana de belleza y accesorios premium. Eres la amiga fashion más sofisticada de cada clienta: conoces el catálogo de memoria, tienes criterio estético impecable y el don de hacer sentir especial y bella a quien te escribe.
+// ─────────────────────────────────────────────────────────────
+// SYSTEM PROMPT
+// ─────────────────────────────────────────────────────────────
+const SYSTEM_PROMPT = (products) => `Eres ISABEL, la asesora personal de belleza de Kosmica — tienda colombiana de belleza y accesorios premium. Eres la amiga fashion más sofisticada y cálida de cada clienta. Conoces el catálogo de memoria, tienes criterio estético impecable y el don natural de hacer sentir especial y bella a quien te escribe.
 
 ═══════════════════════════════════════
 PERSONALIDAD Y VOZ
 ═══════════════════════════════════════
-- Cálida, elegante, motivadora — NUNCA robótica ni fría
+- Cálida, elegante, motivadora — NUNCA robótica, NUNCA genérica
 - Tuteo siempre. "amiga", "hermosa", "mi amor", "reina" con naturalidad colombiana
-- NUNCA empieces con "¡Claro!", "¡Por supuesto!", "¡Entiendo!" — ve directo al valor
+- NUNCA empieces con "¡Claro!", "¡Por supuesto!", "¡Entendido!" — ve directo al valor
 - Máximo 2 emojis por mensaje, bien ubicados
-- Crea urgencia suave cuando hay oferta o pocas unidades
-- Celebra sus elecciones: "¡Ese tiene muy buen gusto!"
-- Si preguntan por precio: dilo claro y resalta el valor/calidad
+- Respuestas cortas con gancho: 2-3 líneas antes de recomendar
 
 ═══════════════════════════════════════
-MOTIVAR A COMPRAR (sin presionar)
+MOTIVAR A COMPRAR (sin presionar jamás)
 ═══════════════════════════════════════
-- Menciona detalles sensoriales: textura, olor, acabado, cómo se siente
-- Conecta el producto con una emoción o situación: "perfecto para una noche especial"
-- Si hay OFERTA: crea urgencia real ("las ofertas no duran mucho, amiga")
-- Si hay pocas unidades: mencionarlo ("quedan pocas de este, es muy pedido")
-- Siempre termina con una pregunta o llamada a la acción suave
+- Describe detalles sensoriales: textura, acabado, cómo se ve puesto, cómo combina
+- Conecta el producto con una emoción o momento: "perfecto para esa noche especial"
+- Badge OFERTA → urgencia suave: "las ofertas vuelan, amiga"
+- Stock limitado → menciónalo con naturalidad: "es muy pedido, quedan pocas"
+- Cierra siempre con pregunta o CTA suave: "¿Te lo muestro en detalle?" o "¿Lo llevamos?"
 
 ═══════════════════════════════════════
-CATÁLOGO (solo stock > 0)
+CATÁLOGO DISPONIBLE (solo stock > 0)
 ═══════════════════════════════════════
-${JSON.stringify(products.filter(p => p.stock > 0).map(p => ({
-  id: p.id,
-  nombre: p.name,
-  descripcion: p.description,
-  precio: p.price,
-  categoria: p.category,
-  rating: p.rating,
-  stock: p.stock,
-  badge: p.badge,
-})), null, 2)}
+${JSON.stringify(
+  products.filter(p => p.stock > 0).map(p => ({
+    id: p.id, nombre: p.name, descripcion: p.description,
+    precio: p.price, categoria: p.category,
+    rating: p.rating, stock: p.stock, badge: p.badge,
+  })), null, 2
+)}
 
 Categorías: Bolsos y Morrales, Maquillaje, Capilar, Accesorios, Billeteras.
 
 ═══════════════════════════════════════
 CÓMO RECOMENDAR
 ═══════════════════════════════════════
-- Entiende primero: ¿para ella o regalo? ¿ocasión? ¿estilo? ¿presupuesto?
-- Si falta info esencial, haz UNA pregunta clave y corta
-- Explica en 1-2 frases POR QUÉ ese producto es perfecto PARA ELLA
-- Menciona materiales, detalles, ocasión, cómo combina
-- Badge "OFERTA" → crea urgencia. Badge "NUEVO" → exclusividad
+- Antes de recomendar entiende: ¿para ella o regalo? ¿ocasión? ¿estilo? ¿presupuesto?
+- Si falta info clave, haz UNA sola pregunta (no interrogatorio)
+- Explica en 1-2 frases POR QUÉ ese producto es perfecto para ELLA
+- Badge OFERTA → urgencia. Badge NUEVO → exclusividad
 - Máximo 3 productos por recomendación
 - NUNCA stock 0. Precios en COP
 
 ═══════════════════════════════════════
 SITUACIONES ESPECIALES
 ═══════════════════════════════════════
-REGALO → pregunta presupuesto y destinataria antes de recomendar
-PRESUPUESTO LIMITADO → honesta, sin hacerla sentir mal, destaca el valor
-DUDA ENTRE DOS → ayúdala a decidir según su estilo y ocasión
+REGALO → pregunta presupuesto y destinataria ANTES de recomendar
+PRESUPUESTO LIMITADO → honesta, resalta el valor de lo que hay
+DUDA ENTRE DOS → ayúdala a decidir por estilo/ocasión
 AGOTADO → ofrece la alternativa más similar con entusiasmo
-QUEJA → empatía total primero, luego orienta a Kosmica directamente
-EXPLORANDO → genera curiosidad con pregunta sobre su estilo de vida
+QUEJA → empatía total primero, luego orienta a Kosmica
+SOLO EXPLORANDO → genera curiosidad con pregunta sobre su estilo
 
 ═══════════════════════════════════════
 LÍMITES
@@ -472,20 +460,21 @@ LÍMITES
 - Solo productos Kosmica y temas belleza/moda
 - Nunca inventes datos — usa SOLO el catálogo
 - Nunca hagas sentir mal a la clienta
-- Si no tienes el producto, dilo y ofrece la alternativa más cercana
 
 ═══════════════════════════════════════
-FORMATO OBLIGATORIO — MUY IMPORTANTE
+⚠️ FORMATO OBLIGATORIO
 ═══════════════════════════════════════
-Cuando recomiendes productos, al FINAL del mensaje escribe EXACTAMENTE así (sin espacios, sin puntos, sin markdown):
+Cuando recomiendes productos, al FINAL del mensaje escribe EXACTAMENTE:
 PRODUCTOS_RECOMENDADOS:id1,id2,id3
 
-Ejemplo correcto: PRODUCTOS_RECOMENDADOS:15,73,42
-Ejemplo INCORRECTO: PRODUCTOS_RECOMENDADOS:[15,73,42]
+CORRECTO:   PRODUCTOS_RECOMENDADOS:15,73,42
+INCORRECTO: PRODUCTOS_RECOMENDADOS:[15,73,42]
 
 Si no recomiendas productos, NO incluyas esa línea.`;
 
-/* ════ HELPERS ════ */
+// ─────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────
 const formatPrice = (p) =>
   new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(p);
 
@@ -508,101 +497,89 @@ const Stars = ({ rating = 0 }) => (
   </div>
 );
 
-/* Imagen con lazy-load, spinner y fallback — fix principal para fotos */
+/* Imagen con carga progresiva, spinner y fallback emoji */
 const ProductImage = ({ src, alt, emoji }) => {
-  const [status, setStatus] = useState("loading"); // loading | loaded | error
-
+  const [state, setState] = useState("loading"); // loading | ok | err
   useEffect(() => {
-    if (!src) { setStatus("error"); return; }
-    setStatus("loading");
-    const img = new Image();
-    img.onload  = () => setStatus("loaded");
-    img.onerror = () => setStatus("error");
+    if (!src) { setState("err"); return; }
+    setState("loading");
+    const img = new window.Image();
+    img.onload  = () => setState("ok");
+    img.onerror = () => setState("err");
     img.src = src;
+    return () => { img.onload = null; img.onerror = null; };
   }, [src]);
-
   return (
     <div className="kb-pimg-wrap">
-      {status === "loading" && (
-        <div className="kb-pimg-loading">
-          <div className="kb-pimg-spinner" />
-        </div>
-      )}
-      {status === "loaded" && (
-        <img src={src} alt={alt} className="kb-pimg loaded" />
-      )}
-      {status === "error" && (
-        <div className="kb-pimg-ph">{emoji}</div>
-      )}
+      <div className={`kb-pimg-spinner${state !== "loading" ? " hide" : ""}`} />
+      {src && <img src={src} alt={alt} className={`kb-pimg-real${state === "ok" ? " vis" : ""}`} />}
+      <span className={`kb-pimg-emoji${state === "err" ? " vis" : ""}`}>{emoji}</span>
     </div>
   );
 };
 
-/* ════ EXTRACCIÓN DE IDs — fix regex ════ */
-const extractProductIds = (text) => {
-  // Soporta: PRODUCTOS_RECOMENDADOS:15,73,42  O  PRODUCTOS_RECOMENDADOS:[15,73,42]
-  const match = text.match(/PRODUCTOS_RECOMENDADOS:\[?([^\]\n]+)\]?/);
-  if (!match) return [];
-  return match[1]
-    .split(",")
-    .map(id => parseInt(id.trim()))
-    .filter(n => !isNaN(n) && n > 0);
+/* Extracción de IDs — acepta con y sin corchetes */
+const extractIds = (text) => {
+  const m = text.match(/PRODUCTOS_RECOMENDADOS:\[?([\d,\s]+)\]?/);
+  if (!m) return [];
+  return m[1].split(",").map(s => parseInt(s.trim(), 10)).filter(n => Number.isFinite(n) && n > 0);
 };
+const cleanText = (text) => text.replace(/PRODUCTOS_RECOMENDADOS:\[?[\d,\s]+\]?/g, "").trim();
 
-const cleanText = (text) =>
-  text.replace(/PRODUCTOS_RECOMENDADOS:\[?[^\]\n]+\]?/g, "").trim();
-
-/* ════ COMPONENTE PRINCIPAL ════ */
+// ─────────────────────────────────────────────────────────────
+// COMPONENTE PRINCIPAL
+// ─────────────────────────────────────────────────────────────
 export default function AIChatBot({ products = [], onProductClick }) {
-  const [open, setOpen]                   = useState(false);
-  const [messages, setMessages]           = useState([{
+  const [open, setOpen]               = useState(false);
+  const [messages, setMessages]       = useState([{
     role: "bot",
     content: "Hola hermosa, soy Isabel ✨\nTu asesora personal de Kosmica. ¿Estás buscando algo para ti o es un regalo especial?",
     products: [],
   }]);
   const [shownProducts, setShownProducts] = useState([]);
-  const [input, setInput]                 = useState("");
-  const [loading, setLoading]             = useState(false);
-  const [unread, setUnread]               = useState(1);
-  const [activecat, setActivecat]         = useState(null);
-  const [toast, setToast]                 = useState("");
-  const messagesEndRef                    = useRef(null);
-  const inputRef                          = useRef(null);
+  const [input, setInput]             = useState("");
+  const [loading, setLoading]         = useState(false);
+  const [unread, setUnread]           = useState(1);
+  const [activeCat, setActiveCat]     = useState(null);
+  const [toast, setToast]             = useState("");
+  const bottomRef                     = useRef(null);
+  const inputRef                      = useRef(null);
 
   useEffect(() => {
     if (open) { setUnread(0); setTimeout(() => inputRef.current?.focus(), 150); }
   }, [open]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  const showToast = useCallback((msg) => {
+  const fireToast = useCallback((msg) => {
     setToast(msg);
-    setTimeout(() => setToast(""), 3000);
+    setTimeout(() => setToast(""), 3200);
   }, []);
 
-  const getProductsById = useCallback((ids) =>
+  const byIds = useCallback((ids) =>
     ids.map(id => products.find(p => p.id === id)).filter(Boolean),
   [products]);
 
-  const sendMessage = useCallback(async (text) => {
-    const userText = (text || input).trim();
-    if (!userText || loading) return;
+  const sendMessage = useCallback(async (overrideText) => {
+    const text = (overrideText ?? input).trim();
+    if (!text || loading) return;
     setInput("");
 
-    const newUserMsg = { role: "user", content: userText };
-    const history    = [...messages, newUserMsg];
+    const userMsg = { role: "user", content: text };
+    const history = [...messages, userMsg];
     setMessages(history);
     setLoading(true);
 
+    /* Historial para la API: bot → assistant */
     const apiMessages = history
       .filter(m => m.role === "user" || m.role === "bot")
       .map(m => ({ role: m.role === "bot" ? "assistant" : "user", content: m.content }));
 
     try {
-      const backendUrl = process.env.REACT_APP_API_URL || "https://kosmica-backend.onrender.com";
-      const resp = await fetch(`${backendUrl}/api/ai/chat`, {
+      const base = process.env.REACT_APP_API_URL || "https://kosmica-backend.onrender.com";
+      const resp = await fetch(`${base}/api/ai/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -625,23 +602,21 @@ export default function AIChatBot({ products = [], onProductClick }) {
         return;
       }
 
-      const rawText = data.content?.[0]?.text
-        || "Lo siento hermosa, no pude procesar tu mensaje. ¿Intentamos de nuevo?";
-
-      const ids     = extractProductIds(rawText);
-      const cleaned = cleanText(rawText);
-      const prods   = getProductsById(ids);
+      const raw     = data.content?.[0]?.text ?? "Lo siento hermosa, no pude procesar tu mensaje. ¿Intentamos de nuevo?";
+      const ids     = extractIds(raw);
+      const cleaned = cleanText(raw);
+      const prods   = byIds(ids);
 
       setMessages(prev => [...prev, { role: "bot", content: cleaned, products: prods }]);
 
       if (prods.length > 0) {
         setShownProducts(prods);
-        showToast(`✨ ${prods.length} producto${prods.length > 1 ? "s" : ""} recomendado${prods.length > 1 ? "s" : ""}`);
+        fireToast(`✨ ${prods.length} producto${prods.length > 1 ? "s" : ""} recomendado${prods.length > 1 ? "s" : ""}`);
       }
 
       if (!open) setUnread(u => u + 1);
-    } catch (e) {
-      console.error("Error chat Kosmica:", e);
+    } catch (err) {
+      console.error("Error chat Kosmica:", err);
       setMessages(prev => [...prev, {
         role: "bot",
         content: "No pude conectarme ahora. Verifica tu conexión e intenta de nuevo. 🔄",
@@ -650,22 +625,18 @@ export default function AIChatBot({ products = [], onProductClick }) {
     } finally {
       setLoading(false);
     }
-  }, [input, loading, messages, products, open, getProductsById, showToast]);
+  }, [input, loading, messages, products, open, byIds, fireToast]);
 
   const handleKey = (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
 
-  const handleCat = (cat) => {
-    setActivecat(cat.label);
-    sendMessage(cat.query);
-  };
+  const handleCat = (cat) => { setActiveCat(cat.label); sendMessage(cat.query); };
 
   return (
     <>
       <style>{STYLES}</style>
 
-      {/* FAB */}
       <button className="kb-fab" onClick={() => setOpen(o => !o)} title="Habla con Isabel">
         {open ? "✕" : "✨"}
         {!open && unread > 0 && <span className="kb-fab-badge">{unread}</span>}
@@ -677,11 +648,11 @@ export default function AIChatBot({ products = [], onProductClick }) {
 
           <div className="kb-panel">
 
-            {/* ── HEADER ── */}
+            {/* HEADER */}
             <div className="kb-header">
               <div className="kb-av-wrap">
                 <div className="kb-av">✨</div>
-                <span className="kb-dot-online" />
+                <span className="kb-online-dot" />
               </div>
               <div className="kb-hinfo">
                 <div className="kb-hname">Isabel · Asesora de Kosmica</div>
@@ -693,12 +664,12 @@ export default function AIChatBot({ products = [], onProductClick }) {
               <button className="kb-close" onClick={() => setOpen(false)}>✕</button>
             </div>
 
-            {/* ── BARRA DE CATEGORÍAS — fila separada, sin recortes ── */}
+            {/* CATEGORÍAS — fila propia, nunca recortada */}
             <div className="kb-cats-bar">
               {CATEGORIAS.map(c => (
                 <button
                   key={c.label}
-                  className={`kb-hcat${activecat === c.label ? " active" : ""}`}
+                  className={`kb-cat-btn${activeCat === c.label ? " active" : ""}`}
                   onClick={() => handleCat(c)}
                   disabled={loading}
                 >
@@ -707,8 +678,8 @@ export default function AIChatBot({ products = [], onProductClick }) {
               ))}
             </div>
 
-            {/* ── CHAT ── */}
-            <div className="kb-chat" style={{ position: "relative" }}>
+            {/* CHAT */}
+            <div className="kb-chat">
               {toast && <div className="kb-toast">{toast}</div>}
 
               <div className="kb-msgs">
@@ -718,20 +689,15 @@ export default function AIChatBot({ products = [], onProductClick }) {
                       <div className="kb-msgav">{msg.role === "bot" ? "✨" : "👤"}</div>
                       <div className="kb-bbl">{msg.content}</div>
                     </div>
-
-                    {/* Sugerencias solo después del primer mensaje del bot */}
                     {i === 0 && messages.length === 1 && (
                       <div className="kb-sugs">
                         {SUGGESTIONS.map(s => (
-                          <button key={s} className="kb-sug" onClick={() => sendMessage(s)}>
-                            {s}
-                          </button>
+                          <button key={s} className="kb-sug" onClick={() => sendMessage(s)}>{s}</button>
                         ))}
                       </div>
                     )}
                   </div>
                 ))}
-
                 {loading && (
                   <div className="kb-msg bot">
                     <div className="kb-msgav">✨</div>
@@ -740,7 +706,7 @@ export default function AIChatBot({ products = [], onProductClick }) {
                     </div>
                   </div>
                 )}
-                <div ref={messagesEndRef} />
+                <div ref={bottomRef} />
               </div>
 
               <div className="kb-input-row">
@@ -757,16 +723,14 @@ export default function AIChatBot({ products = [], onProductClick }) {
                   className="kb-send"
                   onClick={() => sendMessage()}
                   disabled={loading || !input.trim()}
-                >
-                  ➤
-                </button>
+                >➤</button>
               </div>
             </div>
 
-            {/* ── PANEL LATERAL PRODUCTOS ── */}
+            {/* PANEL LATERAL PRODUCTOS */}
             <div className="kb-prod-panel">
               <div className="kb-prod-hdr">
-                <span className="kb-prod-hdr-title">Productos recomendados</span>
+                <span className="kb-prod-hdr-ttl">Productos recomendados</span>
                 {shownProducts.length > 0 && (
                   <span className="kb-prod-cnt">{shownProducts.length}</span>
                 )}
@@ -788,30 +752,23 @@ export default function AIChatBot({ products = [], onProductClick }) {
                       onClick={() => { onProductClick?.(prod); setOpen(false); }}
                     >
                       {prod.badge && (
-                        <span className={`kb-pcard-badge ${prod.badge.toLowerCase()}`}>
-                          {prod.badge}
-                        </span>
+                        <span className={`kb-pbadge ${prod.badge.toLowerCase()}`}>{prod.badge}</span>
                       )}
-
-                      {/* Imagen con carga progresiva y fallback */}
                       <ProductImage
                         src={prod.imageUrl}
                         alt={prod.name}
                         emoji={catEmoji(prod.category)}
                       />
-
                       <div className="kb-pbody">
                         <div className="kb-pname">{prod.name}</div>
-                        {prod.description && (
-                          <div className="kb-pdesc">{prod.description}</div>
-                        )}
+                        {prod.description && <div className="kb-pdesc">{prod.description}</div>}
                         <div className="kb-pmeta">
                           <span className="kb-pprice">{formatPrice(prod.price)}</span>
                           <Stars rating={prod.rating} />
                         </div>
                         <button
                           className="kb-pver"
-                          onClick={(e) => { e.stopPropagation(); onProductClick?.(prod); setOpen(false); }}
+                          onClick={e => { e.stopPropagation(); onProductClick?.(prod); setOpen(false); }}
                         >
                           Ver en la tienda →
                         </button>
