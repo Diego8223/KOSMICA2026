@@ -1,397 +1,297 @@
 // ============================================================
-//  AIChatBot.jsx — Isabel, asesora IA premium de Kosmica
-//  Diseño: panel lateral de productos + chat principal
+//  AIChatBot.jsx — Isabel, asesora IA de Kosmica
+//  Colores corporativos: #9B72CF / #6B3FA0
 // ============================================================
 import { useState, useEffect, useRef } from "react";
 
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&family=Inter:wght@400;500;600&display=swap');
-
-  /* ── FAB ─────────────────────────────────────────── */
   .kb-fab {
-    position: fixed;
-    bottom: 28px; right: 28px;
-    width: 62px; height: 62px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #C084FC, #7C3AED);
+    position: fixed; bottom: 28px; right: 28px;
+    width: 62px; height: 62px; border-radius: 50%;
+    background: linear-gradient(135deg, #9B72CF, #6B3FA0);
     border: none; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     font-size: 26px;
-    box-shadow: 0 8px 32px rgba(124,58,237,0.5);
-    z-index: 10000;
-    transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s;
+    box-shadow: 0 8px 28px rgba(107,63,160,0.5);
+    z-index: 10000; transition: transform .2s, box-shadow .2s;
   }
-  .kb-fab:hover { transform: scale(1.12); box-shadow: 0 12px 40px rgba(124,58,237,0.65); }
+  .kb-fab:hover { transform: scale(1.1); box-shadow: 0 12px 36px rgba(107,63,160,0.65); }
   .kb-fab-badge {
     position: absolute; top: -3px; right: -3px;
-    width: 20px; height: 20px;
-    background: #F43F5E; border-radius: 50%;
-    border: 2.5px solid #fff;
+    width: 20px; height: 20px; background: #FF4D6D;
+    border-radius: 50%; border: 2.5px solid #fff;
     font-size: 10px; font-weight: 700; color: #fff;
     display: flex; align-items: center; justify-content: center;
-    font-family: 'Inter', sans-serif;
   }
 
-  /* ── OVERLAY ─────────────────────────────────────── */
   .kb-overlay {
     position: fixed; inset: 0;
-    background: rgba(15, 10, 30, 0.55);
-    backdrop-filter: blur(6px);
-    z-index: 9998;
-    animation: kbFadeIn .2s ease;
+    background: rgba(30,15,60,0.5);
+    backdrop-filter: blur(4px);
+    z-index: 9998; animation: kbFade .2s ease;
   }
-  @keyframes kbFadeIn { from { opacity:0 } to { opacity:1 } }
+  @keyframes kbFade { from { opacity:0 } to { opacity:1 } }
 
-  /* ── PANEL PRINCIPAL ─────────────────────────────── */
+  /* ── PANEL PRINCIPAL ── */
   .kb-panel {
-    position: fixed;
-    bottom: 0; right: 0;
-    width: 820px; height: 90vh;
+    position: fixed; bottom: 0; right: 0;
+    width: 820px; height: 88vh;
     max-width: 100vw; max-height: 100vh;
-    background: #0F0A1E;
-    border-radius: 24px 24px 0 0;
+    background: #fff;
+    border-radius: 20px 20px 0 0;
     display: grid;
-    grid-template-columns: 1fr 320px;
+    grid-template-columns: 1fr 300px;
     grid-template-rows: auto 1fr;
     overflow: hidden;
     z-index: 9999;
-    box-shadow: -4px 0 60px rgba(0,0,0,0.6);
-    animation: kbSlideUp .35s cubic-bezier(.34,1.2,.64,1);
-    font-family: 'Inter', sans-serif;
+    box-shadow: -4px 0 60px rgba(0,0,0,0.25);
+    animation: kbUp .32s cubic-bezier(.34,1.2,.64,1);
   }
-  @keyframes kbSlideUp {
-    from { transform: translateY(40px); opacity: 0; }
+  @keyframes kbUp {
+    from { transform: translateY(30px); opacity: 0; }
     to   { transform: translateY(0); opacity: 1; }
   }
   @media (max-width: 860px) {
-    .kb-panel { width: 100vw; border-radius: 20px 20px 0 0; grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; height: 92vh; }
-    .kb-products-panel { display: none; }
-    .kb-products-panel.mobile-open { display: flex; position: absolute; inset: 0; z-index: 10; }
+    .kb-panel { width: 100vw; border-radius: 16px 16px 0 0; grid-template-columns: 1fr; }
+    .kb-prod-panel { display: none; }
   }
 
-  /* ── HEADER (ocupa ambas columnas) ───────────────── */
+  /* ── HEADER ── */
   .kb-header {
     grid-column: 1 / -1;
-    background: linear-gradient(135deg, #1A0A3B 0%, #0D0621 50%, #1A0533 100%);
-    padding: 20px 24px 16px;
-    display: flex; align-items: center; gap: 16px;
-    border-bottom: 1px solid rgba(192,132,252,0.15);
-    position: relative;
-    overflow: hidden;
+    background: linear-gradient(135deg, #9B72CF 0%, #6B3FA0 100%);
+    padding: 0 20px;
+    height: 68px;
+    display: flex; align-items: center; gap: 14px;
+    flex-shrink: 0; overflow: hidden;
   }
-  .kb-header::before {
-    content: '';
-    position: absolute; top: -40px; right: 80px;
-    width: 200px; height: 200px;
-    background: radial-gradient(circle, rgba(192,132,252,0.12) 0%, transparent 70%);
-    pointer-events: none;
-  }
-  .kb-header-left { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
-  .kb-avatar-wrap {
-    position: relative; flex-shrink: 0;
-  }
-  .kb-avatar {
-    width: 52px; height: 52px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #C084FC, #7C3AED);
+  .kb-av-wrap { position: relative; flex-shrink: 0; }
+  .kb-av {
+    width: 46px; height: 46px; border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    border: 2px solid rgba(255,255,255,0.35);
     display: flex; align-items: center; justify-content: center;
-    font-size: 24px;
-    border: 2px solid rgba(192,132,252,0.4);
-    box-shadow: 0 0 20px rgba(192,132,252,0.3);
+    font-size: 22px; flex-shrink: 0;
   }
-  .kb-online-dot {
-    position: absolute; bottom: 2px; right: 2px;
-    width: 12px; height: 12px;
-    background: #34D399; border-radius: 50%;
-    border: 2px solid #0F0A1E;
-    animation: pulse-dot 2s infinite;
+  .kb-dot-online {
+    position: absolute; bottom: 1px; right: 1px;
+    width: 11px; height: 11px; background: #4DFFA0;
+    border-radius: 50%; border: 2px solid #6B3FA0;
   }
-  @keyframes pulse-dot {
-    0%,100% { box-shadow: 0 0 0 0 rgba(52,211,153,0.5); }
-    50%      { box-shadow: 0 0 0 5px rgba(52,211,153,0); }
+  .kb-hinfo { flex-shrink: 0; min-width: 0; }
+  .kb-hname {
+    font-weight: 700; font-size: .95rem; color: #fff;
+    white-space: nowrap; line-height: 1.2;
   }
-  .kb-header-info { min-width: 0; }
-  .kb-name {
-    font-family: 'Playfair Display', serif;
-    font-size: 1.15rem; font-weight: 600;
-    color: #F3E8FF;
-    letter-spacing: .02em;
-    line-height: 1.2;
+  .kb-hsub {
+    font-size: .72rem; color: rgba(255,255,255,0.8);
+    white-space: nowrap; display: flex; align-items: center; gap: 5px;
+    margin-top: 2px;
   }
-  .kb-subtitle {
-    font-size: .73rem; color: rgba(216,180,254,0.7);
-    margin-top: 2px; display: flex; align-items: center; gap: 6px;
-  }
-  .kb-status-dot { width: 6px; height: 6px; background: #34D399; border-radius: 50%; }
+  .kb-hsub-dot { width: 6px; height: 6px; background: #4DFFA0; border-radius: 50%; flex-shrink: 0; }
 
   /* Categorías en el header */
-  .kb-cats {
-    display: flex; gap: 6px; align-items: center;
-    flex-shrink: 0;
+  .kb-hcats {
+    flex: 1; display: flex; gap: 6px; align-items: center;
+    overflow-x: auto; padding: 0 4px;
+    scrollbar-width: none; margin-left: 8px;
   }
-  @media (max-width: 640px) { .kb-cats { display: none; } }
-  .kb-cat {
-    padding: 5px 12px;
-    border-radius: 20px;
-    background: rgba(192,132,252,0.1);
-    border: 1px solid rgba(192,132,252,0.25);
-    color: #D8B4FE;
-    font-size: .72rem; font-weight: 500;
-    cursor: pointer;
-    transition: all .15s;
-    white-space: nowrap;
+  .kb-hcats::-webkit-scrollbar { display: none; }
+  .kb-hcat {
+    flex-shrink: 0; padding: 5px 12px; border-radius: 20px;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: #fff; font-size: .72rem; font-weight: 600;
+    cursor: pointer; white-space: nowrap; transition: all .15s;
   }
-  .kb-cat:hover {
-    background: rgba(192,132,252,0.25);
-    border-color: rgba(192,132,252,0.5);
-    color: #F3E8FF;
-  }
+  .kb-hcat:hover { background: rgba(255,255,255,0.28); }
+  .kb-hcat:disabled { opacity: .5; cursor: default; }
   .kb-close {
-    width: 34px; height: 34px;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 50%;
-    color: #D8B4FE; font-size: 16px;
-    cursor: pointer; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    transition: background .15s;
+    width: 32px; height: 32px; flex-shrink: 0;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 50%; color: #fff; font-size: 15px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background .15s; margin-left: 4px;
   }
-  .kb-close:hover { background: rgba(255,255,255,0.14); color: #fff; }
+  .kb-close:hover { background: rgba(255,255,255,0.3); }
 
-  /* ── ZONA CHAT ────────────────────────────────────── */
-  .kb-chat-zone {
+  /* ── CHAT ── */
+  .kb-chat {
     display: flex; flex-direction: column;
-    background: #0A0618;
-    overflow: hidden;
-    border-right: 1px solid rgba(192,132,252,0.1);
+    background: #F9F6FF; overflow: hidden;
+    border-right: 1px solid #EDE8F5;
   }
-  .kb-messages {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px 20px 8px;
-    display: flex; flex-direction: column; gap: 16px;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(124,58,237,0.3) transparent;
+  .kb-msgs {
+    flex: 1; overflow-y: auto;
+    padding: 18px 18px 8px;
+    display: flex; flex-direction: column; gap: 14px;
+    scrollbar-width: thin; scrollbar-color: #D8C8F0 transparent;
   }
-  .kb-messages::-webkit-scrollbar { width: 4px; }
-  .kb-messages::-webkit-scrollbar-thumb { background: rgba(124,58,237,0.35); border-radius: 4px; }
+  .kb-msgs::-webkit-scrollbar { width: 4px; }
+  .kb-msgs::-webkit-scrollbar-thumb { background: #D8C8F0; border-radius: 4px; }
 
-  /* Mensajes */
-  .kb-msg { display: flex; gap: 10px; align-items: flex-end; }
+  .kb-msg { display: flex; gap: 9px; align-items: flex-end; }
   .kb-msg.user { flex-direction: row-reverse; }
-  .kb-msg-av {
-    width: 32px; height: 32px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 15px; flex-shrink: 0;
+  .kb-msgav {
+    width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 14px;
   }
-  .kb-msg.bot  .kb-msg-av { background: linear-gradient(135deg,#C084FC,#7C3AED); }
-  .kb-msg.user .kb-msg-av { background: rgba(255,255,255,0.08); font-size: 13px; }
-  .kb-bubble {
-    padding: 11px 15px;
-    border-radius: 18px;
-    font-size: .855rem; line-height: 1.6;
-    max-width: 320px; word-break: break-word;
-    white-space: pre-line;
+  .kb-msg.bot  .kb-msgav { background: linear-gradient(135deg,#9B72CF,#6B3FA0); }
+  .kb-msg.user .kb-msgav { background: #E8E0F0; }
+  .kb-bbl {
+    padding: 10px 14px; border-radius: 18px;
+    font-size: .875rem; line-height: 1.55;
+    max-width: 300px; word-break: break-word; white-space: pre-line;
   }
-  .kb-msg.bot  .kb-bubble {
-    background: rgba(255,255,255,0.06);
-    color: #E9D5FF;
-    border: 1px solid rgba(192,132,252,0.15);
+  .kb-msg.bot  .kb-bbl {
+    background: #fff; color: #2D1B4E;
     border-bottom-left-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.07);
+    border: 1px solid #EDE8F5;
   }
-  .kb-msg.user .kb-bubble {
-    background: linear-gradient(135deg,#7C3AED,#5B21B6);
-    color: #F3E8FF;
-    border-bottom-right-radius: 4px;
+  .kb-msg.user .kb-bbl {
+    background: linear-gradient(135deg,#9B72CF,#6B3FA0);
+    color: #fff; border-bottom-right-radius: 4px;
   }
 
-  /* Typing */
   .kb-typing { display: flex; gap: 5px; align-items: center; padding: 4px 0; }
   .kb-typing span {
-    width: 7px; height: 7px;
-    background: #A855F7; border-radius: 50%;
-    animation: kbDot 1.3s infinite;
+    width: 7px; height: 7px; background: #9B72CF;
+    border-radius: 50%; animation: kbDot 1.2s infinite;
   }
   .kb-typing span:nth-child(2) { animation-delay: .2s; }
   .kb-typing span:nth-child(3) { animation-delay: .4s; }
   @keyframes kbDot {
-    0%,60%,100% { transform: translateY(0); opacity: .3; }
-    30%          { transform: translateY(-7px); opacity: 1; }
+    0%,60%,100% { transform: translateY(0); opacity:.35; }
+    30%          { transform: translateY(-7px); opacity:1; }
   }
 
-  /* Sugerencias */
-  .kb-suggestions {
+  .kb-sugs {
     display: flex; flex-wrap: wrap; gap: 7px;
-    padding: 4px 0 0; margin-left: 42px;
+    padding: 4px 0 0; margin-left: 39px;
   }
   .kb-sug {
-    background: rgba(192,132,252,0.08);
-    border: 1px solid rgba(192,132,252,0.28);
-    color: #C084FC;
-    border-radius: 20px; padding: 6px 13px;
-    font-size: .77rem; font-weight: 500;
+    background: #fff; border: 1.5px solid #D4B8F0;
+    color: #6B3FA0; border-radius: 20px;
+    padding: 6px 13px; font-size: .77rem; font-weight: 500;
     cursor: pointer; transition: all .15s; white-space: nowrap;
   }
-  .kb-sug:hover { background: rgba(192,132,252,0.2); color: #E9D5FF; border-color: rgba(192,132,252,0.55); transform: translateY(-1px); }
+  .kb-sug:hover { background: #9B72CF; color: #fff; border-color: #9B72CF; transform: translateY(-1px); }
 
-  /* Input */
   .kb-input-row {
-    padding: 14px 16px;
-    border-top: 1px solid rgba(192,132,252,0.1);
-    display: flex; gap: 10px;
-    background: rgba(15,10,30,0.9);
+    padding: 12px 14px; border-top: 1px solid #EDE8F5;
+    display: flex; gap: 9px; background: #fff;
   }
   .kb-input {
-    flex: 1;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(192,132,252,0.2);
-    border-radius: 24px; padding: 10px 18px;
-    font-size: .875rem; color: #F3E8FF;
-    outline: none; transition: border-color .2s, box-shadow .2s;
-    font-family: 'Inter', sans-serif;
+    flex: 1; border: 1.5px solid #E0D4F0; border-radius: 24px;
+    padding: 10px 16px; font-size: .875rem; color: #2D1B4E;
+    outline: none; background: #F9F6FF;
+    transition: border-color .2s, box-shadow .2s;
   }
-  .kb-input::placeholder { color: rgba(216,180,254,0.35); }
-  .kb-input:focus { border-color: rgba(192,132,252,0.55); box-shadow: 0 0 0 3px rgba(124,58,237,0.15); }
+  .kb-input:focus { border-color: #9B72CF; box-shadow: 0 0 0 3px rgba(155,114,207,.12); }
+  .kb-input::placeholder { color: #C4B5D4; }
   .kb-send {
-    width: 42px; height: 42px;
-    background: linear-gradient(135deg,#A855F7,#7C3AED);
-    border: none; border-radius: 50%; color: #fff;
-    font-size: 16px; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
+    width: 42px; height: 42px; flex-shrink: 0;
+    background: linear-gradient(135deg,#9B72CF,#6B3FA0);
+    border: none; border-radius: 50%; color: #fff; font-size: 16px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
     transition: transform .15s, opacity .15s;
-    flex-shrink: 0;
-    box-shadow: 0 4px 16px rgba(124,58,237,0.4);
+    box-shadow: 0 4px 14px rgba(107,63,160,0.4);
   }
   .kb-send:hover:not(:disabled) { transform: scale(1.1); }
-  .kb-send:disabled { opacity: .35; cursor: default; }
+  .kb-send:disabled { opacity: .4; cursor: default; }
 
-  /* ── PANEL DE PRODUCTOS ───────────────────────────── */
-  .kb-products-panel {
-    background: #0D0921;
-    display: flex; flex-direction: column;
-    overflow: hidden;
-    border-left: 1px solid rgba(192,132,252,0.08);
+  /* ── PANEL PRODUCTOS ── */
+  .kb-prod-panel {
+    background: #fff; display: flex; flex-direction: column;
+    overflow: hidden; border-left: 1px solid #EDE8F5;
   }
-  .kb-prod-header {
-    padding: 16px 16px 12px;
-    border-bottom: 1px solid rgba(192,132,252,0.1);
+  .kb-prod-hdr {
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid #EDE8F5;
     display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
   }
-  .kb-prod-title {
-    font-family: 'Playfair Display', serif;
-    font-size: .9rem; font-weight: 500; color: #E9D5FF;
-    letter-spacing: .02em;
+  .kb-prod-hdr-title {
+    font-weight: 700; font-size: .88rem; color: #2D1B4E;
   }
-  .kb-prod-count {
-    font-size: .7rem; color: #A855F7;
-    background: rgba(168,85,247,0.12);
-    border: 1px solid rgba(168,85,247,0.25);
-    padding: 2px 8px; border-radius: 10px; font-weight: 600;
+  .kb-prod-cnt {
+    font-size: .7rem; font-weight: 700; color: #6B3FA0;
+    background: #F0EAF8; border: 1px solid #D4B8F0;
+    padding: 2px 9px; border-radius: 10px;
   }
   .kb-prod-scroll {
-    flex: 1; overflow-y: auto;
-    padding: 12px;
-    display: flex; flex-direction: column; gap: 10px;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(124,58,237,0.2) transparent;
+    flex: 1; overflow-y: auto; padding: 12px;
+    display: flex; flex-direction: column; gap: 12px;
+    scrollbar-width: thin; scrollbar-color: #E0D4F0 transparent;
   }
   .kb-prod-scroll::-webkit-scrollbar { width: 3px; }
-  .kb-prod-scroll::-webkit-scrollbar-thumb { background: rgba(124,58,237,0.25); border-radius: 3px; }
+  .kb-prod-scroll::-webkit-scrollbar-thumb { background: #E0D4F0; border-radius: 3px; }
 
-  /* Tarjeta de producto — modo lista lateral */
-  .kb-prod-card {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(192,132,252,0.12);
+  /* Tarjeta producto */
+  .kb-pcard {
     border-radius: 14px; overflow: hidden;
-    cursor: pointer;
-    transition: transform .2s, border-color .2s, box-shadow .2s;
-    position: relative;
+    border: 1.5px solid #EDE8F5;
+    cursor: pointer; transition: transform .2s, box-shadow .2s, border-color .2s;
+    position: relative; background: #fff;
   }
-  .kb-prod-card:hover {
-    transform: translateY(-3px);
-    border-color: rgba(192,132,252,0.45);
-    box-shadow: 0 8px 28px rgba(124,58,237,0.2);
+  .kb-pcard:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 28px rgba(107,63,160,0.18);
+    border-color: #9B72CF;
   }
-  .kb-prod-img-wrap { position: relative; }
-  .kb-prod-img {
-    width: 100%; height: 160px;
-    object-fit: cover; display: block;
-    background: rgba(255,255,255,0.04);
-  }
-  .kb-prod-img-ph {
-    width: 100%; height: 160px;
-    background: linear-gradient(135deg, rgba(124,58,237,0.2), rgba(192,132,252,0.1));
-    display: flex; align-items: center; justify-content: center;
-    font-size: 44px;
-  }
-  .kb-prod-badge {
+  .kb-pcard-badge {
     position: absolute; top: 8px; left: 8px;
-    font-size: .62rem; font-weight: 700;
-    padding: 3px 9px; border-radius: 10px;
-    letter-spacing: .05em; text-transform: uppercase;
-    font-family: 'Inter', sans-serif;
+    font-size: .6rem; font-weight: 700; letter-spacing: .05em;
+    padding: 3px 9px; border-radius: 10px; text-transform: uppercase; z-index: 1;
   }
-  .kb-prod-badge.oferta { background: #F43F5E; color: #fff; }
-  .kb-prod-badge.nuevo  { background: #7C3AED; color: #fff; }
-  .kb-prod-body { padding: 12px 12px 14px; }
-  .kb-prod-name {
-    font-size: .82rem; font-weight: 600; color: #E9D5FF;
-    line-height: 1.4; margin-bottom: 5px;
-    display: -webkit-box;
-    -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  .kb-pcard-badge.oferta { background: #FF4D6D; color: #fff; }
+  .kb-pcard-badge.nuevo  { background: #6B3FA0; color: #fff; }
+  .kb-pimg {
+    width: 100%; height: 155px;
+    object-fit: cover; display: block; background: #F0EAF8;
   }
-  .kb-prod-desc {
-    font-size: .73rem; color: rgba(216,180,254,0.55);
-    line-height: 1.45; margin-bottom: 8px;
-    display: -webkit-box;
-    -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  .kb-pimg-ph {
+    width: 100%; height: 155px;
+    background: linear-gradient(135deg,#E8D5F8,#D4B8F0);
+    display: flex; align-items: center; justify-content: center; font-size: 42px;
   }
-  .kb-prod-meta {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 6px;
+  .kb-pbody { padding: 11px 12px 13px; }
+  .kb-pname {
+    font-size: .8rem; font-weight: 700; color: #2D1B4E;
+    line-height: 1.35; margin-bottom: 4px;
+    display: -webkit-box; -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical; overflow: hidden;
   }
-  .kb-prod-price {
-    font-size: .9rem; font-weight: 700;
-    color: #C084FC; letter-spacing: -.01em;
+  .kb-pdesc {
+    font-size: .7rem; color: #7A6899; line-height: 1.4; margin-bottom: 7px;
+    display: -webkit-box; -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical; overflow: hidden;
   }
-  .kb-prod-stars { display: flex; align-items: center; gap: 3px; }
-  .kb-star { font-size: 11px; }
-  .kb-star.on  { color: #FBBF24; }
-  .kb-star.off { color: rgba(255,255,255,0.15); }
-  .kb-prod-rating-val { font-size: .68rem; color: rgba(216,180,254,0.5); margin-left: 2px; }
-  .kb-ver-btn {
-    display: block; width: 100%;
-    margin-top: 9px; padding: 7px 0;
-    background: rgba(192,132,252,0.1);
-    border: 1px solid rgba(192,132,252,0.22);
-    border-radius: 8px;
-    font-size: .73rem; font-weight: 600; color: #C084FC;
-    text-align: center; cursor: pointer;
-    transition: background .15s, color .15s;
-    font-family: 'Inter', sans-serif;
+  .kb-pmeta { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+  .kb-pprice { font-size: .88rem; font-weight: 700; color: #6B3FA0; }
+  .kb-pstars { display: flex; gap: 2px; align-items: center; }
+  .kb-pstar { font-size: 11px; }
+  .kb-pstar.on  { color: #FBBF24; }
+  .kb-pstar.off { color: #E0D4F0; }
+  .kb-prating { font-size: .67rem; color: #A89BC0; margin-left: 2px; }
+  .kb-pver {
+    display: block; width: 100%; margin-top: 8px; padding: 7px 0;
+    background: #F5F0FF; border: 1px solid #D4B8F0;
+    border-radius: 8px; font-size: .73rem; font-weight: 600; color: #6B3FA0;
+    text-align: center; cursor: pointer; transition: background .15s, color .15s;
   }
-  .kb-ver-btn:hover { background: rgba(192,132,252,0.22); color: #F3E8FF; }
+  .kb-pver:hover { background: #6B3FA0; color: #fff; border-color: #6B3FA0; }
 
-  /* Estado vacío del panel */
-  .kb-prod-empty {
+  /* Panel vacío */
+  .kb-pempty {
     flex: 1; display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    gap: 10px; padding: 24px;
-    text-align: center;
+    gap: 12px; padding: 28px; text-align: center;
   }
-  .kb-prod-empty-icon { font-size: 36px; opacity: .3; }
-  .kb-prod-empty-text { font-size: .8rem; color: rgba(216,180,254,0.35); line-height: 1.5; }
-
-  /* Mensaje de "asesoría" destacada en el panel */
-  .kb-insight {
-    margin: 0 12px 8px;
-    padding: 10px 13px;
-    background: rgba(192,132,252,0.07);
-    border: 1px solid rgba(192,132,252,0.18);
-    border-radius: 10px;
-    font-size: .73rem; color: #D8B4FE; line-height: 1.5;
-    font-style: italic;
-  }
+  .kb-pempty-icon { font-size: 38px; opacity: .25; }
+  .kb-pempty-txt { font-size: .8rem; color: #B8A8D4; line-height: 1.6; }
 `;
 
 const CATEGORIAS = [
@@ -399,6 +299,7 @@ const CATEGORIAS = [
   { label: "💄 Maquillaje", query: "¿Qué maquillaje tienen?" },
   { label: "✨ Capilar",    query: "Productos para el cabello" },
   { label: "💍 Accesorios", query: "Muéstrame los accesorios" },
+  { label: "💳 Billeteras", query: "Quiero ver las billeteras" },
   { label: "🏷️ Ofertas",   query: "¿Qué está en oferta?" },
   { label: "🆕 Novedades",  query: "¿Qué hay de nuevo?" },
 ];
@@ -421,7 +322,7 @@ PERSONALIDAD Y VOZ
 - Tuteo siempre. "amiga", "hermosa", "mi amor" con naturalidad
 - NUNCA empieces con "¡Claro!", "¡Por supuesto!" — ve directo al valor
 - Máximo 2 emojis por mensaje
-- Respuestas con gancho: 2-3 líneas antes de los productos
+- Respuestas cortas y con gancho: 2-3 líneas antes de los productos
 
 ═══════════════════════════════════════
 CATÁLOGO (solo stock > 0)
@@ -445,17 +346,11 @@ CÓMO RECOMENDAR
 ═══════════════════════════════════════
 - Entiende primero: ¿para ella o regalo? ¿ocasión? ¿estilo? ¿presupuesto?
 - Si falta info, haz UNA pregunta clave
-- Explica en 1 frase POR QUÉ ese producto es perfecto para ella
+- Explica en 1 frase POR QUÉ ese producto es perfecto
 - Menciona materiales, detalles, ocasión, cómo combina
-- Menciona la descripción del producto de forma natural
 - Badge "OFERTA" o "NUEVO" → menciónalo con entusiasmo
 - Máximo 3 productos por recomendación
 - NUNCA stock 0. Precios en COP
-
-═══════════════════════════════════════
-RECORRIDO DE CATEGORÍAS
-═══════════════════════════════════════
-Al explorar una categoría: presenta los 3 mejores, explica qué hace único a cada uno, muestra opciones para distintos presupuestos, invítala a pedir más detalles.
 
 ═══════════════════════════════════════
 SITUACIONES ESPECIALES
@@ -472,17 +367,16 @@ LÍMITES
 ═══════════════════════════════════════
 - Solo productos Kosmica y temas belleza/moda
 - Nunca inventes datos — usa SOLO el catálogo
-- Respuesta corta y con gancho antes de los productos
+- Nunca hagas sentir mal a la clienta
 
 ═══════════════════════════════════════
 FORMATO OBLIGATORIO
 ═══════════════════════════════════════
-Al final de mensajes con recomendaciones, escribe EXACTAMENTE (sin markdown, sin backticks):
+Al final de mensajes con recomendaciones, escribe EXACTAMENTE en la última línea (sin markdown, sin backticks, sin espacios):
 PRODUCTOS_RECOMENDADOS:[id1,id2,id3]
 
 Si no recomiendas productos, NO incluyas esa línea.`;
 
-// ─── helpers ─────────────────────────────────────────────────
 const formatPrice = (p) =>
   new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(p);
 
@@ -496,35 +390,28 @@ const catEmoji = (cat = "") => {
   return "🛍️";
 };
 
-const StarRating = ({ rating = 0 }) => {
-  const r = Math.round(rating);
-  return (
-    <div className="kb-prod-stars">
-      {[1,2,3,4,5].map(i => (
-        <span key={i} className={`kb-star ${i <= r ? "on" : "off"}`}>★</span>
-      ))}
-      {rating > 0 && <span className="kb-prod-rating-val">{Number(rating).toFixed(1)}</span>}
-    </div>
-  );
-};
+const Stars = ({ rating = 0 }) => (
+  <div className="kb-pstars">
+    {[1,2,3,4,5].map(i => (
+      <span key={i} className={`kb-pstar ${i <= Math.round(rating) ? "on" : "off"}`}>★</span>
+    ))}
+    {rating > 0 && <span className="kb-prating">{Number(rating).toFixed(1)}</span>}
+  </div>
+);
 
-// ─── componente principal ─────────────────────────────────────
 export default function AIChatBot({ products = [], onProductClick }) {
-  const [open, setOpen]             = useState(false);
-  const [messages, setMessages]     = useState([
-    {
-      role: "bot",
-      content: "Hola hermosa, soy Isabel ✨\nTu asesora personal de Kosmica. Cuéntame, ¿estás buscando algo especial para ti o es un regalo?",
-      products: [],
-    },
-  ]);
+  const [open, setOpen]               = useState(false);
+  const [messages, setMessages]       = useState([{
+    role: "bot",
+    content: "Hola hermosa, soy Isabel ✨\nTu asesora personal de Kosmica. Cuéntame, ¿estás buscando algo para ti o es un regalo especial?",
+    products: [],
+  }]);
   const [shownProducts, setShownProducts] = useState([]);
-  const [lastInsight, setLastInsight]     = useState("");
-  const [input, setInput]           = useState("");
-  const [loading, setLoading]       = useState(false);
-  const [unread, setUnread]         = useState(1);
-  const messagesEndRef              = useRef(null);
-  const inputRef                    = useRef(null);
+  const [input, setInput]             = useState("");
+  const [loading, setLoading]         = useState(false);
+  const [unread, setUnread]           = useState(1);
+  const messagesEndRef                = useRef(null);
+  const inputRef                      = useRef(null);
 
   useEffect(() => {
     if (open) { setUnread(0); setTimeout(() => inputRef.current?.focus(), 120); }
@@ -574,30 +461,35 @@ export default function AIChatBot({ products = [], onProductClick }) {
       });
 
       const data = await resp.json();
+
       if (!resp.ok || data.error) {
         const errMsg = data.error || `Error ${resp.status}`;
-        setMessages(prev => [...prev, { role: "bot", content: `No pude conectarme ahora (${errMsg}). ¿Intentamos de nuevo?`, products: [] }]);
+        setMessages(prev => [...prev, {
+          role: "bot",
+          content: `No pude conectarme ahora (${errMsg}). ¿Intentamos de nuevo?`,
+          products: [],
+        }]);
         return;
       }
 
-      const rawText   = data.content?.[0]?.text || "Lo siento, no pude procesar tu mensaje. ¿Intentamos de nuevo?";
-      const ids       = extractProductIds(rawText);
-      const cleaned   = cleanText(rawText);
-      const prods     = getProductsById(ids);
+      const rawText = data.content?.[0]?.text || "Lo siento, no pude procesar tu mensaje. ¿Intentamos de nuevo?";
+      const ids     = extractProductIds(rawText);
+      const cleaned = cleanText(rawText);
+      const prods   = getProductsById(ids);
 
       setMessages(prev => [...prev, { role: "bot", content: cleaned, products: prods }]);
 
-      if (prods.length > 0) {
-        setShownProducts(prods);
-        // Extraer primera frase del texto como insight
-        const insight = cleaned.split(/[.!?]/)[0]?.trim();
-        if (insight && insight.length > 10) setLastInsight(insight);
-      }
+      // Actualizar panel lateral siempre que haya productos
+      if (prods.length > 0) setShownProducts(prods);
 
       if (!open) setUnread(u => u + 1);
     } catch (e) {
       console.error("Error chat Kosmica:", e);
-      setMessages(prev => [...prev, { role: "bot", content: "No pude conectarme. Verifica tu conexión e intenta de nuevo. 🔄", products: [] }]);
+      setMessages(prev => [...prev, {
+        role: "bot",
+        content: "No pude conectarme. Verifica tu conexión e intenta de nuevo. 🔄",
+        products: [],
+      }]);
     } finally {
       setLoading(false);
     }
@@ -623,26 +515,24 @@ export default function AIChatBot({ products = [], onProductClick }) {
 
           <div className="kb-panel">
 
-            {/* ── HEADER COMPLETO ── */}
+            {/* ── HEADER — altura fija, todo en una línea ── */}
             <div className="kb-header">
-              <div className="kb-header-left">
-                <div className="kb-avatar-wrap">
-                  <div className="kb-avatar">✨</div>
-                  <span className="kb-online-dot" />
-                </div>
-                <div className="kb-header-info">
-                  <div className="kb-name">Isabel · Asesora de Kosmica</div>
-                  <div className="kb-subtitle">
-                    <span className="kb-status-dot" />
-                    En línea · Lista para asesorarte con todo nuestro catálogo
-                  </div>
+              <div className="kb-av-wrap">
+                <div className="kb-av">✨</div>
+                <span className="kb-dot-online" />
+              </div>
+              <div className="kb-hinfo">
+                <div className="kb-hname">Isabel · Tu asesora de Kosmica</div>
+                <div className="kb-hsub">
+                  <span className="kb-hsub-dot" />
+                  En línea y lista para ayudarte 💜
                 </div>
               </div>
 
-              {/* Categorías en el header */}
-              <div className="kb-cats">
+              {/* Categorías */}
+              <div className="kb-hcats">
                 {CATEGORIAS.map(c => (
-                  <button key={c.label} className="kb-cat" onClick={() => sendMessage(c.query)} disabled={loading}>
+                  <button key={c.label} className="kb-hcat" onClick={() => sendMessage(c.query)} disabled={loading}>
                     {c.label}
                   </button>
                 ))}
@@ -652,18 +542,17 @@ export default function AIChatBot({ products = [], onProductClick }) {
             </div>
 
             {/* ── CHAT ── */}
-            <div className="kb-chat-zone">
-              <div className="kb-messages">
+            <div className="kb-chat">
+              <div className="kb-msgs">
                 {messages.map((msg, i) => (
                   <div key={i}>
                     <div className={`kb-msg ${msg.role}`}>
-                      <div className="kb-msg-av">{msg.role === "bot" ? "✨" : "👤"}</div>
-                      <div className="kb-bubble">{msg.content}</div>
+                      <div className="kb-msgav">{msg.role === "bot" ? "✨" : "👤"}</div>
+                      <div className="kb-bbl">{msg.content}</div>
                     </div>
 
-                    {/* Sugerencias solo en bienvenida */}
                     {i === 0 && messages.length === 1 && (
-                      <div className="kb-suggestions">
+                      <div className="kb-sugs">
                         {SUGGESTIONS.map(s => (
                           <button key={s} className="kb-sug" onClick={() => sendMessage(s)}>{s}</button>
                         ))}
@@ -674,8 +563,8 @@ export default function AIChatBot({ products = [], onProductClick }) {
 
                 {loading && (
                   <div className="kb-msg bot">
-                    <div className="kb-msg-av">✨</div>
-                    <div className="kb-bubble">
+                    <div className="kb-msgav">✨</div>
+                    <div className="kb-bbl">
                       <div className="kb-typing"><span/><span/><span/></div>
                     </div>
                   </div>
@@ -697,60 +586,48 @@ export default function AIChatBot({ products = [], onProductClick }) {
               </div>
             </div>
 
-            {/* ── PANEL LATERAL DE PRODUCTOS ── */}
-            <div className="kb-products-panel">
-              <div className="kb-prod-header">
-                <span className="kb-prod-title">Productos recomendados</span>
+            {/* ── PANEL LATERAL PRODUCTOS ── */}
+            <div className="kb-prod-panel">
+              <div className="kb-prod-hdr">
+                <span className="kb-prod-hdr-title">Productos recomendados</span>
                 {shownProducts.length > 0 && (
-                  <span className="kb-prod-count">{shownProducts.length}</span>
+                  <span className="kb-prod-cnt">{shownProducts.length}</span>
                 )}
               </div>
 
               {shownProducts.length === 0 ? (
-                <div className="kb-prod-empty">
-                  <div className="kb-prod-empty-icon">✨</div>
-                  <div className="kb-prod-empty-text">
+                <div className="kb-pempty">
+                  <div className="kb-pempty-icon">✨</div>
+                  <div className="kb-pempty-txt">
                     Cuéntale a Isabel qué necesitas y aquí verás las recomendaciones con fotos, descripción y precio.
                   </div>
                 </div>
               ) : (
-                <>
-                  {lastInsight && (
-                    <div className="kb-insight">"{lastInsight}..."</div>
-                  )}
-                  <div className="kb-prod-scroll">
-                    {shownProducts.map(prod => (
-                      <div key={prod.id} className="kb-prod-card">
-                        <div className="kb-prod-img-wrap">
-                          {prod.imageUrl ? (
-                            <img src={prod.imageUrl} alt={prod.name} className="kb-prod-img" loading="lazy" />
-                          ) : (
-                            <div className="kb-prod-img-ph">{catEmoji(prod.category)}</div>
-                          )}
-                          {prod.badge && (
-                            <span className={`kb-prod-badge ${prod.badge.toLowerCase()}`}>{prod.badge}</span>
-                          )}
+                <div className="kb-prod-scroll">
+                  {shownProducts.map(prod => (
+                    <div key={prod.id} className="kb-pcard">
+                      {prod.badge && (
+                        <span className={`kb-pcard-badge ${prod.badge.toLowerCase()}`}>{prod.badge}</span>
+                      )}
+                      {prod.imageUrl ? (
+                        <img src={prod.imageUrl} alt={prod.name} className="kb-pimg" loading="lazy" />
+                      ) : (
+                        <div className="kb-pimg-ph">{catEmoji(prod.category)}</div>
+                      )}
+                      <div className="kb-pbody">
+                        <div className="kb-pname">{prod.name}</div>
+                        {prod.description && <div className="kb-pdesc">{prod.description}</div>}
+                        <div className="kb-pmeta">
+                          <span className="kb-pprice">{formatPrice(prod.price)}</span>
+                          <Stars rating={prod.rating} />
                         </div>
-                        <div className="kb-prod-body">
-                          <div className="kb-prod-name">{prod.name}</div>
-                          {prod.description && (
-                            <div className="kb-prod-desc">{prod.description}</div>
-                          )}
-                          <div className="kb-prod-meta">
-                            <span className="kb-prod-price">{formatPrice(prod.price)}</span>
-                            <StarRating rating={prod.rating} />
-                          </div>
-                          <button
-                            className="kb-ver-btn"
-                            onClick={() => { onProductClick?.(prod); setOpen(false); }}
-                          >
-                            Ver en la tienda →
-                          </button>
-                        </div>
+                        <button className="kb-pver" onClick={() => { onProductClick?.(prod); setOpen(false); }}>
+                          Ver en la tienda →
+                        </button>
                       </div>
-                    ))}
-                  </div>
-                </>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
 
