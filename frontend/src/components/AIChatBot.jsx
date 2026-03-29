@@ -1,18 +1,20 @@
 // ═══════════════════════════════════════════════════════════
-//  AIChatBot.jsx — Isabel, Asesora IA de Kosmica  v11.0
+//  AIChatBot.jsx — Isabel, Asesora IA de Kosmica  v12.0
 //  ✅ Proxy backend Render /api/ai/chat (sin CORS, API key segura)
-//  ✅ Tarjetas estilo Instagram: foto completa, badge precio, botón redondo
+//  ✅ Tarjetas de productos INLINE en el chat (no panel lateral)
+//  ✅ Chat a pantalla completa — sin columna derecha
+//  ✅ Sin X flotante que tapa el input
 //  ✅ IA experta en ventas y cierre
 //  ✅ Quick intents locales (< 5ms)
+//  ✅ Categorías rápidas con respuesta inmediata
 //  ✅ "Al carrito" directo desde la tarjeta
 // ═══════════════════════════════════════════════════════════
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 
-// ✅ Proxy del backend — sin CORS, sin exponer API keys
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "https://kosmica-backend.onrender.com";
 const MAX_HISTORY = 6;
 
-// ── Quick Intents (respuesta local instantánea) ───────────
+// ── Quick Intents ─────────────────────────────────────────
 const QUICK_INTENTS = [
   { test: /^(hola|buenas|buenos días|buenas tardes|buenas noches|hey|hi)\b/i,
     reply: "Hola hermosa! ✨ Soy Isabel, tu asesora de Kosmica. ¿Buscas algo para ti o un regalo especial?",
@@ -89,7 +91,7 @@ REGLAS: Solo Kosmica. Nunca inventes datos. Si no tienes el producto, ofrece el 
 Al final escribe exactamente: PRODUCTOS_RECOMENDADOS:id1,id2,id3`;
 }
 
-// ── Llamada al backend proxy (kosmica-backend.onrender.com) ────────
+// ── Llamada al backend proxy ──────────────────────────────
 async function callClaude(system, messages) {
   const res = await fetch(`${BACKEND_URL}/api/ai/chat`, {
     method: "POST",
@@ -118,10 +120,10 @@ const Stars = ({rating=0}) => (
 );
 
 // ════════════════════════════════════════════════════════════
-//  TARJETA INSTAGRAM — foto completa, badge precio, botón redondo
+//  TARJETA DE PRODUCTO — diseño horizontal, aparece INLINE
 // ════════════════════════════════════════════════════════════
 const ProductCard = ({ prod, onAdd, onView, isAdded }) => {
-  const [imgOk, setImgOk] = useState(null); // null=loading, true=ok, false=err
+  const [imgOk, setImgOk] = useState(null);
   const emoji = catEmoji(prod.category);
 
   useEffect(()=>{
@@ -136,140 +138,122 @@ const ProductCard = ({ prod, onAdd, onView, isAdded }) => {
 
   return (
     <div style={{
-      borderRadius: 20,
-      overflow: "hidden",
-      background: "#fff",
-      boxShadow: "0 4px 20px rgba(109,40,217,.10)",
-      border: "1px solid #f0e8ff",
-      transition: "transform .2s, box-shadow .2s",
-      fontFamily: "'DM Sans',sans-serif",
+      borderRadius:16,
+      overflow:"hidden",
+      background:"#fff",
+      boxShadow:"0 3px 16px rgba(109,40,217,.12)",
+      border:"1px solid #ede8ff",
+      display:"flex",
+      flexDirection:"row",
+      minHeight:108,
+      transition:"transform .18s, box-shadow .18s",
+      fontFamily:"'DM Sans',sans-serif",
     }}
-      onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-3px)";e.currentTarget.style.boxShadow="0 12px 36px rgba(109,40,217,.22)";}}
-      onMouseLeave={e=>{e.currentTarget.style.transform="";e.currentTarget.style.boxShadow="0 4px 20px rgba(109,40,217,.10)";}}>
+      onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 10px 30px rgba(109,40,217,.2)";}}
+      onMouseLeave={e=>{e.currentTarget.style.transform="";e.currentTarget.style.boxShadow="0 3px 16px rgba(109,40,217,.12)";}}>
 
-      {/* ── FOTO cuadrada, imagen completa ── */}
+      {/* FOTO */}
       <div style={{
-        position: "relative",
-        width: "100%",
-        aspectRatio: "1 / 1",
-        background: "#f9f7ff",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        overflow: "hidden",
-        cursor: "pointer",
+        position:"relative",
+        width:108,minWidth:108,
+        background:"#f9f7ff",
+        display:"flex",alignItems:"center",justifyContent:"center",
+        overflow:"hidden",flexShrink:0,cursor:"pointer",
       }} onClick={()=>onView(prod)}>
-
-        {/* Spinner */}
-        {imgOk === null && (
-          <div style={{width:28,height:28,borderRadius:"50%",
+        {imgOk===null&&(
+          <div style={{width:22,height:22,borderRadius:"50%",
             border:"3px solid #e8defa",borderTopColor:"#7c3aed",
             animation:"kbSpin .7s linear infinite"}}/>
         )}
-
-        {/* Imagen completa — contain, sin recorte */}
-        {prod.imageUrl && (
+        {prod.imageUrl&&(
           <img src={prod.imageUrl} alt={prod.name} style={{
-            position:"absolute", inset:0,
-            width:"100%", height:"100%",
-            objectFit:"contain",
-            objectPosition:"center",
-            padding:"10px",
-            boxSizing:"border-box",
-            opacity: imgOk ? 1 : 0,
-            transition:"opacity .3s",
+            position:"absolute",inset:0,width:"100%",height:"100%",
+            objectFit:"contain",objectPosition:"center",
+            padding:"8px",boxSizing:"border-box",
+            opacity:imgOk?1:0,transition:"opacity .3s",
           }}/>
         )}
-
-        {/* Fallback emoji */}
-        {imgOk === false && (
-          <div style={{fontSize:54,opacity:.55}}>{emoji}</div>
-        )}
-
-        {/* Badge OFERTA / NUEVO */}
-        {prod.badge && (
+        {imgOk===false&&<div style={{fontSize:36,opacity:.5}}>{emoji}</div>}
+        {prod.badge&&(
           <span style={{
-            position:"absolute", top:9, left:9, zIndex:3,
-            fontSize:".52rem", fontWeight:900, letterSpacing:".1em",
-            padding:"4px 9px", borderRadius:30, textTransform:"uppercase",
-            color:"#fff",
+            position:"absolute",top:6,left:6,zIndex:3,
+            fontSize:".46rem",fontWeight:900,letterSpacing:".08em",
+            padding:"3px 7px",borderRadius:20,textTransform:"uppercase",color:"#fff",
             background:prod.badge==="OFERTA"
               ?"linear-gradient(135deg,#f43f5e,#be123c)"
               :"linear-gradient(135deg,#7c3aed,#4c1d95)",
-            boxShadow:"0 2px 8px rgba(0,0,0,.22)",
+            boxShadow:"0 2px 6px rgba(0,0,0,.2)",
           }}>{prod.badge}</span>
         )}
-
-        {/* Stock bajo */}
-        {prod.stock > 0 && prod.stock <= 5 && (
+        {prod.stock>0&&prod.stock<=5&&(
           <span style={{
-            position:"absolute", top:9, right:9, zIndex:3,
-            fontSize:".52rem", fontWeight:800,
-            padding:"4px 9px", borderRadius:30,
-            background:"rgba(0,0,0,.58)", color:"#fcd34d",
+            position:"absolute",bottom:4,left:4,zIndex:3,
+            fontSize:".44rem",fontWeight:800,
+            padding:"2px 6px",borderRadius:20,
+            background:"rgba(0,0,0,.6)",color:"#fcd34d",
           }}>⚡ Solo {prod.stock}</span>
         )}
-
-        {/* Gradiente inferior con precio y estrellas */}
-        <div style={{
-          position:"absolute", bottom:0, left:0, right:0,
-          padding:"30px 12px 10px",
-          background:"linear-gradient(to top, rgba(12,4,36,.86) 0%, transparent 100%)",
-          display:"flex", alignItems:"flex-end", justifyContent:"space-between",
-          pointerEvents:"none",
-        }}>
-          <span style={{
-            fontSize:"1.08rem", fontWeight:800, color:"#fff",
-            letterSpacing:"-.02em", lineHeight:1,
-            textShadow:"0 1px 8px rgba(0,0,0,.55)",
-          }}>
-            {fmtCOP(prod.price)}
-          </span>
-          <Stars rating={prod.rating}/>
-        </div>
       </div>
 
-      {/* ── NOMBRE + BOTÓN AL CARRITO ── */}
+      {/* INFO */}
       <div style={{
-        padding:"11px 12px 12px",
-        display:"flex", alignItems:"center", gap:10,
+        flex:1,display:"flex",flexDirection:"column",
+        justifyContent:"space-between",
+        padding:"10px 12px",minWidth:0,
       }}>
-        <div
-          onClick={()=>onView(prod)}
-          style={{
-            flex:1, fontSize:".78rem", fontWeight:700, color:"#1e0a4a",
-            lineHeight:1.3, cursor:"pointer",
-            display:"-webkit-box", WebkitLineClamp:2,
-            WebkitBoxOrient:"vertical", overflow:"hidden",
-          }}>
+        <div onClick={()=>onView(prod)} style={{
+          fontSize:".8rem",fontWeight:700,color:"#1e0a4a",
+          lineHeight:1.35,cursor:"pointer",
+          display:"-webkit-box",WebkitLineClamp:2,
+          WebkitBoxOrient:"vertical",overflow:"hidden",
+        }}>
           {prod.name}
         </div>
-
-        {/* Botón redondo "Al carrito" */}
-        <button
-          onClick={e=>{e.stopPropagation();onAdd(prod,e);}}
-          title={isAdded?"Agregado al carrito":"Agregar al carrito"}
-          style={{
-            flexShrink:0,
-            width:44, height:44, borderRadius:"50%",
-            border:"none", cursor:"pointer",
-            display:"flex", alignItems:"center", justifyContent:"center",
-            fontSize:19,
-            background: isAdded
-              ?"linear-gradient(135deg,#10b981,#065f46)"
-              :"linear-gradient(135deg,#7c3aed,#4c1d95)",
-            boxShadow: isAdded
-              ?"0 4px 14px rgba(16,185,129,.48)"
-              :"0 4px 14px rgba(124,58,237,.48)",
-            transform: isAdded?"scale(1.1)":"scale(1)",
-            transition:"all .2s",
-          }}>
-          {isAdded?"✓":"🛒"}
-        </button>
+        <div style={{display:"flex",alignItems:"center",gap:4,marginTop:3}}>
+          <Stars rating={prod.rating}/>
+          {prod.categoria&&(
+            <span style={{fontSize:".6rem",color:"#9d8bc4",marginLeft:2}}>{prod.categoria}</span>
+          )}
+        </div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:6,gap:6}}>
+          <span style={{fontSize:"1.05rem",fontWeight:900,color:"#6d28d9",letterSpacing:"-.02em",flexShrink:0}}>
+            {fmtCOP(prod.price)}
+          </span>
+          <button
+            onClick={e=>{e.stopPropagation();onAdd(prod,e);}}
+            title={isAdded?"Agregado":"Agregar al carrito"}
+            style={{
+              flexShrink:0,padding:"6px 14px",borderRadius:22,
+              border:"none",cursor:"pointer",
+              fontSize:".72rem",fontWeight:800,
+              display:"flex",alignItems:"center",gap:5,
+              background:isAdded
+                ?"linear-gradient(135deg,#10b981,#065f46)"
+                :"linear-gradient(135deg,#7c3aed,#4c1d95)",
+              color:"#fff",
+              boxShadow:isAdded
+                ?"0 3px 12px rgba(16,185,129,.4)"
+                :"0 3px 12px rgba(124,58,237,.4)",
+              transform:isAdded?"scale(1.04)":"scale(1)",
+              transition:"all .2s",fontFamily:"'DM Sans',sans-serif",
+            }}>
+            {isAdded?"✓ Agregado":"🛒 Al carrito"}
+          </button>
+        </div>
       </div>
     </div>
   );
 };
+
+// ── Grid de tarjetas inline ───────────────────────────────
+const ProductGrid = ({ prods, onAdd, onView, added }) => (
+  <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:8,marginLeft:38}}>
+    {prods.map(p=>(
+      <ProductCard key={p.id} prod={p}
+        onView={onView} onAdd={onAdd} isAdded={added.has(p.id)}/>
+    ))}
+  </div>
+);
 
 // ── Categorías rápidas ────────────────────────────────────
 const CATS = [
@@ -294,9 +278,11 @@ const STYLES = `
   @keyframes kbPulse   { 0%,100%{box-shadow:0 0 0 0 rgba(52,211,153,.55)} 60%{box-shadow:0 0 0 7px rgba(52,211,153,0)} }
   @keyframes kbFabRing { 0%,100%{box-shadow:0 8px 28px rgba(91,33,182,.6),0 0 0 0 rgba(139,92,246,.4)} 50%{box-shadow:0 8px 28px rgba(91,33,182,.6),0 0 0 11px rgba(139,92,246,0)} }
   @keyframes kbToast   { from{opacity:0;transform:translateX(-50%) translateY(-8px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+  @keyframes kbCardIn  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
 
   *, *::before, *::after { box-sizing:border-box; }
 
+  /* FAB solo visible cuando el chat está cerrado */
   .kb-fab {
     position:fixed; bottom:24px; right:24px; width:62px; height:62px; border-radius:50%;
     background:linear-gradient(145deg,#8b5cf6,#5b21b6); border:none; cursor:pointer;
@@ -311,23 +297,21 @@ const STYLES = `
     z-index:9998; animation:kbFadeIn .22s;
   }
 
+  /* Panel — columna única, ancho generoso */
   .kb-panel {
     position:fixed; bottom:0; right:0;
-    width:940px; height:91vh; max-width:100vw; max-height:100vh;
+    width:520px; height:91vh; max-width:100vw; max-height:100vh;
     background:#f5f0fe;
     border-radius:24px 24px 0 0;
-    display:grid;
-    grid-template-columns:1fr 310px;
-    grid-template-rows:auto auto 1fr auto;
+    display:flex; flex-direction:column;
     overflow:hidden;
     z-index:9999;
     box-shadow:-6px 0 50px rgba(0,0,0,.28);
     animation:kbSlideUp .3s cubic-bezier(.34,1.1,.64,1);
     font-family:'DM Sans',sans-serif;
   }
-  @media(max-width:960px){
-    .kb-panel{ width:100vw; border-radius:20px 20px 0 0; grid-template-columns:1fr; }
-    .kb-side { display:none !important; }
+  @media(max-width:540px){
+    .kb-panel{ width:100vw; border-radius:20px 20px 0 0; }
   }
 
   .kb-cat {
@@ -363,13 +347,7 @@ const STYLES = `
   .kb-msgs::-webkit-scrollbar { width:3px; }
   .kb-msgs::-webkit-scrollbar-thumb { background:#ddd0f8; border-radius:3px; }
 
-  .kb-side-scroll {
-    flex:1; overflow-y:auto; padding:10px;
-    display:flex; flex-direction:column; gap:12px;
-    scrollbar-width:thin; scrollbar-color:#ddd0f8 transparent;
-  }
-  .kb-side-scroll::-webkit-scrollbar { width:3px; }
-  .kb-side-scroll::-webkit-scrollbar-thumb { background:#ddd0f8; border-radius:3px; }
+  .kb-card-anim { animation:kbCardIn .35s ease both; }
 `;
 
 // ═══════════════════════════════════════════════════════════
@@ -382,7 +360,6 @@ export default function AIChatBot({ products=[], onProductClick, onAddToCart }) 
     content:"Hola hermosa, soy Isabel ✨\nTu asesora personal de Kosmica. ¿Buscas algo para ti o es un regalo especial?",
     sugs:["Para mí 💜","Es un regalo 🎁","Ver ofertas 🏷️","Lo más vendido ⭐"],
   }]);
-  const [shown,     setShown]     = useState([]);
   const [added,     setAdded]     = useState(new Set());
   const [input,     setInput]     = useState("");
   const [loading,   setLoading]   = useState(false);
@@ -421,10 +398,13 @@ export default function AIChatBot({ products=[], onProductClick, onAddToCart }) 
 
     setInput(""); setError(null); setLastMsg(text);
 
-    // Respuesta local instantánea (< 5ms)
+    // Respuesta local instantánea
     const local = checkQuick(text);
     if (local){
-      setMsgs(prev=>[...prev,{role:"user",content:text},{role:"bot",content:local.reply,sugs:local.sugs,quick:true}]);
+      setMsgs(prev=>[...prev,
+        {role:"user",content:text},
+        {role:"bot",content:local.reply,sugs:local.sugs,quick:true}
+      ]);
       return;
     }
 
@@ -443,12 +423,14 @@ export default function AIChatBot({ products=[], onProductClick, onAddToCart }) 
       const raw    = await callClaude(buildSystem(fp,allCats),apiMsgs);
       const ids    = extractIds(raw);
       const cleaned= cleanText(raw);
+      // Los productos se adjuntan al mensaje para mostrarse INLINE
       const prods  = ids.map(id=>prodMap.get(id)).filter(Boolean);
-      setMsgs(prev=>[...prev,{role:"bot",content:cleaned}]);
-      if (prods.length>0){
-        setShown(prods);
-        fireToast(`✨ ${prods.length} producto${prods.length>1?"s":""} para ti`);
-      }
+      setMsgs(prev=>[...prev,{
+        role:"bot",
+        content:cleaned,
+        products: prods.length>0 ? prods : undefined,
+      }]);
+      if (prods.length>0) fireToast(`✨ ${prods.length} producto${prods.length>1?"s":""} para ti`);
       if(!open) setUnread(u=>u+1);
     }catch(err){
       console.error("ChatBot:",err.message);
@@ -466,17 +448,19 @@ export default function AIChatBot({ products=[], onProductClick, onAddToCart }) 
     <>
       <style>{STYLES}</style>
 
-      {/* ── FAB ── */}
-      <button className="kb-fab" onClick={()=>setOpen(o=>!o)} title="Habla con Isabel">
-        {open?"✕":"✨"}
-        {!open&&unread>0&&(
-          <span style={{position:"absolute",top:-4,right:-4,width:21,height:21,borderRadius:"50%",
-            background:"#ef4444",border:"2.5px solid #fff",fontSize:10,fontWeight:800,color:"#fff",
-            display:"flex",alignItems:"center",justifyContent:"center"}}>
-            {unread}
-          </span>
-        )}
-      </button>
+      {/* FAB — SOLO visible cuando el chat está CERRADO → no tapa el input */}
+      {!open&&(
+        <button className="kb-fab" onClick={()=>setOpen(true)} title="Habla con Isabel">
+          ✨
+          {unread>0&&(
+            <span style={{position:"absolute",top:-4,right:-4,width:21,height:21,borderRadius:"50%",
+              background:"#ef4444",border:"2.5px solid #fff",fontSize:10,fontWeight:800,color:"#fff",
+              display:"flex",alignItems:"center",justifyContent:"center"}}>
+              {unread}
+            </span>
+          )}
+        </button>
+      )}
 
       {open&&<>
         <div className="kb-overlay" onClick={()=>setOpen(false)}/>
@@ -484,7 +468,6 @@ export default function AIChatBot({ products=[], onProductClick, onAddToCart }) 
 
           {/* HEADER */}
           <div style={{
-            gridColumn:"1/-1",
             background:"linear-gradient(135deg,#6d28d9 0%,#3b0764 100%)",
             padding:"14px 18px",display:"flex",alignItems:"center",gap:12,
             flexShrink:0,position:"relative",overflow:"hidden",
@@ -512,6 +495,7 @@ export default function AIChatBot({ products=[], onProductClick, onAddToCart }) 
                 </span>
               </div>
             </div>
+            {/* Botón cerrar en el header — no hay X flotante sobre el input */}
             <button onClick={()=>setOpen(false)} style={{
               width:34,height:34,flexShrink:0,
               background:"rgba(255,255,255,.12)",border:"1.5px solid rgba(255,255,255,.22)",
@@ -525,7 +509,6 @@ export default function AIChatBot({ products=[], onProductClick, onAddToCart }) 
 
           {/* CATEGORÍAS */}
           <div style={{
-            gridColumn:"1/-1",
             background:"linear-gradient(135deg,#5b21b6,#3b0764)",
             padding:"7px 14px",display:"flex",gap:6,overflowX:"auto",
             scrollbarWidth:"none",flexShrink:0,
@@ -541,9 +524,8 @@ export default function AIChatBot({ products=[], onProductClick, onAddToCart }) 
             ))}
           </div>
 
-          {/* CHAT */}
-          <div style={{display:"flex",flexDirection:"column",background:"#ede8fc",
-            overflow:"hidden",borderRight:"1px solid #e0d5f8",position:"relative"}}>
+          {/* CHAT — ocupa todo el ancho disponible */}
+          <div style={{display:"flex",flexDirection:"column",background:"#ede8fc",overflow:"hidden",flex:1,position:"relative"}}>
 
             {toast&&(
               <div style={{
@@ -588,6 +570,7 @@ export default function AIChatBot({ products=[], onProductClick, onAddToCart }) 
               <div className="kb-msgs">
                 {msgs.map((msg,i)=>(
                   <div key={i}>
+                    {/* Burbuja */}
                     <div style={{display:"flex",gap:8,alignItems:"flex-end",flexDirection:msg.role==="user"?"row-reverse":"row"}}>
                       <div style={{
                         width:30,height:30,borderRadius:"50%",flexShrink:0,
@@ -599,7 +582,7 @@ export default function AIChatBot({ products=[], onProductClick, onAddToCart }) 
                       </div>
                       <div style={{
                         padding:"10px 14px",borderRadius:18,fontSize:".86rem",
-                        lineHeight:1.65,maxWidth:290,wordBreak:"break-word",
+                        lineHeight:1.65,maxWidth:"78%",wordBreak:"break-word",
                         whiteSpace:"pre-line",fontFamily:"'DM Sans',sans-serif",
                         ...(msg.role==="bot"
                           ?{background:"#fff",color:"#1e0a4a",borderBottomLeftRadius:4,
@@ -617,6 +600,8 @@ export default function AIChatBot({ products=[], onProductClick, onAddToCart }) 
                         {msg.content}
                       </div>
                     </div>
+
+                    {/* Chips de sugerencia */}
                     {msg.sugs?.length>0&&(
                       <div style={{display:"flex",flexWrap:"wrap",gap:5,padding:"5px 0 2px",marginLeft:38}}>
                         {msg.sugs.map(s=>(
@@ -632,6 +617,17 @@ export default function AIChatBot({ products=[], onProductClick, onAddToCart }) 
                         {["¿Qué bolso está de moda? 👜","Regalo para mamá 🎁","Los más vendidos ⭐","¿Qué hay en oferta? 🏷️"].map(s=>(
                           <button key={s} className="kb-sug" onClick={()=>send(s)}>{s}</button>
                         ))}
+                      </div>
+                    )}
+
+                    {/* ✅ TARJETAS INLINE — aparecen en la conversación */}
+                    {msg.products?.length>0&&(
+                      <div className="kb-card-anim">
+                        <ProductGrid
+                          prods={msg.products}
+                          onView={prod=>{onProductClick?.(prod);setOpen(false);}}
+                          onAdd={(prod,e)=>handleAdd(prod,e)}
+                          added={added}/>
                       </div>
                     )}
                   </div>
@@ -657,9 +653,15 @@ export default function AIChatBot({ products=[], onProductClick, onAddToCart }) 
                 <div ref={bottomRef}/>
               </div>
 
-              <div style={{padding:"10px 12px",borderTop:"1px solid #e8defa",
+              {/* INPUT — limpio, sin nada encima */}
+              <div style={{
+                padding:"10px 12px",
+                borderTop:"1px solid #e8defa",
                 display:"flex",gap:8,alignItems:"center",
-                background:"#fff",boxShadow:"0 -3px 14px rgba(0,0,0,.04)"}}>
+                background:"#fff",
+                boxShadow:"0 -3px 14px rgba(0,0,0,.04)",
+                flexShrink:0,
+              }}>
                 <input ref={inputRef} className="kb-input"
                   placeholder="Cuéntame qué buscas..."
                   value={input}
@@ -672,55 +674,14 @@ export default function AIChatBot({ products=[], onProductClick, onAddToCart }) 
                   color:"#fff",fontSize:17,cursor:"pointer",
                   display:"flex",alignItems:"center",justifyContent:"center",
                   opacity:loading||!input.trim()?0.28:1,
-                  boxShadow:"0 4px 14px rgba(124,58,237,.5)",transition:"transform .14s"}}
+                  boxShadow:"0 4px 14px rgba(124,58,237,.5)",transition:"transform .14s",
+                  fontFamily:"'DM Sans',sans-serif"}}
                   onMouseEnter={e=>{if(!loading&&input.trim())e.currentTarget.style.transform="scale(1.1)";}}
                   onMouseLeave={e=>e.currentTarget.style.transform=""}>
                   ➤
                 </button>
               </div>
             </>}
-          </div>
-
-          {/* PANEL LATERAL — tarjetas Instagram */}
-          <div className="kb-side" style={{
-            background:"#faf7ff",display:"flex",flexDirection:"column",
-            overflow:"hidden",borderLeft:"1px solid #e8defa",
-          }}>
-            <div style={{
-              padding:"13px 14px 11px",borderBottom:"1px solid #ede8fa",
-              display:"flex",alignItems:"center",justifyContent:"space-between",
-              flexShrink:0,background:"linear-gradient(to bottom,#fdfbff,#f7f3ff)",
-            }}>
-              <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:".94rem",fontWeight:700,color:"#1e0a4a"}}>
-                Recomendaciones
-              </span>
-              {shown.length>0&&(
-                <span style={{fontSize:".65rem",fontWeight:800,color:"#fff",
-                  background:"linear-gradient(135deg,#7c3aed,#4c1d95)",
-                  padding:"3px 9px",borderRadius:11}}>
-                  {shown.length}
-                </span>
-              )}
-            </div>
-
-            {shown.length===0?(
-              <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",
-                justifyContent:"center",gap:10,padding:"24px 18px",textAlign:"center"}}>
-                <div style={{fontSize:38,opacity:.15}}>✨</div>
-                <div style={{fontSize:".78rem",color:"#b0a0cc",lineHeight:1.7}}>
-                  Dile a Isabel qué buscas y aquí aparecerán los productos con foto completa, precio y botón directo al carrito.
-                </div>
-              </div>
-            ):(
-              <div className="kb-side-scroll">
-                {shown.map(p=>(
-                  <ProductCard key={p.id} prod={p}
-                    onView={prod=>{onProductClick?.(prod);setOpen(false);}}
-                    onAdd={(prod,e)=>handleAdd(prod,e)}
-                    isAdded={added.has(p.id)}/>
-                ))}
-              </div>
-            )}
           </div>
 
         </div>
