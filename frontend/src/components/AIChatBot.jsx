@@ -1,7 +1,9 @@
 // ═══════════════════════════════════════════════════════════
-//  AIChatBot.jsx — Isabel, Asesora IA de Kosmica  v9.0
-//  ✅ Conecta al backend Java /api/ai/chat
-//  ✅ Tarjetas: imagen CUADRADA (1:1), precio grande visible
+//  AIChatBot.jsx — Isabel, Asesora IA de Kosmica  v10.0
+//  ✅ Imágenes completas object-fit:contain (sin recortes)
+//  ✅ Precio grande y visible debajo de la imagen
+//  ✅ IA con prompt experto en ventas y cierre
+//  ✅ Conoce el catálogo completo + características del producto
 //  ✅ Quick intents locales (sin servidor, < 5ms)
 //  ✅ Filtrado inteligente de productos
 //  ✅ Historial limitado (6 msgs)
@@ -40,10 +42,10 @@ const checkQuick = (t) => {
 
 // ── Filtrado de productos ──────────────────────────────────
 const CAT_KW = {
-  "Bolsos y Morrales":["bolso","cartera","morral","tote","clutch"],
-  "Maquillaje":       ["maquillaje","labial","base","sombra","rubor","brillo"],
-  "Capilar":          ["cabello","pelo","shampoo","mascarilla","keratina"],
-  "Accesorios":       ["accesorio","collar","aretes","pulsera","anillo"],
+  "Bolsos y Morrales":["bolso","cartera","morral","tote","clutch","bolsa"],
+  "Maquillaje":       ["maquillaje","labial","base","sombra","rubor","brillo","cosmétic"],
+  "Capilar":          ["cabello","pelo","shampoo","mascarilla","keratina","capilar"],
+  "Accesorios":       ["accesorio","collar","aretes","pulsera","anillo","joya"],
   "Billeteras":       ["billetera","monedero","wallet"],
 };
 function filterProds(products, query) {
@@ -56,25 +58,76 @@ function filterProds(products, query) {
   if (/oferta|descuento/i.test(q))        byIntent = avail.filter(p=>p.badge==="OFERTA");
   else if (/nuevo|novedad/i.test(q))      byIntent = avail.filter(p=>p.badge==="NUEVO");
   else if (/popular|vendido|moda/i.test(q)) byIntent=[...avail].sort((a,b)=>(b.rating||0)-(a.rating||0)).slice(0,12);
-  else if (/regalo|mamá|amiga/i.test(q))  byIntent=[...avail].sort((a,b)=>(b.rating||0)-(a.rating||0)).slice(0,12);
+  else if (/regalo|mamá|amiga|mujer/i.test(q))  byIntent=[...avail].sort((a,b)=>(b.rating||0)-(a.rating||0)).slice(0,12);
   const words=q.split(/\s+/).filter(w=>w.length>3);
   const byText=words.length?avail.filter(p=>words.some(w=>p.name?.toLowerCase().includes(w)||p.description?.toLowerCase().includes(w))):[];
   const seen=new Set(),merged=[];
   for (const p of [...byCat,...byIntent,...byText]) if(!seen.has(p.id)){seen.add(p.id);merged.push(p);}
   const res=merged.length?merged:[...avail].sort((a,b)=>(b.rating||0)-(a.rating||0));
-  return res.slice(0,12).map(p=>({id:p.id,nombre:p.name,descripcion:(p.description||"").slice(0,100),
-    precio:`$${Number(p.price).toLocaleString("es-CO")} COP`,categoria:p.category,
-    rating:p.rating,stock:p.stock>5?"disponible":`solo ${p.stock}`,badge:p.badge||null}));
+  // Devuelvo todos los datos del producto para que la IA los conozca bien
+  return res.slice(0,8).map(p=>({
+    id: p.id,
+    nombre: p.name,
+    descripcion: (p.description||"").slice(0,200),
+    precio: Number(p.price),
+    precioFormateado: `$${Number(p.price).toLocaleString("es-CO")} COP`,
+    categoria: p.category,
+    material: p.material || null,
+    colores: p.colors || null,
+    dimensiones: p.dimensions || null,
+    rating: p.rating,
+    totalReseñas: p.reviewCount || 0,
+    stock: p.stock > 5 ? "disponible" : `solo ${p.stock} unidades`,
+    badge: p.badge || null,
+    envioGratis: p.freeShipping || false,
+  }));
 }
 
-// ── System Prompt ──────────────────────────────────────────
-function buildPrompt(fp) {
-  return `Eres ISABEL, asesora de ventas de Kosmica (Colombia). Experta en moda y belleza.
-PERSONALIDAD: Cálida, directa, colombiana. Tuteo. Máx 2 emojis. 3-4 líneas máx. NUNCA empieces con "¡Claro!".
-VENTAS: Máx 3 productos. Urgencia: "oferta vuela". CTA: "¿Lo agregamos al carrito?".
-PRODUCTOS: ${JSON.stringify(fp,null,1)}
-Al final escribe: PRODUCTOS_RECOMENDADOS:id1,id2,id3 (solo si recomiendas)
-LÍMITES: Solo Kosmica. Nunca inventes datos.`;
+// ── System Prompt MEJORADO — experta en ventas ─────────────
+function buildPrompt(fp, allCategories) {
+  const catList = allCategories.length > 0 ? allCategories.join(", ") : "variadas";
+  return `Eres ISABEL, asesora experta de ventas de Kosmica, tienda colombiana de moda y belleza. Tienes años de experiencia vendiendo bolsos, accesorios, maquillaje y productos capilares. Conoces cada producto a fondo.
+
+═══ PERSONALIDAD ═══
+- Cálida, segura, directa. Hablas en tuteo, tono colombiano natural.
+- Máximo 2 emojis por respuesta. NO empieces con "¡Claro!" ni "Por supuesto".
+- Respuestas concisas: 3-4 líneas máximo. Si la clienta pregunta más, amplía.
+- Eres apasionada por los productos: conoces materiales, tendencias, combinaciones.
+
+═══ TÉCNICA DE VENTAS ═══
+1. ESCUCHA: Identifica la necesidad real (ocasión, estilo, presupuesto, regalo o personal).
+2. RECOMIENDA: Máximo 3 productos. Siempre explica POR QUÉ ese producto le sirve a ELLA específicamente.
+3. URGENCIA REAL: Si hay poco stock, menciónalo. Si hay oferta, resáltala sin exagerar.
+4. CIERRE SUAVE: Termina con una pregunta de cierre: "¿Lo agregamos al carrito?" o "¿Cuál te llama más la atención?"
+5. MANEJO DE OBJECIONES: Si dice que está caro, ofrece alternativa. Si duda, resalta el valor.
+
+═══ CONOCIMIENTO DE PRODUCTOS ═══
+Categorías disponibles: ${catList}
+Productos relevantes para esta consulta:
+${JSON.stringify(fp, null, 2)}
+
+Para cada producto que recomiendes:
+- Menciona el precio claramente en pesos colombianos
+- Destaca 1-2 características únicas (material, color, uso)
+- Si tiene buenas reseñas (rating ≥ 4), menciónalo como prueba social
+- Si tiene badge OFERTA o NUEVO, úsalo a tu favor
+
+═══ REGLAS IMPORTANTES ═══
+- NUNCA inventes productos, precios ni características que no estén en los datos.
+- NUNCA hables de marcas externas ni compares con competencia.
+- Si no tienes el producto que busca, ofrece la alternativa más cercana del catálogo.
+- Si la consulta no es sobre productos Kosmica, redirige amablemente.
+- Responde SIEMPRE en español colombiano.
+
+═══ FORMATO DE RESPUESTA ═══
+Primero tu mensaje natural de ventas.
+Al final, si recomiendas productos, escribe EXACTAMENTE:
+PRODUCTOS_RECOMENDADOS:id1,id2,id3
+
+Ejemplo de buena respuesta:
+"Reina, ese bolso tote que tienes en mente está perfecto para el día a día 👜 El modelo X trae correa ajustable y cierre de seguridad, ideal para el trabajo o salidas. Con rating de 4.8 es de los más pedidos esta semana.
+¿Lo agregamos al carrito antes de que se agote?
+PRODUCTOS_RECOMENDADOS:45,23"`;
 }
 
 // ── Helpers ────────────────────────────────────────────────
@@ -92,7 +145,7 @@ const Stars = ({rating=0}) => (
 );
 
 // ═══════════════════════════════════════════════════════════
-//  TARJETA DE PRODUCTO — diseño mejorado
+//  TARJETA DE PRODUCTO — imagen completa sin recortes
 // ═══════════════════════════════════════════════════════════
 const ProductCard = ({prod, onView, onAdd, isAdded}) => {
   const [imgSt, setImgSt] = useState("loading");
@@ -109,86 +162,123 @@ const ProductCard = ({prod, onView, onAdd, isAdded}) => {
   },[prod.imageUrl]);
 
   return (
-    <div style={{borderRadius:16,overflow:"hidden",border:"1.5px solid #EDE8FA",background:"#fff",
-      boxShadow:"0 2px 14px rgba(109,40,217,.08)",transition:"transform .2s,box-shadow .2s,border-color .2s",
-      fontFamily:"'DM Sans',sans-serif"}}
+    <div style={{
+      borderRadius:16,
+      overflow:"hidden",
+      border:"1.5px solid #EDE8FA",
+      background:"#fff",
+      boxShadow:"0 2px 14px rgba(109,40,217,.08)",
+      transition:"transform .2s,box-shadow .2s,border-color .2s",
+      fontFamily:"'DM Sans',sans-serif"
+    }}
       onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-4px)";e.currentTarget.style.boxShadow="0 14px 38px rgba(109,40,217,.22)";e.currentTarget.style.borderColor="#6D28D9";}}
       onMouseLeave={e=>{e.currentTarget.style.transform="";e.currentTarget.style.boxShadow="0 2px 14px rgba(109,40,217,.08)";e.currentTarget.style.borderColor="#EDE8FA";}}>
 
-      {/* IMAGEN — ratio 1:1 cuadrada, sin estirar */}
-      <div style={{width:"100%",paddingBottom:"100%",position:"relative",
-        background:"linear-gradient(135deg,#F0EAF8,#E4D8F8)",overflow:"hidden"}}>
-
+      {/* ── IMAGEN — objeto-fit:contain para verla COMPLETA ── */}
+      <div style={{
+        width:"100%",
+        aspectRatio:"1 / 1",
+        position:"relative",
+        background:"#FAFAFA",   // fondo blanco neutro para que se vea bien
+        overflow:"hidden",
+        display:"flex",
+        alignItems:"center",
+        justifyContent:"center",
+      }}>
         {/* Badge oferta/nuevo */}
         {prod.badge && (
-          <span style={{position:"absolute",top:10,left:10,zIndex:3,
+          <span style={{
+            position:"absolute",top:10,left:10,zIndex:3,
             fontSize:".58rem",fontWeight:800,letterSpacing:".09em",
             padding:"4px 10px",borderRadius:10,textTransform:"uppercase",
             background:prod.badge==="OFERTA"?"#EF4444":"#6D28D9",color:"#fff",
-            boxShadow:prod.badge==="OFERTA"?"0 3px 10px rgba(239,68,68,.45)":"0 3px 10px rgba(109,40,217,.45)"}}>
+            boxShadow:prod.badge==="OFERTA"?"0 3px 10px rgba(239,68,68,.45)":"0 3px 10px rgba(109,40,217,.45)"
+          }}>
             {prod.badge}
           </span>
         )}
 
-        {/* Spinner */}
+        {/* Spinner mientras carga */}
         {imgSt==="loading" && (
-          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"#F5F3FF"}}>
             <div style={{width:26,height:26,borderRadius:"50%",
               border:"3px solid #E4D8F8",borderTopColor:"#6D28D9",
               animation:"kbSpin .8s linear infinite"}}/>
           </div>
         )}
 
-        {/* Foto — object-fit:cover evita que se estire */}
+        {/* ✅ IMAGEN COMPLETA — contain muestra el producto entero sin recortar */}
         {prod.imageUrl && (
-          <img src={prod.imageUrl} alt={prod.name} style={{
-            position:"absolute",inset:0,width:"100%",height:"100%",
-            objectFit:"cover",        // ← CLAVE: recorta sin deformar
-            objectPosition:"center top",
-            opacity:imgSt==="ok"?1:0,
-            transition:"opacity .4s ease",
-          }}/>
+          <img
+            src={prod.imageUrl}
+            alt={prod.name}
+            style={{
+              width:"100%",
+              height:"100%",
+              objectFit:"contain",          // ← CLAVE: muestra la imagen completa
+              objectPosition:"center center",
+              padding:"10px",               // pequeño padding para que no toque los bordes
+              opacity:imgSt==="ok"?1:0,
+              transition:"opacity .4s ease",
+              boxSizing:"border-box",
+            }}
+          />
         )}
 
-        {/* Emoji fallback */}
+        {/* Emoji fallback si la imagen falla */}
         {imgSt==="err" && (
-          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:54}}>
+          <div style={{
+            position:"absolute",inset:0,
+            display:"flex",alignItems:"center",justifyContent:"center",
+            fontSize:60, background:"linear-gradient(135deg,#F0EAF8,#E4D8F8)"
+          }}>
             {emoji}
           </div>
         )}
 
-        {/* Precio encima de la imagen — siempre visible */}
-        <div style={{position:"absolute",bottom:0,left:0,right:0,
-          background:"linear-gradient(to top,rgba(20,5,55,.88) 0%,rgba(20,5,55,0) 100%)",
-          padding:"28px 13px 11px",
-          display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
-          <span style={{fontSize:"1.08rem",fontWeight:800,color:"#fff",
-            textShadow:"0 1px 6px rgba(0,0,0,.5)",lineHeight:1,fontFamily:"'DM Sans',sans-serif"}}>
-            {fmtCOP(prod.price)}
+        {/* Stock bajo — solo si es urgente */}
+        {prod.stock > 0 && prod.stock <= 5 && (
+          <span style={{
+            position:"absolute",bottom:8,right:8,zIndex:3,
+            fontSize:".6rem",fontWeight:700,color:"#FCD34D",
+            background:"rgba(0,0,0,.6)",padding:"4px 9px",borderRadius:8,whiteSpace:"nowrap"
+          }}>
+            ⚡ Solo {prod.stock}
           </span>
-          {prod.stock>0&&prod.stock<=5 && (
-            <span style={{fontSize:".6rem",fontWeight:700,color:"#FCD34D",
-              background:"rgba(0,0,0,.45)",padding:"3px 8px",borderRadius:8,whiteSpace:"nowrap"}}>
-              ⚡ Solo {prod.stock}
-            </span>
-          )}
-        </div>
+        )}
       </div>
 
-      {/* BODY */}
+      {/* ── BODY — precio prominente debajo de la imagen ── */}
       <div style={{padding:"12px 13px 14px"}}>
-        {/* Nombre */}
-        <div style={{fontSize:".86rem",fontWeight:700,color:"#1C0845",lineHeight:1.35,
-          marginBottom:6,display:"-webkit-box",WebkitLineClamp:2,
-          WebkitBoxOrient:"vertical",overflow:"hidden"}}>
+
+        {/* Precio — grande y bien visible */}
+        <div style={{
+          fontSize:"1.15rem",
+          fontWeight:800,
+          color:"#1C0845",
+          letterSpacing:"-.02em",
+          marginBottom:4,
+          fontFamily:"'DM Sans',sans-serif"
+        }}>
+          {fmtCOP(prod.price)}
+        </div>
+
+        {/* Nombre producto */}
+        <div style={{
+          fontSize:".83rem",fontWeight:600,color:"#3D2B6B",lineHeight:1.35,
+          marginBottom:8,display:"-webkit-box",WebkitLineClamp:2,
+          WebkitBoxOrient:"vertical",overflow:"hidden"
+        }}>
           {prod.name}
         </div>
 
         {/* Estrellas + categoría */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:11}}>
           <Stars rating={prod.rating}/>
-          <span style={{fontSize:".62rem",color:"#9D8BC4",fontWeight:600,
-            background:"#F3EEFF",padding:"2px 8px",borderRadius:8,whiteSpace:"nowrap"}}>
+          <span style={{
+            fontSize:".6rem",color:"#9D8BC4",fontWeight:600,
+            background:"#F3EEFF",padding:"2px 8px",borderRadius:8,whiteSpace:"nowrap"
+          }}>
             {catEmoji(prod.category)} {(prod.category||"").split(" ")[0]}
           </span>
         </div>
@@ -270,9 +360,9 @@ const STYLES=`
   .kbinput:focus{border-color:#6D28D9;box-shadow:0 0 0 3px rgba(109,40,217,.12);}
   .kbinput::placeholder{color:#B8A8D4;}
   .kbmsgs{flex:1;overflow-y:auto;padding:16px 14px 8px;display:flex;flex-direction:column;gap:12px;
-    scrollbar-width:thin;scrollbar-color:#D4B8F0 transparent;}
-  .kbmsgs::-webkit-scrollbar{width:4px;}
-  .kbmsgs::-webkit-scrollbar-thumb{background:#D4B8F0;border-radius:4px;}
+    scrollbar-width:thin;scrollbar-color:#DDD0F8 transparent;}
+  .kbmsgs::-webkit-scrollbar{width:3px;}
+  .kbmsgs::-webkit-scrollbar-thumb{background:#DDD0F8;border-radius:3px;}
   .kbside-scroll{flex:1;overflow-y:auto;padding:12px 11px;display:flex;flex-direction:column;gap:14px;
     scrollbar-width:thin;scrollbar-color:#DDD0F8 transparent;}
   .kbside-scroll::-webkit-scrollbar{width:3px;}
@@ -300,6 +390,12 @@ export default function AIChatBot({products=[], onProductClick, onAddToCart}) {
   const inputRef  = useRef(null);
   const ready = products.length>0;
 
+  // Categorías únicas del catálogo para darle contexto a la IA
+  const allCategories = useMemo(()=>{
+    const cats = new Set(products.map(p=>p.category).filter(Boolean));
+    return [...cats];
+  },[products]);
+
   const prodMap=useMemo(()=>{const m=new Map();products.forEach(p=>m.set(p.id,p));return m;},[products]);
 
   useEffect(()=>{if(open){setUnread(0);setTimeout(()=>inputRef.current?.focus(),120);}},[open]);
@@ -321,11 +417,11 @@ export default function AIChatBot({products=[], onProductClick, onAddToCart}) {
     if(!ready){fireToast("⏳ Cargando catálogo...");return;}
     setInput(""); setError(""); setLastMsg(text);
 
-    // Quick intent local
+    // Quick intent local (respuesta instantánea)
     const local=checkQuick(text);
     if(local){setMsgs(prev=>[...prev,{role:"user",content:text},{role:"bot",content:local.reply,sugs:local.sugs,quick:true}]);return;}
 
-    // Llamada al backend Java
+    // Llamada al backend Java con prompt mejorado
     const userMsg={role:"user",content:text};
     const history=[...msgs,userMsg];
     setMsgs(history);
@@ -338,7 +434,7 @@ export default function AIChatBot({products=[], onProductClick, onAddToCart}) {
     try{
       const resp=await fetch(`${BACKEND_URL}/api/ai/chat`,{
         method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({system:buildPrompt(fp),messages:apiHistory}),
+        body:JSON.stringify({system:buildPrompt(fp, allCategories),messages:apiHistory}),
       });
       if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.error||`Error ${resp.status}`);}
       const data=await resp.json();
@@ -354,7 +450,7 @@ export default function AIChatBot({products=[], onProductClick, onAddToCart}) {
       setError(err.message);
       setMsgs(prev=>[...prev,{role:"bot",content:"Tuve un problema de conexión. ¿Lo intentamos de nuevo? 🔄"}]);
     }finally{setLoading(false);}
-  },[input,loading,msgs,products,ready,prodMap,open,fireToast]);
+  },[input,loading,msgs,products,ready,prodMap,open,fireToast,allCategories]);
 
   const handleKey=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}};
   const handleCat=cat=>{setActiveCat(cat.label);send(cat.q);};
@@ -506,7 +602,7 @@ export default function AIChatBot({products=[], onProductClick, onAddToCart}) {
             </>}
           </div>
 
-          {/* PANEL LATERAL */}
+          {/* PANEL LATERAL — productos recomendados */}
           <div className="kbside" style={{background:"#fff",display:"flex",flexDirection:"column",overflow:"hidden",borderLeft:"1px solid #EDE8FA"}}>
             <div style={{padding:"14px 16px 12px",borderBottom:"1px solid #EDE8FA",display:"flex",
               alignItems:"center",justifyContent:"space-between",flexShrink:0,
@@ -524,7 +620,7 @@ export default function AIChatBot({products=[], onProductClick, onAddToCart}) {
                 justifyContent:"center",gap:12,padding:"28px 20px",textAlign:"center"}}>
                 <div style={{fontSize:40,opacity:.18}}>✨</div>
                 <div style={{fontSize:".8rem",color:"#B0A0CC",lineHeight:1.7}}>
-                  Cuéntale a Isabel qué buscas y aquí verás los productos con foto, precio y opción de agregar al carrito.
+                  Cuéntale a Isabel qué buscas y aquí verás los productos con foto completa, precio y opción de agregar al carrito.
                 </div>
               </div>
             ):(
