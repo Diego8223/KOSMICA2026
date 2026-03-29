@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
 //  AIChatBot.jsx — Isabel, Asesora IA de Kosmica  v11.0
-//  ✅ Claude API directo (sin backend, respuesta rápida)
+//  ✅ Proxy backend Render /api/ai/chat (sin CORS, API key segura)
 //  ✅ Tarjetas estilo Instagram: foto completa, badge precio, botón redondo
 //  ✅ IA experta en ventas y cierre
 //  ✅ Quick intents locales (< 5ms)
@@ -8,10 +8,9 @@
 // ═══════════════════════════════════════════════════════════
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 
-// ⚠️  Pon tu API key de Anthropic aquí o en tu variable de entorno
-const CLAUDE_API_KEY = process.env.REACT_APP_ANTHROPIC_API_KEY || "";
-const CLAUDE_MODEL   = "claude-haiku-4-5-20251001"; // Haiku: más rápido y económico
-const MAX_HISTORY    = 6;
+// ✅ Proxy del backend — sin CORS, sin exponer API keys
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "https://kosmica-backend.onrender.com";
+const MAX_HISTORY = 6;
 
 // ── Quick Intents (respuesta local instantánea) ───────────
 const QUICK_INTENTS = [
@@ -90,25 +89,16 @@ REGLAS: Solo Kosmica. Nunca inventes datos. Si no tienes el producto, ofrece el 
 Al final escribe exactamente: PRODUCTOS_RECOMENDADOS:id1,id2,id3`;
 }
 
-// ── Llamada a Claude API directa ──────────────────────────
+// ── Llamada al backend proxy (kosmica-backend.onrender.com) ────────
 async function callClaude(system, messages) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetch(`${BACKEND_URL}/api/ai/chat`, {
     method: "POST",
-    headers: {
-      "Content-Type":      "application/json",
-      "x-api-key":         CLAUDE_API_KEY,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model:      CLAUDE_MODEL,
-      max_tokens: 400,
-      system,
-      messages,
-    }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ system, messages, max_tokens: 400 }),
   });
   if (!res.ok) {
     const err = await res.json().catch(()=>({}));
-    throw new Error(err.error?.message || `Error ${res.status}`);
+    throw new Error(err.error || `Error ${res.status}`);
   }
   const data = await res.json();
   return data.content?.[0]?.text ?? "";
