@@ -56,10 +56,10 @@ const checkQuick = t => {
 // ─────────────────────────────────────────────────────────
 function buildCatalog(products) {
   const avail = products.filter(p => p.stock > 0);
-  // Agrupar por categoría
+  // Agrupar por categoría (normalizar null/undefined a "General")
   const groups = {};
   avail.forEach(p => {
-    const cat = p.category || "General";
+    const cat = (p.category && p.category.trim()) ? p.category.trim() : "General";
     if (!groups[cat]) groups[cat] = [];
     groups[cat].push({
       id: p.id,
@@ -221,7 +221,12 @@ async function callClaude(system, messages) {
 //  Helpers
 // ─────────────────────────────────────────────────────────
 const fmtCOP     = n => new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(n);
-const extractIds = t => { const m=t.match(/PRODUCTOS_RECOMENDADOS:\[?([\d,\s]+)\]?/); return m?m[1].split(",").map(s=>parseInt(s.trim(),10)).filter(n=>n>0):[]; };
+const extractIds = t => {
+  const m = t.match(/PRODUCTOS_RECOMENDADOS:\[?([\d,\s]+)\]?/);
+  if (!m) return [];
+  return m[1].split(",").map(s => s.trim()).filter(s => s.length > 0);
+  // Retorna strings — prodMap acepta tanto string como number
+};
 const cleanText  = t => t.replace(/PRODUCTOS_RECOMENDADOS:\[?[\d,\s]+\]?/g,"").trim();
 const catEmoji   = (c="") => {
   const u = c.toUpperCase();
@@ -541,6 +546,16 @@ const STYLES = `
 //  COMPONENTE PRINCIPAL
 // ═══════════════════════════════════════════════════════════
 export default function AIChatBot({ products=[], onProductClick, onAddToCart }) {
+  // ── DEBUG: confirma en consola que los props llegan ──
+  useEffect(() => {
+    if (products.length > 0) {
+      const cats = [...new Set(products.map(p => p.category).filter(Boolean))];
+      console.log(`[AIChatBot] ✅ Catálogo cargado: ${products.length} productos, ${cats.length} categorías:`, cats);
+      console.log(`[AIChatBot] onAddToCart:`, typeof onAddToCart);
+    } else {
+      console.warn("[AIChatBot] ⚠️ products[] está vacío — el bot no tiene catálogo.");
+    }
+  }, [products, onAddToCart]);
   const INIT_MSG = {
     role:"bot",
     content:"¡Hola hermosa, soy Isabel! ✨\nTu asesora personal de Kosmica. ¿Buscas algo para ti o es un regalo especial?",
@@ -563,12 +578,21 @@ export default function AIChatBot({ products=[], onProductClick, onAddToCart }) 
 
   const bottomRef = useRef(null);
   const inputRef  = useRef(null);
-  const ready = products.length > 0;
+  // ready solo cuando hay productos CON categoría (catálogo real cargado)
+  const ready = products.length > 0 && products.some(p => p.category || p.name);
 
   // Catálogo completo y mapa de IDs
   const catalog  = useMemo(()=> buildCatalog(products), [products]);
   const catNames = useMemo(()=> Object.keys(catalog), [catalog]);
-  const prodMap  = useMemo(()=>{ const m=new Map(); products.forEach(p=>m.set(p.id,p)); return m; }, [products]);
+  const prodMap  = useMemo(()=>{
+    const m = new Map();
+    products.forEach(p => {
+      m.set(p.id, p);
+      m.set(Number(p.id), p);   // por si el ID viene como string desde la IA
+      m.set(String(p.id), p);
+    });
+    return m;
+  }, [products]);
 
   // Categorías dinámicas desde el catálogo real del cliente
   const dynCats = useMemo(()=> catNames.map(name=>({
@@ -608,15 +632,20 @@ export default function AIChatBot({ products=[], onProductClick, onAddToCart }) 
   },[]);
 
   // ── Agregar al carrito — pasa el objeto COMPLETO original ──
-  const handleAdd = useCallback((prod,e)=>{
+  const handleAdd = useCallback((prod, e) => {
     e?.stopPropagation();
-    // prod aquí es el objeto completo de products[] (no el reducido)
-    const full = prodMap.get(prod.id) || prod;
-    onAddToCart?.(full);
-    setAdded(prev=>new Set([...prev,prod.id]));
-    fireToast(`🛒 ${prod.name} agregado al carrito`,"cart");
-    setTimeout(()=>setAdded(prev=>{ const n=new Set(prev); n.delete(prod.id); return n; }),2500);
-  },[onAddToCart,fireToast,prodMap]);
+    if (!prod) return;
+    // Buscar siempre el objeto completo desde prodMap primero
+    const full = prodMap.get(prod.id) || prodMap.get(Number(prod.id)) || prod;
+    if (typeof onAddToCart === "function") {
+      onAddToCart(full);
+    } else {
+      console.warn("[AIChatBot] onAddToCart no está definido en el componente padre.");
+    }
+    setAdded(prev => new Set([...prev, prod.id]));
+    fireToast(`🛒 ${full.name || prod.name} agregado al carrito`, "cart");
+    setTimeout(() => setAdded(prev => { const n = new Set(prev); n.delete(prod.id); return n; }), 2500);
+  }, [onAddToCart, fireToast, prodMap]);
 
   const newConversation = useCallback(()=>{
     setMsgs([INIT_MSG]);
@@ -674,7 +703,7 @@ export default function AIChatBot({ products=[], onProductClick, onAddToCart }) 
       const cleaned= cleanText(raw);
 
       // Los productos recomendados son los objetos COMPLETOS (para carrito correcto)
-      const prods  = ids.map(id=>prodMap.get(id)).filter(Boolean);
+      const prods = ids.map(id => prodMap.get(id) || prodMap.get(Number(id))).filter(Boolean);
 
       setMsgs(prev=>[...prev,{
         role:"bot",
@@ -797,7 +826,11 @@ export default function AIChatBot({ products=[], onProductClick, onAddToCart }) 
           }}
             onWheel={e=>{e.currentTarget.scrollLeft+=e.deltaY;e.preventDefault();}}
           >
-            {allCats.map(c=>(
+            {!ready ? (
+              <span style={{fontSize:".68rem",color:"rgba(255,255,255,.5)",padding:"5px 4px"}}>
+                Cargando categorías...
+              </span>
+            ) : allCats.map(c=>(
               <button key={c.label}
                 className={`kb-cat${activeCat===c.label?" on":""}`}
                 onClick={()=>handleCat(c)}
@@ -840,7 +873,7 @@ export default function AIChatBot({ products=[], onProductClick, onAddToCart }) 
               <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:14,padding:30}}>
                 <div style={{width:42,height:42,borderRadius:"50%",border:"3px solid #e8defa",borderTopColor:"#7c3aed",animation:"kbSpin .75s linear infinite"}}/>
                 <div style={{fontSize:".83rem",color:"#9d8bc4",textAlign:"center",lineHeight:1.7}}>
-                  Cargando el catálogo...<br/>Un momento 💜
+                  Cargando el catálogo completo...<br/>Un momento 💜
                 </div>
               </div>
             ):<>
