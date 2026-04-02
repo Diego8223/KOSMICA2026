@@ -275,12 +275,16 @@ const CSS = `
   /* ════════════════════════════════════════
      ANIMACIONES
   ════════════════════════════════════════ */
-  @keyframes moveGrad { 0%{background-position:0%} 100%{background-position:300%} }
-  @keyframes shimmer  { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+  @keyframes moveGrad   { 0%{background-position:0%} 100%{background-position:300%} }
+  @keyframes shimmer    { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
   @keyframes slideRight { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
   @keyframes slideLeft  { from{transform:translateX(-100%);opacity:0} to{transform:translateX(0);opacity:1} }
   @keyframes slideUp    { from{transform:translateY(100%);opacity:0} to{transform:translateY(0);opacity:1} }
   @keyframes fadeIn     { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes cartPulse  { 0%{transform:scale(1)} 30%{transform:scale(1.22)} 60%{transform:scale(.92)} 100%{transform:scale(1)} }
+  @keyframes badgePop   { 0%{transform:scale(0)} 60%{transform:scale(1.3)} 100%{transform:scale(1)} }
+  .cart-btn.pulse { animation: cartPulse .42s cubic-bezier(.36,.07,.19,.97); }
+  .cart-badge { animation: badgePop .3s cubic-bezier(.36,.07,.19,.97); }
 
   /* ════════════════════════════════════════
      PRODUCTOS — Amazon style móvil
@@ -521,29 +525,50 @@ const CSS = `
   /* ════════════════════════════════════════
      CARRITO
   ════════════════════════════════════════ */
+  .cart-overlay {
+    position: fixed; inset: 0; background: rgba(45,27,78,.45);
+    z-index: 998; backdrop-filter: blur(2px);
+    animation: fadeIn .22s ease;
+  }
   .cart-panel {
-    position: fixed; inset: 0; background: var(--cream);
+    position: fixed; top: 0; right: 0; bottom: 0;
+    width: 100%; max-width: 420px;
+    background: var(--cream);
     z-index: 999; display: flex; flex-direction: column;
-    animation: slideRight .34s ease;
+    box-shadow: -8px 0 48px rgba(120,80,180,.22);
+    animation: slideRight .32s cubic-bezier(.22,1,.36,1);
   }
   .cart-header {
-    padding: 18px 16px 14px; border-bottom: 1px solid var(--lila-xlight);
+    padding: 20px 18px 16px; border-bottom: 1px solid var(--lila-xlight);
     display: flex; justify-content: space-between; align-items: center;
+    background: linear-gradient(135deg,#f8f4ff,var(--cream));
+    flex-shrink: 0;
   }
   .cart-title { font-family: 'Playfair Display', serif; font-size: 1.35rem; font-weight: 700; color: var(--dark); }
-  .close-btn { background: none; border: none; font-size: 1.25rem; color: var(--muted); padding: 4px; }
-  .close-btn:hover { color: var(--lila); }
+  .cart-count-badge {
+    background: linear-gradient(135deg,var(--lila),var(--lila-dark));
+    color: #fff; font-size: .72rem; font-weight: 800;
+    border-radius: 20px; padding: 2px 9px; margin-left: 8px;
+  }
+  .close-btn { background: rgba(155,114,207,.1); border: none; font-size: 1.1rem; color: var(--lila-dark); padding: 8px; border-radius: 50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center; transition: all .2s; }
+  .close-btn:hover { background: var(--lila-xlight); color: var(--lila); transform: scale(1.08); }
   .cart-items { flex: 1; overflow-y: auto; padding: 14px 16px; }
+  .cart-items::-webkit-scrollbar { width: 4px; }
+  .cart-items::-webkit-scrollbar-thumb { background: var(--lila-light); border-radius: 4px; }
   .cart-empty { text-align: center; padding: 52px 20px; color: var(--muted); }
   .cart-item {
     display: flex; gap: 12px; margin-bottom: 12px;
-    background: #fff; border-radius: 14px; padding: 12px;
-    box-shadow: 0 2px 10px rgba(120,80,180,.07);
+    background: #fff; border-radius: 16px; padding: 12px;
+    box-shadow: 0 2px 12px rgba(120,80,180,.09);
+    border: 1px solid rgba(155,114,207,.08);
+    transition: box-shadow .2s;
   }
-  .cart-item-img { width: 68px; height: 68px; border-radius: 10px; object-fit: cover; flex-shrink: 0; }
-  .cart-item-info { flex: 1; min-width: 0; }
-  .cart-item-name { font-size: .9rem; font-weight: 600; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .cart-item-price { color: var(--lila); font-weight: 700; font-size: .95rem; margin-bottom: 8px; }
+  .cart-item:hover { box-shadow: 0 4px 18px rgba(120,80,180,.16); }
+  .cart-item-img { width: 74px; height: 74px; border-radius: 12px; object-fit: cover; flex-shrink: 0; border: 2px solid var(--lila-xlight); }
+  .cart-item-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; }
+  .cart-item-name { font-size: .9rem; font-weight: 700; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--dark); }
+  .cart-item-cat { font-size: .72rem; color: var(--muted); margin-bottom: 4px; }
+  .cart-item-price { color: var(--lila); font-weight: 800; font-size: 1rem; margin-bottom: 8px; }
   .qty-controls { display: flex; align-items: center; gap: 6px; }
   .qty-btn {
     width: 30px; height: 30px; border-radius: 8px;
@@ -552,17 +577,28 @@ const CSS = `
     display: flex; align-items: center; justify-content: center; transition: all .2s;
   }
   .qty-btn:hover { border-color: var(--lila); background: var(--lila-xlight); }
-  .qty-val { font-weight: 600; min-width: 20px; text-align: center; font-size: .95rem; }
-  .cart-remove { background: none; border: none; margin-left: auto; color: var(--pink); font-size: 1rem; }
-  .cart-footer { padding: 14px 16px 24px; border-top: 1px solid var(--lila-xlight); }
-  .cart-row { display: flex; justify-content: space-between; font-size: .92rem; color: var(--brown); margin-bottom: 5px; }
-  .cart-total-row { display: flex; justify-content: space-between; font-weight: 700; font-size: 1.05rem; margin: 10px 0 14px; }
+  .qty-val { font-weight: 700; min-width: 22px; text-align: center; font-size: .95rem; color: var(--dark); }
+  .cart-remove { background: none; border: none; margin-left: auto; color: #F4A7C3; font-size: 1.1rem; padding: 4px; transition: transform .2s; }
+  .cart-remove:hover { transform: scale(1.2); color: #e05a7a; }
+  .cart-footer {
+    padding: 16px 18px 28px; border-top: 2px solid var(--lila-xlight);
+    background: linear-gradient(180deg,var(--cream),#f4eeff);
+    flex-shrink: 0;
+  }
+  .cart-row { display: flex; justify-content: space-between; font-size: .92rem; color: var(--brown); margin-bottom: 6px; }
+  .cart-total-row {
+    display: flex; justify-content: space-between; font-weight: 800; font-size: 1.1rem;
+    margin: 12px 0 16px; padding: 12px 0 0; border-top: 1px solid var(--lila-xlight);
+    color: var(--dark);
+  }
   .checkout-btn {
-    width: 100%; padding: 15px;
+    width: 100%; padding: 16px;
     background: linear-gradient(135deg,var(--lila),var(--lila-dark));
     color: #fff; border: none; border-radius: 14px;
-    font-weight: 700; font-size: 1rem; box-shadow: var(--shadow); transition: all .3s;
+    font-weight: 800; font-size: 1rem; box-shadow: var(--shadow); transition: all .3s;
+    letter-spacing: .02em;
   }
+  .checkout-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 32px rgba(155,114,207,.45); }
 
   /* ════════════════════════════════════════
      CHECKOUT MODAL
@@ -697,7 +733,7 @@ const CSS = `
     .card-img-wrap { height: 220px; }
     .card-name { font-size: 1rem; }
     .test-grid { grid-template-columns: repeat(2,1fr); }
-    .cart-panel { max-width: 390px; right: 0; left: auto; }
+    .cart-panel { max-width: 400px; }
     .modal-wrap { align-items: center; justify-content: center; padding: 22px; }
     .modal { border-radius: 24px; max-width: 500px; max-height: 90vh; }
     @keyframes slideUp { from{transform:scale(.9) translateY(20px);opacity:0} to{transform:scale(1) translateY(0);opacity:1} }
@@ -768,7 +804,7 @@ const CSS = `
     .footer-brand { grid-column: auto; }
     .footer-bottom { flex-direction: row; text-align: left; }
     .social-icons { justify-content: flex-start; }
-    .cart-panel { max-width: 420px; }
+    .cart-panel { max-width: 440px; }
   }
 
   @media (min-width: 1100px) {
@@ -849,6 +885,7 @@ export default function App() {
   const [products,setProducts]               = useState([]);
   const [loading,setLoading]                 = useState(true);
   const [error,setError]                     = useState(null);
+  const [cartPulse, setCartPulse] = useState(false);
   const [cart,setCart]                       = useState([]);
   const [wishlist,setWishlist]               = useState([]);
   const [cartOpen,setCartOpen]               = useState(false);
@@ -909,6 +946,7 @@ export default function App() {
       if(ex) return prev.map(i=>i.id===p.id?{...i,qty:i.qty+qty}:i);
       return [...prev,{...p,qty}];
     });
+    setCartPulse(true); setTimeout(()=>setCartPulse(false), 500);
     showToast(`✨ ${p.name} agregado`);
   };
   const removeFromCart=id=>setCart(prev=>prev.filter(i=>i.id!==id));
@@ -921,9 +959,9 @@ export default function App() {
   const [carriersLoading, setCarriersLoading] = useState(false);
   const [carriersError, setCarriersError]   = useState(null);
   const [selectedCarrier, setSelectedCarrier] = useState(null);
-  const [carrierModalOpen, setCarrierModalOpen] = useState(false);
-  const shipping   = selectedCarrier ? selectedCarrier.price : 0;
-  const grandTotal = cartTotal + shipping;
+  const [carrierModalOpen, setCarrierModalOpen] = useState(false); // desactivado - envío por asesor
+  const shipping   = 0; // El envío lo coordina un asesor con el cliente
+  const grandTotal = cartTotal;
 
   // Llama al backend que consulta la API real de Envia
   const fetchRates = async () => {
@@ -1077,7 +1115,7 @@ export default function App() {
               <span className="nav-search-ico">🔍</span>
               <input placeholder="Buscar productos..." value={search} onChange={e=>setSearch(e.target.value)}/>
             </div>
-            <button className="cart-btn" onClick={()=>setCartOpen(true)}>
+            <button className={`cart-btn${cartPulse?" pulse":""}`} onClick={()=>setCartOpen(true)}>
               🛍️{cartCount>0&&<span className="cart-badge">{cartCount}</span>}
             </button>
           </div>
@@ -1222,7 +1260,14 @@ export default function App() {
                         })()}
                         {p.stock === 0
                           ? <button className="card-add-disabled" disabled>😔 Agotado</button>
-                          : <button className="card-add" onClick={()=>addToCart(p)}>🛒 Agregar al carrito</button>
+                          : (() => {
+                              const inCart = cart.some(i=>i.id===p.id);
+                              return <button
+                                className="card-add"
+                                onClick={()=>addToCart(p)}
+                                style={inCart?{background:"linear-gradient(135deg,#27AE60,#1a8a4a)"}:{}}
+                              >{inCart?"✓ En el carrito":"🛒 Agregar al carrito"}</button>;
+                            })()
                         }
                       </div>
                     </div>
@@ -1331,30 +1376,45 @@ export default function App() {
       {/* ── CARRITO ── */}
       {cartOpen&&(
         <>
-          <div className="overlay" onClick={()=>setCartOpen(false)}/>
+          <div className="cart-overlay" onClick={()=>setCartOpen(false)}/>
           <div className="cart-panel">
             <div className="cart-header">
-              <h2 className="cart-title">🛍️ Mi Carrito</h2>
+              <div style={{display:"flex",alignItems:"center"}}>
+                <h2 className="cart-title">🛍️ Mi Carrito</h2>
+                {cartCount>0&&<span className="cart-count-badge">{cartCount} ítem{cartCount!==1?"s":""}</span>}
+              </div>
               <button className="close-btn" onClick={()=>setCartOpen(false)}>✕</button>
             </div>
             <div className="cart-items">
               {cart.length===0
                 ? <div className="cart-empty">
-                    <div style={{fontSize:"3rem",marginBottom:14}}>🛍️</div>
-                    <p style={{fontWeight:700,fontSize:"1.05rem",color:"var(--dark)"}}>Tu carrito está vacío</p>
-                    <p style={{marginTop:8,color:"var(--muted)",fontSize:".9rem"}}>¡Explora nuestros productos!</p>
+                    <div style={{fontSize:"3.5rem",marginBottom:14}}>🛍️</div>
+                    <p style={{fontWeight:700,fontSize:"1.05rem",color:"var(--dark)",marginBottom:8}}>Tu carrito está vacío</p>
+                    <p style={{color:"var(--muted)",fontSize:".9rem",marginBottom:22}}>¡Explora nuestros productos y encuentra algo que te encante!</p>
+                    <button onClick={()=>setCartOpen(false)} style={{
+                      background:"linear-gradient(135deg,var(--lila),var(--lila-dark))",
+                      color:"#fff",border:"none",borderRadius:12,padding:"11px 24px",
+                      fontWeight:700,fontSize:".95rem",cursor:"pointer",boxShadow:"var(--shadow)"
+                    }}>Ver productos ✦</button>
                   </div>
                 : cart.map(item=>(
                     <div key={item.id} className="cart-item">
-                      <img className="cart-item-img" src={item.imageUrl||"https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=200"} alt={item.name}/>
+                      <img className="cart-item-img"
+                        src={item.imageUrl||"https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=200"}
+                        alt={item.name}
+                        onError={e=>{e.target.src="https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=200";}}/>
                       <div className="cart-item-info">
-                        <div className="cart-item-name">{item.name}</div>
-                        <div className="cart-item-price">{fmtCOP(Number(item.price)*item.qty)}</div>
+                        <div>
+                          {item.category&&<div className="cart-item-cat">{item.category}</div>}
+                          <div className="cart-item-name">{item.name}</div>
+                          <div className="cart-item-price">{fmtCOP(Number(item.price)*item.qty)}</div>
+                          {item.qty>1&&<div style={{fontSize:".78rem",color:"var(--muted)",marginBottom:4}}>{fmtCOP(Number(item.price))} c/u</div>}
+                        </div>
                         <div className="qty-controls">
                           <button className="qty-btn" onClick={()=>updateQty(item.id,-1)}>−</button>
                           <span className="qty-val">{item.qty}</span>
                           <button className="qty-btn" onClick={()=>updateQty(item.id,1)}>+</button>
-                          <button className="cart-remove" onClick={()=>removeFromCart(item.id)}>🗑️</button>
+                          <button className="cart-remove" title="Eliminar" onClick={()=>removeFromCart(item.id)}>🗑️</button>
                         </div>
                       </div>
                     </div>
@@ -1363,16 +1423,21 @@ export default function App() {
             </div>
             {cart.length>0&&(
               <div className="cart-footer">
-                <div className="cart-row"><span>Subtotal</span><span>{fmtCOP(cartTotal)}</span></div>
+                <div className="cart-row"><span>Subtotal ({cartCount} ítem{cartCount!==1?"s":""})</span><span>{fmtCOP(cartTotal)}</span></div>
                 <div className="cart-row">
-                  <span style={{color:"var(--muted)",fontSize:".88rem"}}>Envío</span>
-                  <span style={{color:"var(--muted)",fontSize:".85rem",fontStyle:"italic"}}>Se elige al finalizar</span>
+                  <span style={{color:"var(--muted)",fontSize:".88rem"}}>🚚 Envío</span>
+                  <span style={{color:"#047857",fontSize:".83rem",fontWeight:600}}>Asesor te contactará</span>
                 </div>
                 <div className="cart-total-row">
-                  <span>Total productos</span>
-                  <span style={{color:"var(--lila)",fontFamily:"'Playfair Display',serif"}}>{fmtCOP(cartTotal)}</span>
+                  <span>Total</span>
+                  <span style={{color:"var(--lila)",fontFamily:"'Playfair Display',serif",fontSize:"1.2rem"}}>{fmtCOP(cartTotal)}</span>
                 </div>
-                <button className="checkout-btn" onClick={()=>{setCartOpen(false);setCheckoutOpen(true);}}>Finalizar Compra →</button>
+                <button className="checkout-btn" onClick={()=>{setCartOpen(false);setCheckoutOpen(true);}}>
+                  Finalizar Compra →
+                </button>
+                <div style={{textAlign:"center",marginTop:10,fontSize:".78rem",color:"var(--muted)",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+                  <span>🔒</span> Pago seguro con MercadoPago
+                </div>
               </div>
             )}
           </div>
@@ -1398,7 +1463,7 @@ export default function App() {
                   ))}
                   <div className="summary-item">
                     <span>Envío</span>
-                    <span>{selectedCarrier ? fmtCOP(shipping) : <em style={{color:"var(--muted)",fontSize:".85rem"}}>pendiente</em>}</span>
+                    <span style={{color:"var(--muted)",fontSize:".85rem",fontStyle:"italic"}}>Un asesor te contactará 🚚</span>
                   </div>
                   <div className="summary-total">
                     <span>Total</span><span style={{color:"var(--lila)"}}>{fmtCOP(grandTotal)}</span>
@@ -1445,32 +1510,25 @@ export default function App() {
                   <input required type="text" className="form-input" value={form.address} placeholder=""
                     onChange={e=>setForm(p=>({...p,address:e.target.value}))}/>
                 </div>
-                {/* ── Botón elegir transportadora — aparece al tener ciudad y dirección ── */}
+                {/* ── Envío coordinado por asesor ── */}
                 {form.city && form.address && (
-                  <button type="button" onClick={()=>{ fetchRates(); setCarrierModalOpen(true); }}
-                    style={{
-                      width:"100%",marginBottom:14,padding:"13px 16px",
-                      borderRadius:13,cursor:"pointer",
-                      border:`2px solid ${selectedCarrier?"var(--lila)":"#FFB347"}`,
-                      background: selectedCarrier?"var(--lila-xlight)":"#FFF8EE",
-                      display:"flex",alignItems:"center",justifyContent:"space-between",
-                      transition:"all .2s"
-                    }}>
-                    <span style={{display:"flex",alignItems:"center",gap:9}}>
-                      <span style={{fontSize:"1.3rem"}}>{selectedCarrier ? selectedCarrier.logo : "🚚"}</span>
-                      <span style={{textAlign:"left"}}>
-                        <span style={{display:"block",fontWeight:700,color:"var(--dark)",fontSize:".92rem"}}>
-                          {selectedCarrier ? selectedCarrier.name : "Elige tu transportadora"}
-                        </span>
-                        <span style={{display:"block",fontSize:".78rem",color:"var(--muted)",marginTop:1}}>
-                          {selectedCarrier ? `${selectedCarrier.time} · Toca para cambiar` : `Envío a ${form.city}`}
-                        </span>
+                  <div style={{
+                    width:"100%",marginBottom:14,padding:"13px 16px",
+                    borderRadius:13,
+                    border:"2px solid #A7F3D0",
+                    background:"#F0FFF4",
+                    display:"flex",alignItems:"center",gap:12
+                  }}>
+                    <span style={{fontSize:"1.4rem"}}>🚚</span>
+                    <span>
+                      <span style={{display:"block",fontWeight:700,color:"#065F46",fontSize:".92rem"}}>
+                        Envío a {form.city}
+                      </span>
+                      <span style={{display:"block",fontSize:".78rem",color:"#047857",marginTop:1}}>
+                        Un asesor te contactará para coordinar el envío y confirmar el costo
                       </span>
                     </span>
-                    <span style={{fontWeight:800,fontSize:"1rem",color: selectedCarrier?"var(--lila)":"#E07A2A"}}>
-                      {selectedCarrier ? fmtCOP(shipping) : "Ver precios →"}
-                    </span>
-                  </button>
+                  </div>
                 )}
                 <div className="form-group">
                   <label className="form-label">Nota para el envío (opcional)</label>
@@ -1493,23 +1551,18 @@ export default function App() {
                 <div className="secure-note">
                   🔒 Serás redirigido a MercadoPago para completar tu pago de forma segura
                 </div>
-                {form.city && form.address && !selectedCarrier && (
-                  <div style={{background:"#FFF8E1",border:"1px solid #FFD54F",borderRadius:10,
-                    padding:"10px 14px",marginBottom:10,fontSize:".87rem",color:"#795548",
+                {form.city && form.address && (
+                  <div style={{background:"#F0FFF4",border:"1px solid #A7F3D0",borderRadius:10,
+                    padding:"10px 14px",marginBottom:10,fontSize:".87rem",color:"#065F46",
                     display:"flex",gap:8,alignItems:"center"}}>
-                    ⚠️ Elige una transportadora para continuar
+                    🚚 Un asesor se comunicará contigo para coordinar el envío
                   </div>
                 )}
                 <button type="submit" className="pay-btn"
-                  disabled={paying || !selectedCarrier}
-                  style={{background: selectedCarrier
-                    ? "linear-gradient(135deg,#009EE3,#0070B8)"
-                    : "linear-gradient(135deg,#ccc,#bbb)",
-                    cursor: selectedCarrier ? "pointer" : "not-allowed"}}>
+                  disabled={paying}
+                  style={{background:"linear-gradient(135deg,#009EE3,#0070B8)",cursor:paying?"not-allowed":"pointer"}}>
                   {paying ? "⏳ Redirigiendo..."
-                    : selectedCarrier
-                      ? `Ir a pagar ${fmtCOP(grandTotal)} COP →`
-                      : "🚚 Primero elige transportadora"}
+                    : `Ir a pagar ${fmtCOP(grandTotal)} COP →`}
                 </button>
               </form>
             </div>

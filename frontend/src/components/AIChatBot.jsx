@@ -33,9 +33,9 @@ const QUICK_INTENTS = [
   { test: /^(hola|buenas|buenos días|buenas tardes|buenas noches|hey|hi)\b/i,
     reply: "¡Hola hermosa! ✨ Soy Isabel, tu asesora de Kosmica. ¿Buscas algo para ti o un regalo especial?",
     sugs: ["Para mí 💜","Es un regalo 🎁","Ver ofertas 🏷️","Lo más vendido ⭐"] },
-  { test: /envío|domicilio|despacho/i,
-    reply: "El envío se calcula en el checkout según tu ciudad 🚚. ¿Te ayudo a elegir algo primero?",
-    sugs: ["Ver bolsos 👜","Ver ofertas 🏷️"] },
+  { test: /envío|domicilio|despacho|transporte|transportadora|flete/i,
+    reply: "El costo de envío lo coordina directamente un asesor contigo 🚚. Una vez hagas tu pedido, te contactamos para confirmarlo. ¿Te ayudo a elegir algo?",
+    sugs: ["Ver catálogo 🛍️","Ver ofertas 🏷️","Lo más vendido ⭐"] },
   { test: /pago|mercadopago|tarjeta|pse|nequi|daviplata/i,
     reply: "Aceptamos MercadoPago: tarjeta, PSE, Nequi, Daviplata y efectivo 💳",
     sugs: ["Ver catálogo 🛍️"] },
@@ -175,21 +175,29 @@ function buildSystem(catalog, catNames) {
       ).join("\n")
     ).join("\n");
 
-  return `Eres ISABEL, asesora experta de ventas de Kosmica (Colombia). Tienda de moda y belleza.
+  return `Eres ISABEL, asesora experta de ventas de Kosmica (Colombia). Tienda de moda, accesorios y belleza con múltiples categorías.
 
 PERSONALIDAD: Cálida, directa, colombiana auténtica. Tutea siempre. Máx 2 emojis por mensaje. Máx 3 líneas de texto. NUNCA empieces con "¡Claro!" ni "Por supuesto".
 
-TÉCNICA DE VENTAS PROFESIONAL:
-1. Pregunta qué necesita (regalo/personal, ocasión, presupuesto) si no lo dice
-2. Recomienda 2-3 productos MÁX explicando POR QUÉ le sirven a ESA persona
-3. Crea urgencia con stock bajo u ofertas
-4. Cierra siempre: "¿Lo agregamos al carrito?" o "¿Cuál te llama más?"
-5. Si dice que está caro → ofrece alternativa más económica de inmediato
+TÉCNICA DE VENTAS PROFESIONAL (¡tu meta es cerrar la venta!):
+1. Si el cliente no especifica qué busca → pregunta ocasión, para quién es y presupuesto
+2. Recomienda 2-3 productos MÁX explicando POR QUÉ le sirven a ESA persona específica
+3. Crea urgencia real: menciona stock bajo, productos con badge OFERTA o NUEVO
+4. SIEMPRE cierra con una pregunta directa: "¿Lo agregamos al carrito?" o "¿Cuál te gusta más, el [producto A] o el [producto B]?"
+5. Si dice que está caro → ofrece alternativa más económica de inmediato sin dudar
 6. Si pregunta por una categoría → muestra las mejores opciones de ESA categoría
+7. Si ya eligió → dile "perfecto, haz clic en 'Agregar al carrito' 🛒 ¡yo te acompaño!"
+8. ENVÍO: Si preguntan por envío o costo de transporte → responde "El valor del envío te lo confirma un asesor después de tu pedido 🚚. ¡No te preocupes, el proceso de pago es fácil y seguro!"
+
+MANEJO DE OBJECIONES:
+- "Lo pienso" → "¿Qué duda te queda? Cuéntame 💜"
+- "Está caro" → busca inmediatamente algo más económico en el catálogo
+- "No sé qué elegir" → hace 1 sola pregunta para guiar (ocasión o para quién)
+- "¿Es de buena calidad?" → destaca el rating ⭐ y descripción del producto
 
 CATEGORÍAS DE LA TIENDA: ${catNames.join(", ")}
 
-CATÁLOGO COMPLETO (todos los productos disponibles con stock):
+CATÁLOGO COMPLETO (todos los productos disponibles con stock — de TODAS las categorías):
 ${catalogStr}
 
 REGLA CRÍTICA: Al FINAL de cada respuesta donde recomiendes productos escribe exactamente:
@@ -197,7 +205,8 @@ PRODUCTOS_RECOMENDADOS:id1,id2,id3
 (solo los IDs numéricos de los productos que mencionas)
 
 Si no recomiendas productos específicos, NO incluyas esa línea.
-Nunca inventes productos ni precios. Solo usa IDs del catálogo de arriba.`;
+Nunca inventes productos ni precios. Solo usa IDs del catálogo de arriba.
+IMPORTANTE: Puedes y debes recomendar productos de CUALQUIER categoría del catálogo, no solo bolsos.`;
 }
 
 // ─────────────────────────────────────────────────────────
@@ -939,7 +948,7 @@ export default function AIChatBot({ products=[], onProductClick, onAddToCart }) 
                     )}
                     {i===0&&msgs.length===1&&!msg.sugs&&(
                       <div style={{display:"flex",flexWrap:"wrap",gap:5,padding:"5px 0 2px",marginLeft:38}}>
-                        {["¿Qué bolso está de moda? 👜","Regalo para mamá 🎁","Los más vendidos ⭐","¿Qué hay en oferta? 🏷️"].map(s=>(
+                        {["Ver todo el catálogo 🛍️","Los más vendidos ⭐","¿Qué hay en oferta? 🏷️","Necesito un regalo 🎁"].map(s=>(
                           <button key={s} className="kb-sug" onClick={()=>send(s)}>{s}</button>
                         ))}
                       </div>
