@@ -216,12 +216,12 @@ const BOT_CSS = `
   background: #FFFFFF;
   box-shadow: 0 20px 70px rgba(76,29,149,.38), 0 2px 12px rgba(76,29,149,.12);
   border: 1px solid rgba(139,92,246,.18);
-  pointer-events: all;
+  pointer-events: none;
   transform: translateY(30px) scale(.94); opacity: 0;
   transition: transform .35s cubic-bezier(.34,1.56,.64,1), opacity .28s;
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
-.kb2-win.kb2-open { transform: translateY(0) scale(1); opacity: 1; }
+.kb2-win.kb2-open { transform: translateY(0) scale(1); opacity: 1; pointer-events: all; }
 
 /* ── Header ── */
 .kb2-header {
@@ -828,7 +828,7 @@ export default function AIChatBot() {
         onClick={() => setOpen(o => !o)}
         aria-label="Abrir chat con Isabel"
       >
-        {open ? "✕" : "💬"}
+        {open ? "✕" : "✨"}
         {!open && cartQty > 0 && <span className="kb2-fab-badge">{cartQty}</span>}
       </button>
 
