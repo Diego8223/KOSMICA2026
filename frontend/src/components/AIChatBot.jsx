@@ -1,922 +1,994 @@
-// ═══════════════════════════════════════════════════════════
-//  AIChatBot.jsx — Isabel, Asesora IA de Kosmica  v14.0
-//  ✅ Coherente con CUALQUIER solicitud del cliente
-//  ✅ Conoce TODO el catálogo dinámicamente (todas las categorías)
-//  ✅ Fallback local si la IA falla — siempre muestra productos
-//  ✅ Cierre de ventas profesional
-//  ✅ Envío coordinado por asesor
-//  ✅ UI viral y premium
-// ═══════════════════════════════════════════════════════════
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+// ============================================================
+//  src/components/AIChatBot.jsx — Isabel · Asesora Kosmica
+//  ✅ v15.0 — CATÁLOGO COMPLETO (fetch independiente)
+//  ✅ Pregunta nombre al inicio
+//  ✅ Historial de conversaciones persistente
+//  ✅ Categorías en barra superior
+//  ✅ Chips inteligentes por contexto
+//  ✅ Productos con imagen real
+//  ✅ Carrito rápido integrado
+//  ✅ No depende de props de App.jsx para el catálogo
+// ============================================================
+import { useState, useEffect, useRef, useCallback } from "react";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "https://kosmica-backend.onrender.com";
-const MAX_HISTORY  = 12;
+// ── Configuración ──────────────────────────────────────────
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL
+  || process.env.REACT_APP_API_URL
+  || "https://kosmica-backend.onrender.com";
 
-// ─────────────────────────────────────────────────────────
-//  Formateo de moneda
-// ─────────────────────────────────────────────────────────
+const MAX_HISTORY = 16;
+
+// ── Utilidades ─────────────────────────────────────────────
 const fmtCOP = n =>
-  new Intl.NumberFormat("es-CO", { style:"currency", currency:"COP", maximumFractionDigits:0 }).format(n);
+  "$" + Number(n).toLocaleString("es-CO", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
-// ─────────────────────────────────────────────────────────
-//  Emojis por categoría
-// ─────────────────────────────────────────────────────────
+const getTime = () => {
+  const d = new Date();
+  return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+};
+
 const catEmoji = (c = "") => {
   const u = c.toUpperCase();
-  if (u.includes("BOLSO") || u.includes("MORRAL") || u.includes("CARTERA")) return "👜";
-  if (u.includes("MAQUILLAJE") || u.includes("MAKE") || u.includes("COSM")) return "💄";
-  if (u.includes("CAPILAR") || u.includes("CABELLO") || u.includes("PELO")) return "✨";
-  if (u.includes("ACCESORIO") || u.includes("JOYA") || u.includes("BISUT")) return "💍";
-  if (u.includes("BILLETERA") || u.includes("WALLET") || u.includes("MONEDERO")) return "💳";
-  if (u.includes("CUIDADO") || u.includes("PERSONAL") || u.includes("SKIN") || u.includes("CREMA")) return "🧴";
-  if (u.includes("PERFUME") || u.includes("FRAGANCIA") || u.includes("COLONIA")) return "🌸";
-  if (u.includes("ROPA") || u.includes("VESTIDO") || u.includes("BLUSA")) return "👗";
-  if (u.includes("CALZADO") || u.includes("ZAPATO") || u.includes("SANDAL")) return "👠";
+  if (u.includes("BOLSO") || u.includes("CARTERA"))  return "👜";
+  if (u.includes("MORRAL") || u.includes("MOCHILA"))  return "🎒";
+  if (u.includes("MAQUILLAJE") || u.includes("COSM")) return "💄";
+  if (u.includes("CAPILAR") || u.includes("CABELLO")) return "✨";
+  if (u.includes("ACCESORIO") || u.includes("JOYA"))  return "💍";
+  if (u.includes("BILLETERA") || u.includes("WALLET"))return "💳";
+  if (u.includes("CUIDADO") || u.includes("CREMA"))   return "🧴";
+  if (u.includes("PERFUME") || u.includes("FRAGANCIA"))return "🌸";
+  if (u.includes("ROPA") || u.includes("VESTIDO"))    return "👗";
   return "🛍️";
 };
 
-// ─────────────────────────────────────────────────────────
-//  Respuestas instantáneas (sin API) para preguntas comunes
-// ─────────────────────────────────────────────────────────
-const QUICK_INTENTS = [
+// ── Intenciones rápidas (sin llamar IA) ──────────────────
+const QUICK = [
   {
-    test: /^(hola|buenas|buenos días|buenas tardes|buenas noches|hey|hi|ey|ola)\b/i,
-    reply: "¡Hola! Soy Isabel, tu asesora personal de Kosmica 💜\n¿Buscas algo para ti o es un regalo especial?",
-    sugs: ["Para mí 💜", "Es un regalo 🎁", "Ver ofertas 🏷️", "Lo más vendido ⭐"],
+    test: /^(hola|buenas|buenos?\s?días?|tardes?|noches?|hey|hi|ola)\b/i,
+    reply: (n) => `¡Hola${n ? ", <strong>" + n + "</strong>" : ""}! Soy Isabel, tu asesora de Kosmica 💜<br>¿Buscas algo para ti o es un regalo especial?`,
+    sugs: ["Para mí 💜", "Es un regalo 🎁", "Ver lo más vendido ⭐", "Ver ofertas 🏷️"],
   },
   {
-    test: /envío|domicilio|despacho|transporte|transportadora|flete|costo.*envío|precio.*envío/i,
-    reply: "El valor del envío lo coordina un asesor contigo después de tu pedido 🚚\nEl proceso es súper fácil: pagas los productos y listo. ¿Te ayudo a elegir algo?",
-    sugs: ["Ver catálogo 🛍️", "Ver ofertas 🏷️", "Lo más vendido ⭐"],
+    test: /envío|domicilio|despacho|transporte|flete|costo.*envío/i,
+    reply: () => "El valor del envío lo coordina un asesor contigo directamente 🚚<br>¿Te ayudo a elegir algo primero?",
+    sugs: ["Ver catálogo 🛍️", "Lo más vendido ⭐"],
   },
   {
-    test: /pago|mercadopago|tarjeta|pse|nequi|daviplata|efectivo|como pago/i,
-    reply: "Aceptamos MercadoPago: tarjeta débito/crédito, PSE, Nequi, Daviplata y efectivo 💳\nTodo 100% seguro y encriptado.",
-    sugs: ["Ver catálogo 🛍️", "Ver ofertas 🏷️"],
-  },
-  {
-    test: /devolución|cambio|garantía|devolver|me llegó mal/i,
-    reply: "Tienes 15 días para cambios si el producto llega con defecto 💜\nEscríbenos a hola@kosmica.com con fotos y lo resolvemos rápido.",
-    sugs: ["Ver productos 🛍️"],
-  },
-  {
-    test: /cuanto.*demora|cuando.*llega|tiempo.*entrega|dias.*entrega/i,
-    reply: "Los tiempos de entrega los confirma el asesor según tu ciudad 📦\nNormalmente entre 2 y 5 días hábiles en Colombia.",
+    test: /pago|mercado\s?pago|tarjeta|pse|nequi|daviplata|efectivo|cómo pago/i,
+    reply: () => "Aceptamos MercadoPago: tarjeta débito/crédito, PSE, Nequi, Daviplata y efectivo 💳<br>Todo 100% seguro.",
     sugs: ["Ver catálogo 🛍️"],
   },
   {
-    test: /whatsapp|telefono|teléfono|contacto|llamar|hablar con alguien/i,
-    reply: "Puedes escribirnos por WhatsApp al número que aparece en la página 📱\nO a hola@kosmica.com. ¡Respondemos rápido!",
+    test: /devolución|cambio|garantía|devolver|llegó mal/i,
+    reply: () => "Tienes 15 días para cambios si el producto llega con defecto 💜<br>Escríbenos con fotos y lo resolvemos rápido.",
     sugs: ["Ver productos 🛍️"],
   },
   {
-    test: /gracias|thank|muchas gracias|genial|perfecto|excelente|chevere/i,
-    reply: "¡Con gusto, reina! Para eso estoy ✨ ¿Te ayudo con algo más?",
+    test: /demora|cuando llega|tiempo.*entrega|días.*entrega/i,
+    reply: () => "Los tiempos los confirma el asesor según tu ciudad 📦<br>Generalmente entre 2 y 5 días hábiles en Colombia.",
+    sugs: ["Ver catálogo 🛍️"],
+  },
+  {
+    test: /whatsapp|teléfono|contacto|llamar|hablar con alguien/i,
+    reply: () => "Puedes escribirnos por WhatsApp 📱<br>¡Respondemos rápido! ¿Te ayudo con algún producto?",
+    sugs: ["Ver productos 🛍️"],
+  },
+  {
+    test: /gracias|muchas gracias|perfecto|excelente|chévere|genial/i,
+    reply: (n) => `¡Con mucho gusto${n ? ", <strong>" + n + "</strong>" : ""}! Para eso estoy ✨ ¿Te ayudo con algo más?`,
     sugs: ["Ver más productos 🛍️", "Ver ofertas 🏷️"],
   },
   {
     test: /adios|chao|bye|hasta luego|nos vemos/i,
-    reply: "¡Hasta pronto! Fue un placer atenderte 💜 Vuelve cuando quieras.",
+    reply: (n) => `¡Hasta pronto${n ? ", <strong>" + n + "</strong>" : ""}! Fue un placer atenderte 💜`,
     sugs: [],
   },
 ];
 
-// ─────────────────────────────────────────────────────────
-//  Construir catálogo completo para la IA
-// ─────────────────────────────────────────────────────────
-function buildCatalog(products) {
-  const avail = products.filter(p => p.stock > 0);
+// ── System Prompt ──────────────────────────────────────────
+function buildSystemPrompt(products, clientName) {
+  const avail = products.filter(p => Number(p.stock) > 0);
+  // Agrupar por categoría
   const groups = {};
   avail.forEach(p => {
-    const cat = (p.category?.trim()) || "General";
+    const cat = (p.category || "General").trim();
     if (!groups[cat]) groups[cat] = [];
-    groups[cat].push({
-      id: p.id,
-      nombre: p.name,
-      precio: fmtCOP(p.price),
-      desc: (p.description || "").slice(0, 100),
-      rating: p.rating || null,
-      stock: p.stock,
-      badge: p.badge || null,
-    });
+    groups[cat].push(p);
   });
-  return groups;
-}
 
-// ─────────────────────────────────────────────────────────
-//  System prompt — Isabel conoce TODO el catálogo
-// ─────────────────────────────────────────────────────────
-function buildSystemPrompt(catalog, catNames) {
-  const catalogStr = Object.entries(catalog)
-    .map(([cat, prods]) =>
-      `\n## ${cat.toUpperCase()} (${prods.length} productos)\n` +
-      prods.map(p =>
-        `  [ID:${p.id}] ${p.nombre} | ${p.precio}` +
-        `${p.badge ? " [" + p.badge + "]" : ""}` +
-        `${p.stock <= 5 ? " ⚡ÚLTIMAS " + p.stock + " UNIDADES" : ""}` +
-        `${p.rating ? " ★" + p.rating : ""}` +
-        `${p.desc ? " | " + p.desc : ""}`
-      ).join("\n")
-    ).join("\n");
+  const catalogStr = Object.entries(groups).map(([cat, prods]) =>
+    `\n## ${cat.toUpperCase()} (${prods.length} productos)\n` +
+    prods.map(p =>
+      `  [ID:${p.id}] ${p.name} | ${fmtCOP(p.price)}` +
+      (p.badge ? ` [${p.badge}]` : "") +
+      (Number(p.stock) <= 5 ? ` ⚡ÚLTIMAS ${p.stock} UNIDADES` : "") +
+      (p.rating ? ` ★${p.rating}` : "") +
+      (p.description ? ` | ${String(p.description).slice(0, 80)}` : "")
+    ).join("\n")
+  ).join("\n");
+
+  const catNames = Object.keys(groups).join(", ");
 
   return `Eres ISABEL, asesora de ventas experta de KOSMICA, tienda colombiana de moda, accesorios y belleza.
 
+CLIENTE: ${clientName ? `Se llama ${clientName}. Llámala siempre por su nombre.` : "Nombre desconocido, no inventes uno."}
+
 PERSONALIDAD:
-- Colombiana auténtica, cálida y directa. Siempre tutea.
-- Respuestas CORTAS: máximo 3 líneas de texto + productos si aplica.
+- Colombiana auténtica, cálida, directa. Siempre tutea.
+- Respuestas CORTAS: máximo 3 líneas + productos si aplica.
 - Máximo 2 emojis por respuesta.
 - NUNCA empieces con "¡Claro!", "Por supuesto" ni "Entendido".
-- Si no entiendes algo, pregunta de forma corta y simpática.
+- Si no entiendes, pregunta de forma corta y simpática.
 
 TU META: CERRAR VENTAS. Cada respuesta debe acercar al cliente a comprar.
 
 PROCESO DE VENTA:
-1. ESCUCHA: Si el cliente es vago ("quiero algo bonito"), pregunta: ocasión, para quién, presupuesto — UNA pregunta a la vez.
-2. RECOMIENDA: Máximo 2-3 productos. Explica en 1 frase POR QUÉ cada uno le sirve a ESA persona.
+1. ESCUCHA: Si el cliente es vago, pregunta ocasión, para quién, presupuesto — UNA pregunta a la vez.
+2. RECOMIENDA: Máximo 2-3 productos. Explica en 1 frase POR QUÉ cada uno le sirve.
 3. URGENCIA: Menciona stock bajo o badge OFERTA/NUEVO cuando aplique.
-4. CIERRA: SIEMPRE termina con una pregunta de cierre: "¿Lo agregamos?" o "¿Cuál prefieres, el [A] o el [B]?"
+4. CIERRA: Termina con "¿Lo agregamos?" o "¿Cuál prefieres, el [A] o el [B]?"
 5. OBJECIONES:
-   - "Está caro" → ofrece inmediatamente una opción más económica del catálogo
+   - "Está caro" → ofrece opción más económica del catálogo
    - "Lo pienso" → "¿Qué duda te queda? Te ayudo a decidir 💜"
    - "No sé qué elegir" → haz UNA pregunta (ocasión O presupuesto)
-   - "¿Es de buena calidad?" → cita el rating ★ y menciona la garantía
 
-SOBRE EL ENVÍO: Si preguntan → di SOLO: "El valor del envío lo coordina un asesor contigo 🚚"
-NUNCA inventes un precio de envío.
+ENVÍO: Si preguntan → "El valor del envío lo coordina un asesor contigo 🚚". NUNCA inventes precio de envío.
 
-CATEGORÍAS DISPONIBLES: ${catNames.join(", ")}
+CATEGORÍAS: ${catNames}
 
-CATÁLOGO COMPLETO (recomienda de CUALQUIER categoría según lo que pida el cliente):
+CATÁLOGO COMPLETO:
 ${catalogStr}
 
-REGLA CRÍTICA: Al final de toda respuesta donde menciones productos específicos, escribe EXACTAMENTE:
+REGLA CRÍTICA: Al mencionar productos específicos, escribe AL FINAL:
 PRODUCTOS_RECOMENDADOS:id1,id2,id3
-
-Solo IDs numéricos separados por coma, sin espacios extra.
-Si no recomiendas productos concretos, NO escribas esa línea.
-NUNCA inventes productos, nombres ni precios. Solo usa IDs del catálogo de arriba.`;
+Solo IDs numéricos separados por coma. NUNCA inventes IDs ni nombres.`;
 }
 
-// ─────────────────────────────────────────────────────────
-//  Búsqueda local de productos (fallback cuando la IA falla)
-// ─────────────────────────────────────────────────────────
-function searchProducts(products, query) {
-  const q = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  const avail = products.filter(p => p.stock > 0);
-
-  // Por categoría real
-  const catNames = [...new Set(avail.map(p => p.category).filter(Boolean))];
-  let byCat = [];
-  for (const cat of catNames) {
-    const cn = cat.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    const words = cn.split(/[\s\/\-&]+/).filter(w => w.length > 2);
-    if (words.some(w => q.includes(w)) || q.includes(cn)) {
-      byCat = avail.filter(p => p.category === cat);
-      break;
-    }
-  }
-
-  // Sinónimos
-  if (!byCat.length) {
-    const SYNS = {
-      bolso:["bolso","morral","cartera","tote","clutch","bolsa"],
-      morral:["bolso","morral","mochila"],
-      maquillaje:["maquillaje","make","cosmet","labial","sombra","base","rubor"],
-      labial:["maquillaje","labial"],
-      capilar:["capilar","cabello","pelo","shampoo","keratina"],
-      accesorio:["accesorio","collar","aretes","pulsera","anillo"],
-      billetera:["billetera","monedero","wallet"],
-      cuidado:["cuidado","personal","crema","serum","facial"],
-      perfume:["perfume","fragancia","colonia"],
-    };
-    for (const [kw, aliases] of Object.entries(SYNS)) {
-      if (q.includes(kw)) {
-        for (const cat of catNames) {
-          const cn = cat.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-          if (aliases.some(a => cn.includes(a))) { byCat = avail.filter(p => p.category === cat); break; }
-        }
-        if (byCat.length) break;
-      }
-    }
-  }
-
-  // Por intención
-  let byIntent = [];
-  if (/oferta|descuento|promo/i.test(q))               byIntent = avail.filter(p => p.badge === "OFERTA");
-  else if (/nuevo|novedad/i.test(q))                   byIntent = avail.filter(p => p.badge === "NUEVO");
-  else if (/popular|vendido|moda|top|mejor/i.test(q))  byIntent = [...avail].sort((a,b) => (b.rating||0)-(a.rating||0)).slice(0,6);
-  else if (/regalo|mama|amiga|mujer/i.test(q))         byIntent = [...avail].sort((a,b) => (b.rating||0)-(a.rating||0)).slice(0,6);
-
-  // Por texto
-  const words = q.split(/\s+/).filter(w => w.length > 3);
-  const byText = words.length
-    ? avail.filter(p => words.some(w => p.name?.toLowerCase().includes(w) || p.description?.toLowerCase().includes(w)))
-    : [];
-
-  const seen = new Set(), merged = [];
-  for (const p of [...byCat, ...byIntent, ...byText])
-    if (!seen.has(p.id)) { seen.add(p.id); merged.push(p); }
-
-  const result = merged.length ? merged : [...avail].sort((a,b) => (b.rating||0)-(a.rating||0));
-  return result.slice(0, 5);
+// ── Chips contextuales ─────────────────────────────────────
+function contextChips(text) {
+  const m = text.toLowerCase();
+  if (/regalo|obsequio/.test(m))      return ["Para dama 👜", "Para caballero 💼", "¿Cuál es el más popular?"];
+  if (/bolso|cartera/.test(m))        return ["Ver más bolsos 👜", "Ver morrales 🎒", "¿Tienen ofertas?"];
+  if (/morral|mochila/.test(m))       return ["Ver más morrales 🎒", "Ver bolsos 👜", "Agregar al pedido"];
+  if (/billetera|monedero/.test(m))   return ["Para dama 💜", "Para caballero 💙", "Ver todos los modelos"];
+  if (/maquillaje|labial|sombra/.test(m)) return ["Ver kits completos 💄", "Ver labiales", "Ver paletas"];
+  if (/capilar|cabello|pelo|shampoo/.test(m)) return ["Ver shampoos ✨", "Ver tratamientos", "Ver kits capilares"];
+  if (/accesorio|aretes|collar|pulsera/.test(m)) return ["Ver aretes 💍", "Ver collares", "Ver pulseras"];
+  if (/cuidado|crema|perfume/.test(m)) return ["Ver cremas 🧴", "Ver sets de baño", "Ver perfumes 🌸"];
+  if (/oferta|descuento|promo/.test(m)) return ["Ver ofertas 🏷️", "Ver lo más vendido ⭐"];
+  return ["¿Tienen ofertas? 🏷️", "Ver más vendidos ⭐", "Quiero que me contacten"];
 }
 
-// ─────────────────────────────────────────────────────────
-//  Parsear respuesta IA
-// ─────────────────────────────────────────────────────────
+// ── Extracción de IDs de respuesta IA ─────────────────────
 const extractIds = text => {
   const m = text.match(/PRODUCTOS_RECOMENDADOS:\[?([\d,\s]+)\]?/);
   if (!m) return [];
-  return m[1].split(",").map(s => s.trim()).filter(Boolean);
+  return m[1].split(",").map(s => parseInt(s.trim())).filter(n => !isNaN(n));
 };
-const cleanText = text => text.replace(/PRODUCTOS_RECOMENDADOS:\[?[\d,\s]+\]?/g, "").trim();
+
+const cleanText = text =>
+  text.replace(/PRODUCTOS_RECOMENDADOS:\[?[\d,\s]+\]?/g, "").trim()
+    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\n/g, "<br>");
 
 // ─────────────────────────────────────────────────────────
-//  Llamada al backend
+//  Estilos aislados — prefijo "kb2-" para no colisionar
 // ─────────────────────────────────────────────────────────
-async function callIsabel(systemPrompt, messages) {
-  const res = await fetch(`${BACKEND_URL}/api/ai/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ system: systemPrompt, messages, max_tokens: 600 }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || `Error ${res.status}`);
-  }
-  const data = await res.json();
-  return data.content?.[0]?.text ?? "";
+const BOT_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+.kb2-fab {
+  position: fixed; bottom: 22px; right: 16px; z-index: 997;
+  width: 58px; height: 58px; border-radius: 50%;
+  background: linear-gradient(135deg,#5B21B6,#7C3AED,#8B5CF6);
+  border: none; cursor: pointer;
+  box-shadow: 0 6px 28px rgba(91,33,182,.5), 0 0 0 0 rgba(139,92,246,.4);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px; transition: transform .25s, box-shadow .25s;
+  animation: kb2Pulse 2.5s infinite;
+}
+.kb2-fab:hover { transform: scale(1.1); box-shadow: 0 10px 36px rgba(91,33,182,.65); animation: none; }
+@keyframes kb2Pulse {
+  0%,100% { box-shadow: 0 6px 28px rgba(91,33,182,.5), 0 0 0 0 rgba(139,92,246,.45); }
+  60%      { box-shadow: 0 6px 28px rgba(91,33,182,.5), 0 0 0 14px rgba(139,92,246,0); }
+}
+.kb2-fab-badge {
+  position: absolute; top: -3px; right: -3px;
+  background: #EF4444; color: #fff; border-radius: 50%;
+  width: 20px; height: 20px; font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid #fff; font-family: 'Plus Jakarta Sans',sans-serif;
 }
 
-// ─────────────────────────────────────────────────────────
-//  Estrellas
-// ─────────────────────────────────────────────────────────
-const Stars = ({ rating = 0 }) => (
-  <span style={{ display:"flex", gap:1 }}>
-    {[1,2,3,4,5].map(i => (
-      <span key={i} style={{ fontSize:10, color: i <= Math.round(rating) ? "#FBBF24" : "#ddd0f8" }}>★</span>
-    ))}
-  </span>
-);
+/* ── Overlay ── */
+.kb2-overlay {
+  position: fixed; inset: 0; z-index: 998;
+  display: flex; align-items: flex-end; justify-content: flex-end;
+  padding: 0 16px 90px; pointer-events: none;
+}
+.kb2-overlay * { box-sizing: border-box; margin: 0; padding: 0; }
 
-// ─────────────────────────────────────────────────────────
-//  Tarjeta de producto inline
-// ─────────────────────────────────────────────────────────
-const ProductCard = ({ prod, onAdd, onView, isAdded }) => {
-  const [imgOk, setImgOk] = useState(null);
-  const emoji = catEmoji(prod.category || "");
+/* ── Ventana ── */
+.kb2-win {
+  width: min(440px, 96vw); height: min(680px, 86vh);
+  display: flex; flex-direction: column;
+  border-radius: 22px; overflow: hidden;
+  background: #FFFFFF;
+  box-shadow: 0 20px 70px rgba(76,29,149,.38), 0 2px 12px rgba(76,29,149,.12);
+  border: 1px solid rgba(139,92,246,.18);
+  pointer-events: all;
+  transform: translateY(30px) scale(.94); opacity: 0;
+  transition: transform .35s cubic-bezier(.34,1.56,.64,1), opacity .28s;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+.kb2-win.kb2-open { transform: translateY(0) scale(1); opacity: 1; }
 
-  useEffect(() => {
-    if (!prod.imageUrl) { setImgOk(false); return; }
-    setImgOk(null);
-    const img = new window.Image();
-    img.onload  = () => setImgOk(true);
-    img.onerror = () => setImgOk(false);
-    img.src = prod.imageUrl;
-    return () => { img.onload = null; img.onerror = null; };
-  }, [prod.imageUrl]);
+/* ── Header ── */
+.kb2-header {
+  background: linear-gradient(135deg,#3B0764 0%,#5B21B6 50%,#7C3AED 100%);
+  padding: 14px 16px 12px;
+  display: flex; align-items: center; gap: 11px; flex-shrink: 0;
+  position: relative; overflow: hidden;
+}
+.kb2-header::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse 70% 80% at 80% -10%, rgba(255,255,255,.12) 0%, transparent 70%);
+}
+.kb2-avatar {
+  width: 46px; height: 46px; border-radius: 50%;
+  border: 2.5px solid rgba(255,255,255,.35);
+  background: linear-gradient(135deg,#C026D3,#7C3AED);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; flex-shrink: 0; position: relative; z-index: 1;
+}
+.kb2-dot {
+  position: absolute; bottom: 1px; right: 1px;
+  width: 12px; height: 12px;
+  background: #22C55E; border-radius: 50%; border: 2.5px solid #5B21B6;
+}
+.kb2-hinfo { flex: 1; min-width: 0; position: relative; z-index: 1; }
+.kb2-hname {
+  color: #fff; font-weight: 800; font-size: 15px;
+  display: flex; align-items: center; gap: 7px; line-height: 1.2;
+}
+.kb2-badge {
+  background: rgba(255,255,255,.18); color: #fff; font-size: 9px;
+  font-weight: 800; padding: 2px 8px; border-radius: 20px;
+  border: 1px solid rgba(255,255,255,.28); letter-spacing: .5px;
+  white-space: nowrap;
+}
+.kb2-hsub { color: rgba(255,255,255,.72); font-size: 11.5px; margin-top: 3px; }
+.kb2-hbtns { display: flex; gap: 6px; align-items: center; position: relative; z-index: 1; }
+.kb2-hbtn {
+  background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.24);
+  color: #fff; font-size: 11px; padding: 4px 11px; border-radius: 12px;
+  cursor: pointer; font-family: inherit; font-weight: 600; transition: background .2s;
+}
+.kb2-hbtn:hover { background: rgba(255,255,255,.26); }
+.kb2-close {
+  background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.24);
+  color: #fff; width: 30px; height: 30px; border-radius: 50%;
+  cursor: pointer; font-size: 15px; display: flex;
+  align-items: center; justify-content: center; transition: background .2s;
+}
+.kb2-close:hover { background: rgba(255,255,255,.3); }
 
-  return (
-    <div
-      onClick={() => onView(prod)}
-      style={{
-        display:"flex", borderRadius:16, overflow:"hidden",
-        background:"#fff", boxShadow:"0 2px 14px rgba(109,40,217,.1)",
-        border:"1px solid #ede8ff", cursor:"pointer",
-        transition:"transform .18s, box-shadow .18s", minHeight:96,
-      }}
-      onMouseEnter={e => { e.currentTarget.style.transform="translateY(-2px)"; e.currentTarget.style.boxShadow="0 8px 26px rgba(109,40,217,.2)"; }}
-      onMouseLeave={e => { e.currentTarget.style.transform=""; e.currentTarget.style.boxShadow="0 2px 14px rgba(109,40,217,.1)"; }}
-    >
-      {/* Imagen */}
-      <div style={{
-        width:96, minWidth:96, background:"#f8f5ff",
-        display:"flex", alignItems:"center", justifyContent:"center",
-        position:"relative", overflow:"hidden", flexShrink:0,
-      }}>
-        {imgOk === null && (
-          <div style={{ width:18, height:18, borderRadius:"50%", border:"2.5px solid #e8defa", borderTopColor:"#7c3aed", animation:"isaSpin .7s linear infinite" }}/>
-        )}
-        {prod.imageUrl && (
-          <img src={prod.imageUrl} alt={prod.name} style={{
-            position:"absolute", inset:0, width:"100%", height:"100%",
-            objectFit:"cover", opacity: imgOk ? 1 : 0, transition:"opacity .3s",
-          }}/>
-        )}
-        {imgOk === false && <div style={{ fontSize:30, opacity:.4 }}>{emoji}</div>}
-        {prod.badge && (
-          <span style={{
-            position:"absolute", top:5, left:5, zIndex:2,
-            fontSize:".45rem", fontWeight:900, letterSpacing:".06em",
-            padding:"2px 6px", borderRadius:20, color:"#fff", textTransform:"uppercase",
-            background: prod.badge === "OFERTA"
-              ? "linear-gradient(135deg,#f43f5e,#be123c)"
-              : "linear-gradient(135deg,#7c3aed,#4c1d95)",
-          }}>{prod.badge}</span>
-        )}
-        {prod.stock > 0 && prod.stock <= 5 && (
-          <span style={{
-            position:"absolute", bottom:4, left:4, zIndex:2,
-            fontSize:".42rem", fontWeight:800, padding:"2px 5px", borderRadius:20,
-            background:"rgba(0,0,0,.65)", color:"#fcd34d",
-          }}>⚡{prod.stock}</span>
-        )}
-      </div>
+/* ── Categorías ── */
+.kb2-cats {
+  display: flex; gap: 6px; padding: 9px 12px 8px;
+  overflow-x: auto; background: #fff;
+  border-bottom: 1px solid #F3EEFF;
+  scrollbar-width: none; flex-shrink: 0;
+}
+.kb2-cats::-webkit-scrollbar { display: none; }
+.kb2-cat {
+  flex-shrink: 0; padding: 5px 12px; border-radius: 20px;
+  border: 1.5px solid #E9DDFF; background: #FAF6FF;
+  color: #6B7280; font-size: 12px; font-family: inherit;
+  cursor: pointer; white-space: nowrap; transition: all .2s; font-weight: 600;
+}
+.kb2-cat:hover { border-color: #7C3AED; color: #5B21B6; background: #F5EEFF; }
+.kb2-cat.kb2-active { background: #7C3AED; color: #fff; border-color: #7C3AED; }
 
-      {/* Info */}
-      <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"space-between", padding:"9px 11px", minWidth:0 }}>
-        <div>
-          {prod.category && (
-            <div style={{ fontSize:".58rem", color:"#9d8bc4", fontWeight:700, marginBottom:2, textTransform:"uppercase", letterSpacing:".07em" }}>
-              {prod.category}
-            </div>
-          )}
-          <div style={{
-            fontSize:".8rem", fontWeight:700, color:"#1e0a4a", lineHeight:1.3,
-            display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden",
-          }}>{prod.name}</div>
-          {prod.rating > 0 && <div style={{ marginTop:3 }}><Stars rating={prod.rating}/></div>}
-        </div>
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:6, marginTop:7 }}>
-          <div style={{ fontSize:".95rem", fontWeight:900, color:"#6d28d9", letterSpacing:"-.02em" }}>
-            {fmtCOP(prod.price)}
-          </div>
-          <button
-            onClick={e => { e.stopPropagation(); onAdd(prod, e); }}
-            style={{
-              padding:"5px 11px", borderRadius:20, border:"none", cursor:"pointer",
-              fontSize:".68rem", fontWeight:800,
-              background: isAdded
-                ? "linear-gradient(135deg,#10b981,#065f46)"
-                : "linear-gradient(135deg,#7c3aed,#4c1d95)",
-              color:"#fff",
-              boxShadow: isAdded ? "0 2px 8px rgba(16,185,129,.4)" : "0 2px 8px rgba(124,58,237,.4)",
-              transition:"all .2s",
-            }}
-          >
-            {isAdded ? "✓ Listo" : "🛒 Agregar"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
+/* ── Mensajes ── */
+.kb2-msgs {
+  flex: 1; overflow-y: auto; padding: 14px 14px 8px;
+  display: flex; flex-direction: column; gap: 10px;
+  scroll-behavior: smooth; background: #FDFCFF;
+}
+.kb2-msgs::-webkit-scrollbar { width: 3px; }
+.kb2-msgs::-webkit-scrollbar-thumb { background: #D8B4FE; border-radius: 3px; }
 
-// ─────────────────────────────────────────────────────────
-//  ESTILOS GLOBALES
-// ─────────────────────────────────────────────────────────
-const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;0,9..40,800&display=swap');
+.kb2-bot,.kb2-user { max-width: 90%; display: flex; flex-direction: column; gap: 3px; }
+.kb2-bot { align-self: flex-start; }
+.kb2-user { align-self: flex-end; }
 
-  @keyframes isaSpin    { to { transform:rotate(360deg) } }
-  @keyframes isaSlideUp { from{transform:translateY(70px);opacity:0} to{transform:translateY(0);opacity:1} }
-  @keyframes isaFadeIn  { from{opacity:0} to{opacity:1} }
-  @keyframes isaBounce  { 0%,60%,100%{transform:translateY(0);opacity:.2} 30%{transform:translateY(-6px);opacity:1} }
-  @keyframes isaRing    { 0%,100%{box-shadow:0 6px 24px rgba(91,33,182,.6),0 0 0 0 rgba(139,92,246,.5)} 50%{box-shadow:0 6px 24px rgba(91,33,182,.6),0 0 0 12px rgba(139,92,246,0)} }
-  @keyframes isaOnline  { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.3)} }
-  @keyframes isaCardIn  { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-  @keyframes isaToast   { from{opacity:0;transform:translateX(-50%) scale(.88)} to{opacity:1;transform:translateX(-50%) scale(1)} }
+.kb2-bub {
+  padding: 10px 14px; border-radius: 16px;
+  font-size: 13.5px; line-height: 1.58;
+}
+.kb2-bub-bot {
+  background: #F3EEFF; color: #1A0A2E;
+  border-bottom-left-radius: 4px;
+}
+.kb2-bub-user {
+  background: linear-gradient(135deg,#5B21B6,#7C3AED);
+  color: #fff; border-bottom-right-radius: 4px;
+}
+.kb2-time { font-size: 10px; color: #B0A0C8; align-self: flex-end; }
+.kb2-bot .kb2-time { align-self: flex-start; }
 
-  .isa-fab {
-    position:fixed; bottom:24px; right:24px; width:60px; height:60px;
-    border-radius:50%; background:linear-gradient(145deg,#8b5cf6,#5b21b6);
-    border:none; cursor:pointer; display:flex; align-items:center;
-    justify-content:center; font-size:24px; z-index:10000;
-    transition:transform .2s; animation:isaRing 3.5s ease infinite;
-    box-shadow:0 6px 24px rgba(91,33,182,.6);
-  }
-  .isa-fab:hover { transform:scale(1.12) rotate(-8deg); }
-  .isa-fab:active { transform:scale(.95); }
+/* Chips sugerencias */
+.kb2-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+.kb2-chip {
+  padding: 5px 13px; border-radius: 20px;
+  border: 1.5px solid #A78BFA; color: #5B21B6;
+  font-size: 12px; cursor: pointer; background: #fff;
+  font-family: inherit; font-weight: 600; transition: all .2s;
+}
+.kb2-chip:hover { background: #7C3AED; color: #fff; border-color: #7C3AED; }
 
-  .isa-overlay {
-    position:fixed; inset:0; background:rgba(8,0,24,.65);
-    backdrop-filter:blur(8px); z-index:9998; animation:isaFadeIn .2s;
-  }
+/* Productos grid */
+.kb2-pgrid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px; margin-top: 10px; max-width: 340px;
+}
+.kb2-pcard {
+  background: #fff; border: 1.5px solid #EDE9FE;
+  border-radius: 13px; overflow: hidden; cursor: pointer;
+  transition: all .22s;
+}
+.kb2-pcard:hover { border-color: #7C3AED; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(124,58,237,.15); }
+.kb2-pimg {
+  width: 100%; aspect-ratio: 1; background: linear-gradient(135deg,#F3EEFF,#EDE9FE);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.kb2-pimg img { width: 100%; height: 100%; object-fit: cover; }
+.kb2-pimg-emo { font-size: 32px; }
+.kb2-pinfo { padding: 7px 9px 9px; }
+.kb2-pcat {
+  font-size: 9px; color: #7C3AED; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .5px;
+}
+.kb2-pname {
+  font-size: 11.5px; font-weight: 700; color: #1A0A2E;
+  margin: 3px 0 2px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.kb2-pprice { font-size: 12.5px; font-weight: 800; color: #5B21B6; }
+.kb2-pbadge {
+  display: inline-block; font-size: 8.5px; font-weight: 800;
+  padding: 1px 6px; border-radius: 8px; margin-bottom: 3px;
+  background: linear-gradient(135deg,#F4A7C3,#C026D3); color: #fff;
+}
+.kb2-pbtn {
+  width: 100%; padding: 6px; margin-top: 5px;
+  background: linear-gradient(135deg,#5B21B6,#7C3AED);
+  color: #fff; border: none; border-radius: 8px;
+  font-size: 11px; font-family: inherit; font-weight: 700;
+  cursor: pointer; transition: opacity .2s;
+}
+.kb2-pbtn:hover { opacity: .88; }
 
-  .isa-panel {
-    position:fixed; bottom:0; right:0; width:500px; height:90vh;
-    max-width:100vw; max-height:100vh;
-    background:#f4f0fe; border-radius:22px 22px 0 0;
-    display:flex; flex-direction:column; overflow:hidden;
-    z-index:9999; box-shadow:-4px 0 40px rgba(0,0,0,.3);
-    animation:isaSlideUp .32s cubic-bezier(.34,1.1,.64,1);
-    font-family:'DM Sans',sans-serif;
-  }
-  @media(max-width:520px) {
-    .isa-panel { width:100vw; height:92vh; border-radius:18px 18px 0 0; }
-    .isa-fab   { bottom:20px; right:16px; width:54px; height:54px; font-size:21px; }
-  }
+/* Typing animation */
+.kb2-typing {
+  display: flex; align-items: center; gap: 4px;
+  padding: 10px 14px; background: #F3EEFF;
+  border-radius: 16px; border-bottom-left-radius: 4px; width: 62px;
+}
+.kb2-tdot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #7C3AED; animation: kb2Bounce 1.2s infinite;
+}
+.kb2-tdot:nth-child(2) { animation-delay: .2s; }
+.kb2-tdot:nth-child(3) { animation-delay: .4s; }
+@keyframes kb2Bounce {
+  0%,60%,100% { transform: translateY(0); }
+  30% { transform: translateY(-5px); }
+}
 
-  .isa-cat {
-    flex-shrink:0; padding:5px 12px; border-radius:20px;
-    background:rgba(255,255,255,.13); border:1.5px solid rgba(255,255,255,.22);
-    color:#fff; font-size:.67rem; font-weight:700; cursor:pointer;
-    white-space:nowrap; transition:all .15s; font-family:'DM Sans',sans-serif;
-  }
-  .isa-cat:hover, .isa-cat.on {
-    background:rgba(255,255,255,.3); border-color:rgba(255,255,255,.7);
-    transform:translateY(-1px);
-  }
-  .isa-cat:disabled { opacity:.35; cursor:default; transform:none; }
+/* Cargando catálogo */
+.kb2-loading-cat {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; font-size: 12px; color: #9CA3AF;
+  background: #F9F7FF; border-radius: 10px;
+}
+.kb2-spin {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid #EDE9FE; border-top-color: #7C3AED;
+  animation: kb2Spin .7s linear infinite; flex-shrink: 0;
+}
+@keyframes kb2Spin { to { transform: rotate(360deg); } }
 
-  .isa-sug {
-    background:#fff; border:1.5px solid #cdb8f0; color:#5b21b6;
-    border-radius:20px; padding:5px 12px; font-size:.71rem; font-weight:700;
-    cursor:pointer; white-space:nowrap; transition:all .15s;
-    font-family:'DM Sans',sans-serif; box-shadow:0 1px 5px rgba(91,33,182,.07);
-  }
-  .isa-sug:hover {
-    background:linear-gradient(135deg,#7c3aed,#4c1d95); color:#fff;
-    border-color:transparent; transform:translateY(-2px);
-    box-shadow:0 4px 14px rgba(124,58,237,.4);
-  }
+/* Carrito bar */
+.kb2-cart-bar {
+  background: linear-gradient(135deg,#3B0764,#5B21B6);
+  color: #fff; padding: 9px 14px;
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 12.5px; flex-shrink: 0;
+}
+.kb2-cart-btn {
+  background: rgba(255,255,255,.18);
+  border: 1px solid rgba(255,255,255,.3);
+  color: #fff; padding: 5px 14px; border-radius: 12px;
+  font-size: 11.5px; font-family: inherit; cursor: pointer;
+  font-weight: 700; transition: background .2s;
+}
+.kb2-cart-btn:hover { background: rgba(255,255,255,.3); }
 
-  .isa-input {
-    flex:1; border:1.5px solid #ddd0f8; border-radius:24px; padding:10px 16px;
-    font-size:.875rem; color:#1e0a4a; outline:none; background:#faf7ff;
-    transition:border-color .18s, box-shadow .18s; font-family:'DM Sans',sans-serif;
-  }
-  .isa-input:focus { border-color:#7c3aed; box-shadow:0 0 0 3px rgba(124,58,237,.12); }
-  .isa-input::placeholder { color:#b8a8d4; }
-  .isa-input:disabled { opacity:.6; }
+/* Footer input */
+.kb2-footer {
+  padding: 9px 12px 11px; background: #fff;
+  border-top: 1px solid #F3EEFF;
+  display: flex; gap: 8px; align-items: center; flex-shrink: 0;
+}
+.kb2-input {
+  flex: 1; padding: 10px 15px; border: 2px solid #EDE9FE;
+  border-radius: 24px; font-size: 13.5px; font-family: inherit;
+  outline: none; color: #1A0A2E; transition: border .2s;
+  background: #FAF8FF;
+}
+.kb2-input:focus { border-color: #7C3AED; background: #fff; }
+.kb2-input::placeholder { color: #C4B5FD; }
+.kb2-send {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: linear-gradient(135deg,#5B21B6,#7C3AED);
+  border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: transform .2s, opacity .2s;
+  box-shadow: 0 4px 14px rgba(91,33,182,.4);
+}
+.kb2-send:hover { transform: scale(1.08); }
+.kb2-send:active { transform: scale(.96); }
 
-  .isa-msgs {
-    flex:1; overflow-y:auto; padding:14px 12px 8px;
-    display:flex; flex-direction:column; gap:10px;
-    scrollbar-width:thin; scrollbar-color:#ddd0f8 transparent;
-  }
-  .isa-msgs::-webkit-scrollbar { width:3px; }
-  .isa-msgs::-webkit-scrollbar-thumb { background:#ddd0f8; border-radius:3px; }
+/* Toast */
+.kb2-toast {
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+  background: #22C55E; color: #fff; padding: 6px 16px; border-radius: 20px;
+  font-size: 12px; font-weight: 700; font-family: 'Plus Jakarta Sans',sans-serif;
+  white-space: nowrap; z-index: 10; pointer-events: none;
+  animation: kb2FadeIn .3s;
+}
+@keyframes kb2FadeIn { from{opacity:0;transform:translateX(-50%) translateY(-5px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
 
-  .isa-card-grid {
-    display:flex; flex-direction:column; gap:7px;
-    margin-top:8px; margin-left:36px;
-    animation:isaCardIn .3s ease both;
-  }
+/* Historial modal */
+.kb2-hist {
+  position: absolute; inset: 0; background: rgba(26,10,46,.9);
+  backdrop-filter: blur(4px); z-index: 20; display: flex; align-items: center;
+  justify-content: center; padding: 20px;
+}
+.kb2-hist-box {
+  background: #fff; border-radius: 18px; width: 100%; max-width: 360px;
+  max-height: 420px; display: flex; flex-direction: column;
+  box-shadow: 0 16px 50px rgba(91,33,182,.3);
+}
+.kb2-hist-head {
+  padding: 16px 18px 12px; border-bottom: 1px solid #F3EEFF;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.kb2-hist-title {
+  font-weight: 800; font-size: 15px; color: #1A0A2E;
+  font-family: 'Plus Jakarta Sans',sans-serif;
+}
+.kb2-hist-body { flex: 1; overflow-y: auto; padding: 12px 16px; }
+.kb2-hist-item {
+  padding: 8px 12px; border-radius: 10px; margin-bottom: 6px;
+  font-size: 13px; line-height: 1.5; font-family: 'Plus Jakarta Sans',sans-serif;
+}
+.kb2-hist-item.user { background: #F3EEFF; color: #1A0A2E; text-align: right; }
+.kb2-hist-item.bot  { background: #FAF8FF; color: #4B5563; border: 1px solid #F3EEFF; }
+.kb2-hist-empty {
+  text-align: center; padding: 32px; color: #9CA3AF;
+  font-size: 13px; font-family: 'Plus Jakarta Sans',sans-serif;
+}
 
-  .isa-send-btn {
-    width:42px; height:42px; flex-shrink:0; border:none; border-radius:50%;
-    background:linear-gradient(135deg,#7c3aed,#4c1d95); color:#fff;
-    font-size:16px; cursor:pointer; display:flex; align-items:center;
-    justify-content:center; transition:all .15s;
-    box-shadow:0 3px 12px rgba(124,58,237,.5);
-  }
-  .isa-send-btn:hover:not(:disabled) { transform:scale(1.1); box-shadow:0 5px 18px rgba(124,58,237,.6); }
-  .isa-send-btn:disabled { opacity:.28; cursor:default; }
+@media (min-width: 640px) {
+  .kb2-overlay { align-items: flex-end; padding: 0 28px 28px; }
+  .kb2-fab { bottom: 28px; right: 28px; }
+}
 `;
 
 // ─────────────────────────────────────────────────────────
-//  Categorías fijas de acceso rápido
+//  Tarjeta de producto
 // ─────────────────────────────────────────────────────────
-const FIXED_CATS = [
-  { label:"🏷️ Ofertas",    q:"¿Qué productos están en oferta ahora?" },
-  { label:"⭐ Top ventas",  q:"¿Cuáles son los más vendidos?" },
-  { label:"🆕 Novedades",  q:"¿Qué hay nuevo en el catálogo?" },
-  { label:"🎁 Regalos",    q:"Necesito ideas para un regalo especial" },
-  { label:"💰 Económicos", q:"¿Qué hay a buen precio?" },
-];
-
-// ═══════════════════════════════════════════════════════════
-//  COMPONENTE PRINCIPAL
-// ═══════════════════════════════════════════════════════════
-export default function AIChatBot({ products = [], onProductClick, onAddToCart }) {
+function ProdCard({ p, onAdd }) {
+  const [imgOk, setImgOk] = useState(null);
+  const emoji = catEmoji(p.category || "");
 
   useEffect(() => {
-    if (products.length > 0) {
-      const cats = [...new Set(products.map(p => p.category).filter(Boolean))];
-      console.log(`[Isabel] ✅ ${products.length} productos, categorías:`, cats);
-    } else {
-      console.warn("[Isabel] ⚠️ Sin catálogo todavía...");
-    }
-  }, [products]);
+    if (!p.imageUrl) { setImgOk(false); return; }
+    const img = new window.Image();
+    img.onload  = () => setImgOk(true);
+    img.onerror = () => setImgOk(false);
+    img.src = p.imageUrl;
+    return () => { img.onload = null; img.onerror = null; };
+  }, [p.imageUrl]);
 
-  const INIT = {
-    role: "bot",
-    content: "¡Hola! Soy Isabel, tu asesora de Kosmica ✨\n¿Buscas algo para ti o es un regalo especial?",
-    sugs: ["Para mí 💜", "Es un regalo 🎁", "Ver ofertas 🏷️", "Lo más vendido ⭐"],
-  };
-
-  const [open,      setOpen]      = useState(false);
-  const [msgs,      setMsgs]      = useState([INIT]);
-  const [added,     setAdded]     = useState(new Set());
-  const [input,     setInput]     = useState("");
-  const [loading,   setLoading]   = useState(false);
-  const [error,     setError]     = useState(null);
-  const [unread,    setUnread]    = useState(1);
-  const [activeCat, setActiveCat] = useState(null);
-  const [toast,     setToast]     = useState(null);
-  const [lastMsg,   setLastMsg]   = useState("");
-
-  const bottomRef = useRef(null);
-  const inputRef  = useRef(null);
-
-  const ready = products.length > 0;
-
-  const catalog  = useMemo(() => buildCatalog(products), [products]);
-  const catNames = useMemo(() => Object.keys(catalog), [catalog]);
-  const prodMap  = useMemo(() => {
-    const m = new Map();
-    products.forEach(p => {
-      m.set(p.id, p);
-      m.set(Number(p.id), p);
-      m.set(String(p.id), p);
-    });
-    return m;
-  }, [products]);
-
-  const dynCats = useMemo(() =>
-    catNames.map(name => ({
-      label: `${catEmoji(name)} ${name}`,
-      q: `Muéstrame los productos de ${name}`,
-    })),
-    [catNames]
+  return (
+    <div className="kb2-pcard">
+      <div className="kb2-pimg">
+        {imgOk === null && <div className="kb2-spin" />}
+        {imgOk === true && <img src={p.imageUrl} alt={p.name} />}
+        {imgOk === false && <span className="kb2-pimg-emo">{emoji}</span>}
+      </div>
+      <div className="kb2-pinfo">
+        {p.badge && <div className="kb2-pbadge">{p.badge}</div>}
+        <div className="kb2-pcat">{p.category}</div>
+        <div className="kb2-pname">{p.name}</div>
+        <div className="kb2-pprice">{fmtCOP(p.price)}</div>
+        <button className="kb2-pbtn" onClick={() => onAdd(p)}>🛒 Agregar</button>
+      </div>
+    </div>
   );
-  const allCats = useMemo(() => [...dynCats, ...FIXED_CATS], [dynCats]);
+}
 
+// ─────────────────────────────────────────────────────────
+//  Componente principal
+// ─────────────────────────────────────────────────────────
+export default function AIChatBot() {
+  // Estado UI
+  const [open, setOpen]           = useState(false);
+  const [msgs, setMsgs]           = useState([]);
+  const [chips, setChips]         = useState([]);
+  const [input, setInput]         = useState("");
+  const [typing, setTyping]       = useState(false);
+  const [toast, setToast]         = useState("");
+  const [showHist, setShowHist]   = useState(false);
+
+  // Estado datos
+  const [allProducts, setAllProducts] = useState([]);
+  const [loading, setLoading]         = useState(true);
+  const [categories, setCategories]   = useState([]);
+
+  // Estado cliente
+  const [clientName, setClientName]   = useState("");
+  const [waitName, setWaitName]       = useState(false);
+  const [aiHistory, setAiHistory]     = useState([]);
+  const [cart, setCart]               = useState([]);
+
+  const msgsRef = useRef(null);
+
+  // ── Inyectar CSS ────────────────────────────────────────
   useEffect(() => {
-    if (open) { setUnread(0); setTimeout(() => inputRef.current?.focus(), 150); }
-  }, [open]);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior:"smooth" });
-  }, [msgs, loading]);
-
-  const showToast = useCallback((msg, type = "info") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 2500);
+    if (!document.getElementById("kb2-css")) {
+      const s = document.createElement("style");
+      s.id = "kb2-css";
+      s.textContent = BOT_CSS;
+      document.head.appendChild(s);
+    }
   }, []);
 
-  const handleAdd = useCallback((prod, e) => {
-    e?.stopPropagation();
-    if (!prod) return;
-    const full = prodMap.get(prod.id) || prodMap.get(Number(prod.id)) || prod;
-    if (typeof onAddToCart === "function") onAddToCart(full);
-    setAdded(prev => new Set([...prev, prod.id]));
-    showToast(`🛒 ${full.name || "Producto"} agregado`, "cart");
-    setTimeout(() => setAdded(prev => { const n = new Set(prev); n.delete(prod.id); return n; }), 2800);
-  }, [onAddToCart, showToast, prodMap]);
+  // ── Scroll automático ───────────────────────────────────
+  useEffect(() => {
+    if (msgsRef.current) {
+      msgsRef.current.scrollTop = msgsRef.current.scrollHeight;
+    }
+  }, [msgs, typing]);
 
-  const newChat = useCallback(() => {
-    setMsgs([INIT]);
-    setInput(""); setError(null); setActiveCat(null); setAdded(new Set());
+  // ── Helpers ─────────────────────────────────────────────
+  const addBot = useCallback((html, nextChips = []) => {
+    setMsgs(p => [...p, { role: "bot", html, time: getTime(), id: Date.now() + Math.random() }]);
+    setChips(nextChips);
   }, []);
 
-  // ── ENVIAR MENSAJE ──
-  const send = useCallback(async (override) => {
-    const text = (override ?? input).trim();
-    if (!text || loading) return;
-    setInput(""); setError(null); setLastMsg(text);
+  const addUser = useCallback((text) => {
+    setMsgs(p => [...p, { role: "user", text, time: getTime(), id: Date.now() + Math.random() }]);
+    setChips([]);
+  }, []);
 
-    // 1. Respuesta rápida local
-    const quick = QUICK_INTENTS.find(i => i.test.test(text));
-    if (quick) {
-      setMsgs(prev => [...prev,
-        { role:"user", content:text },
-        { role:"bot", content:quick.reply, sugs:quick.sugs, quick:true },
-      ]);
+  const showToast = useCallback((msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(""), 2200);
+  }, []);
+
+  const renderProds = useCallback((prods) => {
+    if (!prods.length) return null;
+    return (
+      <div className="kb2-pgrid">
+        {prods.slice(0, 4).map(p => (
+          <ProdCard key={p.id} p={p} onAdd={handleAddToCart} />
+        ))}
+      </div>
+    );
+  }, []);
+
+  // ── Cargar todos los productos ───────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    async function loadAll() {
+      try {
+        const API = process.env.REACT_APP_API_URL || "http://localhost:8080";
+        // Intentar /api/products para obtener TODOS
+        const res = await fetch(`${API}/api/products?size=200`);
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        const prods = Array.isArray(data) ? data : (data.content || []);
+        if (!cancelled) {
+          setAllProducts(prods);
+          const cats = [...new Set(prods.map(p => p.category).filter(Boolean))];
+          setCategories(cats);
+        }
+      } catch (err) {
+        // Si falla, usar catálogo local de emergencia
+        if (!cancelled) {
+          setAllProducts([]);
+          setCategories([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    loadAll();
+    return () => { cancelled = true; };
+  }, []);
+
+  // ── Iniciar conversación cuando catálogo listo ──────────
+  useEffect(() => {
+    if (loading) return;
+
+    const savedName = (() => { try { return localStorage.getItem("kb2_client") || ""; } catch { return ""; } })();
+    const savedHist = (() => { try { const r = localStorage.getItem("kb2_hist"); return r ? JSON.parse(r) : []; } catch { return []; } })();
+    const savedCart = (() => { try { const r = localStorage.getItem("kb2_cart"); return r ? JSON.parse(r) : []; } catch { return []; } })();
+
+    if (savedCart.length) setCart(savedCart);
+
+    if (savedName) {
+      setClientName(savedName);
+      setAiHistory(savedHist);
+      addBot(
+        `¡Hola de nuevo, <strong>${savedName}</strong>! 💜 Qué bueno verte. ¿Qué te llama la atención hoy?`,
+        ["Ver lo más vendido ⭐", "Ver novedades ✨", "Necesito un regalo 🎁", "Ver el catálogo completo"]
+      );
+    } else {
+      addBot(
+        `¡Hola! Soy <strong>Isabel</strong> ✨ tu asesora personal de Kosmica.<br><br>Tenemos bolsos, morrales, maquillaje, productos capilares, accesorios y mucho más.<br><br><strong>¿Cómo te llamas? 💜</strong>`,
+        []
+      );
+      setWaitName(true);
+    }
+  }, [loading]); // eslint-disable-line
+
+  // ── Guardar datos ────────────────────────────────────────
+  const persist = useCallback((name, hist, cartData) => {
+    try {
+      if (name) localStorage.setItem("kb2_client", name);
+      localStorage.setItem("kb2_hist", JSON.stringify(hist.slice(-40)));
+      localStorage.setItem("kb2_cart", JSON.stringify(cartData));
+    } catch {}
+  }, []);
+
+  // ── Agregar al carrito ───────────────────────────────────
+  const handleAddToCart = useCallback((p) => {
+    setCart(prev => {
+      const ex = prev.find(x => x.id === p.id);
+      const next = ex
+        ? prev.map(x => x.id === p.id ? { ...x, qty: x.qty + 1 } : x)
+        : [...prev, { ...p, qty: 1 }];
+      persist(clientName, aiHistory, next);
+      return next;
+    });
+    showToast("✓ Agregado al carrito");
+    addBot(
+      `¡Perfecto! Agregué <strong>${p.name}</strong> a tu pedido 🛒<br>¿Quieres algo más o confirmo el pedido?`,
+      ["Ver mi pedido 🛒", "Seguir comprando 🛍️", "Confirmar pedido ✅"]
+    );
+  }, [clientName, aiHistory, persist, showToast, addBot]);
+
+  // ── Filtrar por categoría ────────────────────────────────
+  const filterCat = useCallback((cat) => {
+    const prods = cat === "_all"
+      ? allProducts.filter(p => Number(p.stock) > 0)
+      : allProducts.filter(p => p.category === cat && Number(p.stock) > 0);
+
+    const label = cat === "_all" ? "catálogo completo ✨" : `<strong>${cat}</strong>`;
+    setMsgs(p => [...p, {
+      role: "bot",
+      html: `Aquí están los productos de ${label} 💜`,
+      prods: prods.slice(0, 4),
+      time: getTime(),
+      id: Date.now(),
+    }]);
+    setChips(["¿Tienen ofertas? 🏷️", "Ver otro tipo de producto", "Quiero asesoría personalizada"]);
+  }, [allProducts]);
+
+  // ── Llamada al backend AI ────────────────────────────────
+  const callIsabel = useCallback(async (userMsg, name, hist) => {
+    const newHist = [...hist, { role: "user", content: userMsg }];
+    setAiHistory(newHist);
+    setTyping(true);
+
+    try {
+      const API = process.env.REACT_APP_API_URL || "http://localhost:8080";
+      const sysPrompt = buildSystemPrompt(allProducts, name);
+
+      const res = await fetch(`${API}/api/ai/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system: sysPrompt,
+          messages: newHist.slice(-MAX_HISTORY),
+          max_tokens: 700,
+        }),
+      });
+
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      setTyping(false);
+
+      const rawText = (data.content || []).map(x => x.text || "").join("") ||
+        "Disculpa, tuve un inconveniente. ¿Me repites tu pregunta? 💜";
+
+      const updHist = [...newHist, { role: "assistant", content: rawText }];
+      setAiHistory(updHist);
+      persist(name, updHist, cart);
+
+      const ids = extractIds(rawText);
+      const clean = cleanText(rawText);
+      const recProds = ids.map(id => allProducts.find(p => p.id === id || p.id === String(id))).filter(Boolean);
+
+      setMsgs(p => [...p, {
+        role: "bot",
+        html: clean,
+        prods: recProds,
+        time: getTime(),
+        id: Date.now(),
+      }]);
+
+      const lower = rawText.toLowerCase();
+      const isClosing = ["contactará", "confirmar", "asesor"].some(k => lower.includes(k));
+      setChips(isClosing
+        ? ["Ver mi carrito 🛒", "Seguir comprando", "Ver otra categoría"]
+        : contextChips(userMsg)
+      );
+    } catch (err) {
+      setTyping(false);
+      addBot(
+        "Disculpa el inconveniente. Un asesor de Kosmica te contactará personalmente 💜",
+        ["Quiero que me contacten 📱"]
+      );
+    }
+  }, [allProducts, cart, persist, addBot]);
+
+  // ── Enviar mensaje ───────────────────────────────────────
+  const send = useCallback(async (text) => {
+    const t = (text || input).trim();
+    if (!t) return;
+    setInput("");
+    addUser(t);
+
+    // Captura de nombre
+    if (waitName) {
+      const raw = t.split(" ")[0];
+      const name = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+      setClientName(name);
+      setWaitName(false);
+      try { localStorage.setItem("kb2_client", name); } catch {}
+      setTimeout(() => {
+        addBot(
+          `¡Mucho gusto, <strong>${name}</strong>! 💜 Bienvenida a Kosmica.<br>Tenemos de todo para ti: bolsos, morrales, maquillaje, capilar, accesorios y más. ¿En qué te puedo ayudar hoy? ✨`,
+          ["Ver lo más vendido ⭐", "Ver novedades ✨", "Necesito un regalo 🎁", "Ver todo el catálogo"]
+        );
+      }, 400);
       return;
     }
 
-    // 2. Búsqueda local inmediata (para fallback)
-    const localProds = ready ? searchProducts(products, text) : [];
-
-    const userMsg = { role:"user", content:text };
-    const history = [...msgs, userMsg];
-    setMsgs(history);
-    setLoading(true);
-
-    const apiMsgs = history
-      .filter(m => m.role === "user" || m.role === "bot")
-      .slice(-MAX_HISTORY)
-      .map(m => ({ role: m.role === "bot" ? "assistant" : "user", content: m.content }));
-
-    try {
-      const raw     = await callIsabel(buildSystemPrompt(catalog, catNames), apiMsgs);
-      const ids     = extractIds(raw);
-      const cleaned = cleanText(raw);
-
-      // IDs de la IA primero; si no hay, usar búsqueda local
-      let prods = ids.map(id => prodMap.get(id) || prodMap.get(Number(id))).filter(Boolean);
-      if (!prods.length && localProds.length) prods = localProds;
-
-      setMsgs(prev => [...prev, {
-        role:"bot",
-        content: cleaned || "Aquí van algunas opciones que podrían interesarte:",
-        products: prods.length ? prods : undefined,
-      }]);
-
-      if (!open) setUnread(u => u + 1);
-
-    } catch (err) {
-      console.error("[Isabel]", err.message);
-      setError(err.message);
-      // Siempre mostrar algo al cliente
-      setMsgs(prev => [...prev, {
-        role:"bot",
-        content:"Tuve un problema de conexión, pero aquí van opciones que podrían gustarte:",
-        products: localProds.length ? localProds : undefined,
-      }]);
-    } finally {
-      setLoading(false);
+    // Respuesta rápida sin IA
+    for (const qi of QUICK) {
+      if (qi.test.test(t)) {
+        setTimeout(() => addBot(qi.reply(clientName), qi.sugs), 350);
+        return;
+      }
     }
-  }, [input, loading, msgs, catalog, catNames, prodMap, products, ready, open]);
 
-  const handleKey = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } };
-  const handleCat = cat => { setActiveCat(cat.label); send(cat.q); };
+    // Chips especiales
+    const tl = t.toLowerCase();
+    if (tl.includes("ver mi pedido") || tl.includes("mi carrito")) {
+      const total = cart.reduce((a, b) => a + Number(b.price) * b.qty, 0);
+      const qty   = cart.reduce((a, b) => a + b.qty, 0);
+      if (!cart.length) {
+        addBot("Tu carrito está vacío por ahora. ¿Te ayudo a elegir algo? 💜", ["Ver productos 🛍️"]);
+      } else {
+        addBot(
+          `🛒 <strong>Tu pedido (${qty} productos):</strong><br>` +
+          cart.map(i => `• ${i.name} × ${i.qty} — ${fmtCOP(i.price * i.qty)}`).join("<br>") +
+          `<br><strong>Total: ${fmtCOP(total)}</strong>`,
+          ["Confirmar pedido ✅", "Seguir comprando 🛍️"]
+        );
+      }
+      return;
+    }
+    if (tl.includes("confirmar pedido") || tl.includes("quiero que me contacten")) {
+      addBot(
+        `✅ ¡Listo, <strong>${clientName || "amiga"}</strong>! Un asesor de Kosmica se pondrá en contacto para confirmar tu pedido y coordinar el envío. ¡Gracias por elegirnos! 💜`
+      );
+      return;
+    }
 
-  // ── RENDER ──
+    await callIsabel(t, clientName, aiHistory);
+  }, [input, waitName, clientName, aiHistory, cart, addUser, addBot, callIsabel]);
+
+  // ── Resumen carrito ──────────────────────────────────────
+  const cartTotal = cart.reduce((a, b) => a + Number(b.price) * b.qty, 0);
+  const cartQty   = cart.reduce((a, b) => a + b.qty, 0);
+
+  // ── Historial visual ─────────────────────────────────────
+  const histItems = aiHistory.slice(-20).map((h, i) => ({
+    role: h.role === "user" ? "user" : "bot",
+    text: h.content.replace(/<[^>]+>/g, "").replace(/PRODUCTOS_RECOMENDADOS:[\d,\s]+/g, "").slice(0, 120),
+    key: i,
+  }));
+
+  // ── Render ───────────────────────────────────────────────
   return (
     <>
-      <style>{STYLES}</style>
-
       {/* FAB flotante */}
-      {!open && (
-        <button className="isa-fab" onClick={() => setOpen(true)} title="Habla con Isabel">
-          ✨
-          {unread > 0 && (
-            <span style={{
-              position:"absolute", top:-3, right:-3,
-              width:20, height:20, borderRadius:"50%",
-              background:"#ef4444", border:"2.5px solid #fff",
-              fontSize:9, fontWeight:900, color:"#fff",
-              display:"flex", alignItems:"center", justifyContent:"center",
-            }}>{unread}</span>
+      <button
+        className="kb2-fab"
+        onClick={() => setOpen(o => !o)}
+        aria-label="Abrir chat con Isabel"
+      >
+        {open ? "✕" : "💬"}
+        {!open && cartQty > 0 && <span className="kb2-fab-badge">{cartQty}</span>}
+      </button>
+
+      <div className="kb2-overlay" style={{ pointerEvents: open ? "all" : "none" }}>
+        <div className={`kb2-win${open ? " kb2-open" : ""}`} style={{ position: "relative" }}>
+
+          {/* Toast */}
+          {toast && <div className="kb2-toast">{toast}</div>}
+
+          {/* Historial overlay */}
+          {showHist && (
+            <div className="kb2-hist">
+              <div className="kb2-hist-box">
+                <div className="kb2-hist-head">
+                  <span className="kb2-hist-title">📋 Historial</span>
+                  <button className="kb2-close" onClick={() => setShowHist(false)}>✕</button>
+                </div>
+                <div className="kb2-hist-body">
+                  {histItems.length === 0
+                    ? <div className="kb2-hist-empty">No hay historial todavía 🌟</div>
+                    : histItems.map(h => (
+                        <div key={h.key} className={`kb2-hist-item ${h.role}`}>{h.text}</div>
+                      ))
+                  }
+                </div>
+              </div>
+            </div>
           )}
-        </button>
-      )}
 
-      {open && (
-        <>
-          <div className="isa-overlay" onClick={() => setOpen(false)}/>
-          <div className="isa-panel">
-
-            {/* ── HEADER ── */}
-            <div style={{
-              background:"linear-gradient(135deg,#5b21b6 0%,#3b0764 100%)",
-              padding:"12px 14px", display:"flex", alignItems:"center", gap:10,
-              flexShrink:0, position:"relative", overflow:"hidden",
-            }}>
-              <div style={{ position:"absolute", top:-40, right:-30, width:160, height:160, borderRadius:"50%", background:"rgba(255,255,255,.03)", pointerEvents:"none" }}/>
-
-              {/* Avatar */}
-              <div style={{ position:"relative", flexShrink:0 }}>
-                <div style={{
-                  width:44, height:44, borderRadius:"50%",
-                  background:"rgba(255,255,255,.16)", border:"2px solid rgba(255,255,255,.3)",
-                  display:"flex", alignItems:"center", justifyContent:"center",
-                  fontSize:20, boxShadow:"0 0 0 5px rgba(255,255,255,.05)",
-                }}>✨</div>
-                <span style={{
-                  position:"absolute", bottom:1, right:1,
-                  width:12, height:12, borderRadius:"50%",
-                  background:"#34d399", border:"2px solid #3b0764",
-                  animation:"isaOnline 2.5s ease infinite",
-                }}/>
+          {/* Header */}
+          <div className="kb2-header">
+            <div className="kb2-avatar">
+              💎
+              <div className="kb2-dot" />
+            </div>
+            <div className="kb2-hinfo">
+              <div className="kb2-hname">
+                Isabel · Asesora Kosmica
+                <span className="kb2-badge">IA PRO</span>
               </div>
-
-              {/* Info */}
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:".94rem", fontWeight:700, color:"#fff", lineHeight:1.2 }}>
-                  Isabel · Asesora Kosmica
-                </div>
-                <div style={{ fontSize:".63rem", color:"rgba(255,255,255,.8)", display:"flex", alignItems:"center", gap:5, marginTop:2 }}>
-                  <span style={{ width:6, height:6, background:"#34d399", borderRadius:"50%", flexShrink:0 }}/>
-                  En línea · Conozco todo el catálogo
-                  <span style={{
-                    fontSize:".5rem", fontWeight:900, padding:"2px 6px", borderRadius:6,
-                    background:"rgba(255,255,255,.15)", border:"1px solid rgba(255,255,255,.2)",
-                    color:"rgba(255,255,255,.95)", textTransform:"uppercase", letterSpacing:".08em",
-                  }}>IA Pro</span>
-                </div>
+              <div className="kb2-hsub">
+                {loading
+                  ? "Cargando catálogo completo..."
+                  : `En línea · ${allProducts.filter(p => Number(p.stock) > 0).length} productos disponibles`
+                }
               </div>
-
-              {/* Botones */}
-              {[
-                { ico:"✏️", title:"Nueva conversación", action:newChat },
-                { ico:"✕",  title:"Cerrar",             action:() => setOpen(false) },
-              ].map(btn => (
-                <button key={btn.title} onClick={btn.action} title={btn.title}
-                  style={{
-                    width:32, height:32, flexShrink:0,
-                    background:"rgba(255,255,255,.1)",
-                    border:"1.5px solid rgba(255,255,255,.2)",
-                    borderRadius:"50%", color:"#fff", fontSize:13, cursor:"pointer",
-                    display:"flex", alignItems:"center", justifyContent:"center",
-                    transition:"all .18s",
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,.28)"}
-                  onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,.1)"}
-                >{btn.ico}</button>
-              ))}
             </div>
-
-            {/* ── CATEGORÍAS DINÁMICAS ── */}
-            <div
-              style={{
-                background:"linear-gradient(135deg,#4c1d95,#3b0764)",
-                padding:"7px 12px", display:"flex", gap:6, overflowX:"auto",
-                scrollbarWidth:"none", flexShrink:0,
-                borderBottom:"1px solid rgba(0,0,0,.1)",
-              }}
-              onWheel={e => { e.currentTarget.scrollLeft += e.deltaY; e.preventDefault(); }}
-            >
-              <style>{`.isa-cats-bar::-webkit-scrollbar{display:none}`}</style>
-              {!ready ? (
-                <span style={{ fontSize:".64rem", color:"rgba(255,255,255,.4)", padding:"5px 2px" }}>
-                  Cargando categorías...
-                </span>
-              ) : allCats.map(c => (
-                <button
-                  key={c.label}
-                  className={`isa-cat${activeCat === c.label ? " on" : ""}`}
-                  onClick={() => handleCat(c)}
-                  disabled={loading || !ready}
-                >{c.label}</button>
-              ))}
+            <div className="kb2-hbtns">
+              <button className="kb2-hbtn" onClick={() => setShowHist(true)}>Historial</button>
+              <button className="kb2-close" onClick={() => setOpen(false)}>✕</button>
             </div>
-
-            {/* ── ÁREA MENSAJES ── */}
-            <div style={{ display:"flex", flexDirection:"column", background:"#ede8fc", overflow:"hidden", flex:1, position:"relative" }}>
-
-              {/* Toast */}
-              {toast && (
-                <div style={{
-                  position:"absolute", top:10, left:"50%", transform:"translateX(-50%)",
-                  padding:"7px 16px", borderRadius:22, fontSize:".68rem", fontWeight:700,
-                  whiteSpace:"nowrap", animation:"isaToast .25s ease", zIndex:20,
-                  pointerEvents:"none", color:"#fff", fontFamily:"'DM Sans',sans-serif",
-                  background: toast.type === "cart"
-                    ? "linear-gradient(135deg,#10b981,#065f46)"
-                    : "linear-gradient(135deg,#7c3aed,#4c1d95)",
-                  boxShadow: toast.type === "cart"
-                    ? "0 4px 16px rgba(16,185,129,.5)"
-                    : "0 4px 16px rgba(124,58,237,.5)",
-                }}>{toast.msg}</div>
-              )}
-
-              {!ready ? (
-                <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:12, padding:28 }}>
-                  <div style={{ width:36, height:36, borderRadius:"50%", border:"3px solid #e8defa", borderTopColor:"#7c3aed", animation:"isaSpin .7s linear infinite" }}/>
-                  <div style={{ fontSize:".8rem", color:"#9d8bc4", textAlign:"center", lineHeight:1.7 }}>
-                    Cargando catálogo...<br/>Un momento 💜
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {/* Error */}
-                  {error && (
-                    <div style={{
-                      margin:"8px 10px", padding:"10px 12px",
-                      background:"#fff1f2", border:"1px solid #fda4a4",
-                      borderRadius:12, display:"flex", gap:8, alignItems:"flex-start", flexShrink:0,
-                    }}>
-                      <span style={{ fontSize:15, flexShrink:0 }}>⚠️</span>
-                      <div>
-                        <div style={{ fontSize:".73rem", color:"#991b1b", lineHeight:1.5 }}>
-                          Problema de conexión. ¿Reintentamos?
-                        </div>
-                        <button onClick={() => { setError(null); send(lastMsg); }}
-                          style={{
-                            marginTop:5, padding:"3px 10px", borderRadius:8,
-                            background:"#fda4a4", border:"none", color:"#7f1d1d",
-                            fontSize:".68rem", fontWeight:700, cursor:"pointer",
-                          }}>Reintentar</button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Mensajes */}
-                  <div className="isa-msgs">
-                    {msgs.map((msg, i) => (
-                      <div key={i}>
-                        {/* Burbuja */}
-                        <div style={{
-                          display:"flex", gap:8, alignItems:"flex-end",
-                          flexDirection: msg.role === "user" ? "row-reverse" : "row",
-                        }}>
-                          <div style={{
-                            width:28, height:28, borderRadius:"50%", flexShrink:0,
-                            display:"flex", alignItems:"center", justifyContent:"center", fontSize:12,
-                            background: msg.role === "bot"
-                              ? "linear-gradient(135deg,#7c3aed,#4c1d95)"
-                              : "#e8defa",
-                            boxShadow: msg.role === "bot" ? "0 2px 8px rgba(124,58,237,.3)" : "none",
-                          }}>
-                            {msg.role === "bot" ? "✨" : "👤"}
-                          </div>
-                          <div style={{
-                            padding:"9px 13px", borderRadius:16, fontSize:".84rem",
-                            lineHeight:1.65, maxWidth:"78%", wordBreak:"break-word",
-                            whiteSpace:"pre-line", fontFamily:"'DM Sans',sans-serif",
-                            ...(msg.role === "bot"
-                              ? { background:"#fff", color:"#1e0a4a", borderBottomLeftRadius:4, boxShadow:"0 2px 8px rgba(0,0,0,.06)", border:"1px solid #ede8fa" }
-                              : { background:"linear-gradient(135deg,#7c3aed,#4c1d95)", color:"#fff", borderBottomRightRadius:4, boxShadow:"0 3px 12px rgba(124,58,237,.4)" }),
-                          }}>
-                            {msg.quick && (
-                              <div style={{
-                                fontSize:".5rem", fontWeight:700, letterSpacing:".08em",
-                                padding:"2px 6px", borderRadius:5, background:"#ede8fa",
-                                color:"#6d28d9", display:"inline-block", marginBottom:5,
-                                textTransform:"uppercase",
-                              }}>Respuesta rápida</div>
-                            )}
-                            {msg.content}
-                          </div>
-                        </div>
-
-                        {/* Sugerencias */}
-                        {msg.sugs?.length > 0 && (
-                          <div style={{ display:"flex", flexWrap:"wrap", gap:5, padding:"5px 0 2px", marginLeft:36 }}>
-                            {msg.sugs.map(s => (
-                              <button key={s} className="isa-sug"
-                                onClick={() => { const cat = allCats.find(c => c.label === s); cat ? handleCat(cat) : send(s); }}>
-                                {s}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Sugerencias iniciales */}
-                        {i === 0 && msgs.length === 1 && !msg.sugs && (
-                          <div style={{ display:"flex", flexWrap:"wrap", gap:5, padding:"5px 0 2px", marginLeft:36 }}>
-                            {["Ver todo 🛍️", "Los más vendidos ⭐", "Ver ofertas 🏷️", "Necesito un regalo 🎁"].map(s => (
-                              <button key={s} className="isa-sug" onClick={() => send(s)}>{s}</button>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Tarjetas inline */}
-                        {msg.products?.length > 0 && (
-                          <div className="isa-card-grid">
-                            {msg.products.map(p => (
-                              <ProductCard
-                                key={p.id} prod={p}
-                                onView={prod => { onProductClick?.(prod); setOpen(false); }}
-                                onAdd={(prod, e) => handleAdd(prod, e)}
-                                isAdded={added.has(p.id)}
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-
-                    {/* Typing indicator */}
-                    {loading && (
-                      <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
-                        <div style={{
-                          width:28, height:28, borderRadius:"50%", flexShrink:0,
-                          display:"flex", alignItems:"center", justifyContent:"center", fontSize:12,
-                          background:"linear-gradient(135deg,#7c3aed,#4c1d95)",
-                          boxShadow:"0 2px 8px rgba(124,58,237,.3)",
-                        }}>✨</div>
-                        <div style={{
-                          padding:"10px 14px", borderRadius:16, borderBottomLeftRadius:4,
-                          background:"#fff", border:"1px solid #ede8fa", boxShadow:"0 2px 8px rgba(0,0,0,.06)",
-                        }}>
-                          <div style={{ display:"flex", gap:4, alignItems:"center" }}>
-                            {[0, 180, 360].map(d => (
-                              <span key={d} style={{
-                                width:6, height:6, background:"#8b5cf6", borderRadius:"50%",
-                                animation:`isaBounce 1.2s ${d}ms infinite`,
-                              }}/>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    <div ref={bottomRef}/>
-                  </div>
-
-                  {/* ── INPUT ── */}
-                  <div style={{
-                    padding:"10px 12px", borderTop:"1px solid #e0d8f8",
-                    display:"flex", gap:8, alignItems:"center",
-                    background:"#fff", boxShadow:"0 -2px 10px rgba(0,0,0,.04)",
-                    flexShrink:0,
-                  }}>
-                    <input
-                      ref={inputRef}
-                      className="isa-input"
-                      placeholder={ready ? "¿Qué estás buscando hoy?" : "Cargando..."}
-                      value={input}
-                      onChange={e => setInput(e.target.value)}
-                      onKeyDown={handleKey}
-                      disabled={loading || !ready}
-                    />
-                    <button
-                      className="isa-send-btn"
-                      onClick={() => send()}
-                      disabled={loading || !input.trim() || !ready}
-                    >➤</button>
-                  </div>
-                </>
-              )}
-            </div>
-
           </div>
-        </>
-      )}
+
+          {/* Barra de categorías */}
+          <div className="kb2-cats">
+            <button
+              className="kb2-cat kb2-active"
+              onClick={e => {
+                document.querySelectorAll(".kb2-cat").forEach(b => b.classList.remove("kb2-active"));
+                e.currentTarget.classList.add("kb2-active");
+                filterCat("_all");
+              }}
+            >
+              ✨ Todo
+            </button>
+            {categories.map(cat => (
+              <button
+                key={cat}
+                className="kb2-cat"
+                onClick={e => {
+                  document.querySelectorAll(".kb2-cat").forEach(b => b.classList.remove("kb2-active"));
+                  e.currentTarget.classList.add("kb2-active");
+                  filterCat(cat);
+                }}
+              >
+                {catEmoji(cat)} {cat.charAt(0).toUpperCase() + cat.slice(1).toLowerCase()}
+              </button>
+            ))}
+          </div>
+
+          {/* Área de mensajes */}
+          <div className="kb2-msgs" ref={msgsRef}>
+            {loading && (
+              <div className="kb2-bot">
+                <div className="kb2-loading-cat">
+                  <div className="kb2-spin" />
+                  Cargando todo el catálogo de Kosmica...
+                </div>
+              </div>
+            )}
+
+            {msgs.map(m => (
+              <div key={m.id} className={m.role === "user" ? "kb2-user" : "kb2-bot"}>
+                <div
+                  className={`kb2-bub ${m.role === "user" ? "kb2-bub-user" : "kb2-bub-bot"}`}
+                  dangerouslySetInnerHTML={{
+                    __html: m.role === "user" ? m.text : m.html,
+                  }}
+                />
+                {m.prods && m.prods.length > 0 && (
+                  <div className="kb2-pgrid">
+                    {m.prods.slice(0, 4).map(p => (
+                      <ProdCard key={p.id} p={p} onAdd={handleAddToCart} />
+                    ))}
+                  </div>
+                )}
+                <div className="kb2-time">{m.time}</div>
+              </div>
+            ))}
+
+            {typing && (
+              <div className="kb2-bot">
+                <div className="kb2-typing">
+                  <div className="kb2-tdot" />
+                  <div className="kb2-tdot" />
+                  <div className="kb2-tdot" />
+                </div>
+              </div>
+            )}
+
+            {chips.length > 0 && (
+              <div className="kb2-bot">
+                <div className="kb2-chips">
+                  {chips.map(c => (
+                    <button key={c} className="kb2-chip" onClick={() => send(c)}>{c}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Barra carrito */}
+          {cart.length > 0 && (
+            <div className="kb2-cart-bar">
+              <span>🛒 {cartQty} producto{cartQty > 1 ? "s" : ""} · <strong>{fmtCOP(cartTotal)}</strong></span>
+              <button className="kb2-cart-btn" onClick={() => send("confirmar pedido")}>
+                Confirmar pedido ✅
+              </button>
+            </div>
+          )}
+
+          {/* Input */}
+          <div className="kb2-footer">
+            <input
+              className="kb2-input"
+              type="text"
+              placeholder={waitName ? "Escribe tu nombre aquí..." : "¿Qué estás buscando hoy?"}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && send()}
+            />
+            <button className="kb2-send" onClick={() => send()} aria-label="Enviar">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+              </svg>
+            </button>
+          </div>
+
+        </div>
+      </div>
     </>
   );
 }

@@ -1673,10 +1673,7 @@ export default function App() {
       )}
 
       {/* ── ASISTENTE IA LUNA ── */}
-      <AIChatBot
-        products={products}
-        onProductClick={(product) => setSelectedProduct(product)}
-      />
+      <AIChatBot />
 
       {/* ── WHATSAPP ── */}
       <a className="wa-float" href="https://wa.me/573043927148?text=Hola%20Kosmica%2C%20quiero%20información"
