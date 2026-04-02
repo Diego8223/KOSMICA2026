@@ -2,14 +2,14 @@
 //  src/App.jsx — Kosmica v5  MOBILE-FIRST  Amazon-Style UX
 // ============================================================
 import { useState, useEffect, useCallback, useRef } from "react";
-import { productAPI, orderAPI } from "./services/api";
+import { productAPI, orderAPI, imgUrl } from "./services/api";
 import ProductDetailModal from "./components/ProductDetailModal";
 import AdminPanel from "./components/AdminPanel";
 import OrderTracking from "./components/OrderTracking";
 import AIChatBot from "./components/AIChatBot";
 
 const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+  /* ✅ FUENTE: cargada en index.html con display=swap — no bloquea render */
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -191,17 +191,18 @@ const CSS = `
      PROMO STRIP
   ════════════════════════════════════════ */
   .promo-strip {
+    position: fixed; top: 58px; left: 0; right: 0; z-index: 890;
     background: linear-gradient(90deg,var(--lila),var(--pink),var(--mint),var(--lila));
     background-size: 300%; animation: moveGrad 6s linear infinite;
-    padding: 9px 0; text-align: center;
-    color: #fff; font-size: .88rem; font-weight: 700; letter-spacing: .04em;
+    padding: 8px 0; text-align: center;
+    color: #fff; font-size: .84rem; font-weight: 700; letter-spacing: .04em;
   }
 
   /* ════════════════════════════════════════
      HERO MÓVIL
   ════════════════════════════════════════ */
   .hero {
-    padding: 78px 16px 28px;
+    padding: 152px 16px 28px;
     background: linear-gradient(160deg,#EDE4FF 0%,#F5EEFF 45%,#FDE8F5 75%,#FFE8F0 100%);
     position: relative; overflow: hidden;
   }
@@ -258,7 +259,7 @@ const CSS = `
      CATEGORÍAS — barra horizontal bajo promo
   ════════════════════════════════════════ */
   .cats-bar {
-    position: sticky; top: 58px; z-index: 880;
+    position: sticky; top: 92px; z-index: 880;
     display: flex; gap: 8px; overflow-x: auto; padding: 10px 14px;
     background: rgba(253,248,255,.97); border-bottom: 1px solid var(--lila-xlight);
     scrollbar-width: none; -webkit-overflow-scrolling: touch;
@@ -274,12 +275,16 @@ const CSS = `
   /* ════════════════════════════════════════
      ANIMACIONES
   ════════════════════════════════════════ */
-  @keyframes moveGrad { 0%{background-position:0%} 100%{background-position:300%} }
-  @keyframes shimmer  { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+  @keyframes moveGrad   { 0%{background-position:0%} 100%{background-position:300%} }
+  @keyframes shimmer    { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
   @keyframes slideRight { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
   @keyframes slideLeft  { from{transform:translateX(-100%);opacity:0} to{transform:translateX(0);opacity:1} }
   @keyframes slideUp    { from{transform:translateY(100%);opacity:0} to{transform:translateY(0);opacity:1} }
   @keyframes fadeIn     { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes cartPulse  { 0%{transform:scale(1)} 30%{transform:scale(1.22)} 60%{transform:scale(.92)} 100%{transform:scale(1)} }
+  @keyframes badgePop   { 0%{transform:scale(0)} 60%{transform:scale(1.3)} 100%{transform:scale(1)} }
+  .cart-btn.pulse { animation: cartPulse .42s cubic-bezier(.36,.07,.19,.97); }
+  .cart-badge { animation: badgePop .3s cubic-bezier(.36,.07,.19,.97); }
 
   /* ════════════════════════════════════════
      PRODUCTOS — Amazon style móvil
@@ -306,13 +311,36 @@ const CSS = `
   }
   .product-card:hover { transform: translateY(-4px); box-shadow: 0 14px 40px rgba(155,114,207,.2); border-color: var(--lila-xlight); }
 
-  /* Imagen grande estilo Shein — portrait */
+  /* Imagen grande estilo Shein/Amazon */
   .card-img-wrap {
     position: relative; overflow: hidden;
-    aspect-ratio: 3/4; background: #F8F4FF; cursor: pointer;
+    height: 240px; background: #F8F4FF; cursor: pointer;
   }
-  .card-img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s cubic-bezier(.25,.46,.45,.94); }
-  .product-card:hover .card-img { transform: scale(1.08); }
+  .card-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    background: #F8F4FF;
+    transition: transform .6s cubic-bezier(.25,.46,.45,.94), opacity .4s ease;
+    padding: 8px;
+    box-sizing: border-box;
+    opacity: 0;
+  }
+  .card-img.loaded { opacity: 1; }
+  .product-card:hover .card-img { transform: scale(1.06); }
+
+  /* Skeleton shimmer */
+  .img-skeleton {
+    position: absolute; inset: 0; z-index: 1;
+    background: linear-gradient(90deg, #EDE8F7 25%, #F5F0FF 50%, #EDE8F7 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+  }
+  @keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
 
   .card-see-more {
     position: absolute; bottom: 0; left: 0; right: 0;
@@ -371,6 +399,31 @@ const CSS = `
   }
   .card-add:active { transform: scale(.97); }
   .card-add:hover { filter: brightness(1.08); }
+
+  .card-stock {
+    display: flex; align-items: center; gap: 6px;
+    font-size: .74rem; font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .card-stock-bar {
+    flex: 1; height: 3px; border-radius: 4px;
+    background: #EDE8F5; overflow: hidden;
+  }
+  .card-stock-fill {
+    height: 100%; border-radius: 4px;
+    transition: width .4s ease;
+  }
+  .card-stock.high  .card-stock-fill  { background: var(--lila); }
+  .card-stock.mid   .card-stock-fill  { background: #F4A261; }
+  .card-stock.low   .card-stock-fill  { background: #E74C3C; }
+  .card-stock.high  .card-stock-label { color: var(--brown); }
+  .card-stock.mid   .card-stock-label { color: #E07A2A; }
+  .card-stock.low   .card-stock-label { color: #E74C3C; }
+  .card-add-disabled {
+    width: 100%; padding: 10px; border-radius: 10px;
+    border: none; font-size: .88rem; font-weight: 600;
+    background: #EDE8F5; color: #B8A0D8; cursor: not-allowed;
+  }
 
   /* Skeleton */
   .skeleton {
@@ -472,29 +525,50 @@ const CSS = `
   /* ════════════════════════════════════════
      CARRITO
   ════════════════════════════════════════ */
+  .cart-overlay {
+    position: fixed; inset: 0; background: rgba(45,27,78,.45);
+    z-index: 998; backdrop-filter: blur(2px);
+    animation: fadeIn .22s ease;
+  }
   .cart-panel {
-    position: fixed; inset: 0; background: var(--cream);
+    position: fixed; top: 0; right: 0; bottom: 0;
+    width: 100%; max-width: 420px;
+    background: var(--cream);
     z-index: 999; display: flex; flex-direction: column;
-    animation: slideRight .34s ease;
+    box-shadow: -8px 0 48px rgba(120,80,180,.22);
+    animation: slideRight .32s cubic-bezier(.22,1,.36,1);
   }
   .cart-header {
-    padding: 18px 16px 14px; border-bottom: 1px solid var(--lila-xlight);
+    padding: 20px 18px 16px; border-bottom: 1px solid var(--lila-xlight);
     display: flex; justify-content: space-between; align-items: center;
+    background: linear-gradient(135deg,#f8f4ff,var(--cream));
+    flex-shrink: 0;
   }
   .cart-title { font-family: 'Playfair Display', serif; font-size: 1.35rem; font-weight: 700; color: var(--dark); }
-  .close-btn { background: none; border: none; font-size: 1.25rem; color: var(--muted); padding: 4px; }
-  .close-btn:hover { color: var(--lila); }
+  .cart-count-badge {
+    background: linear-gradient(135deg,var(--lila),var(--lila-dark));
+    color: #fff; font-size: .72rem; font-weight: 800;
+    border-radius: 20px; padding: 2px 9px; margin-left: 8px;
+  }
+  .close-btn { background: rgba(155,114,207,.1); border: none; font-size: 1.1rem; color: var(--lila-dark); padding: 8px; border-radius: 50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center; transition: all .2s; }
+  .close-btn:hover { background: var(--lila-xlight); color: var(--lila); transform: scale(1.08); }
   .cart-items { flex: 1; overflow-y: auto; padding: 14px 16px; }
+  .cart-items::-webkit-scrollbar { width: 4px; }
+  .cart-items::-webkit-scrollbar-thumb { background: var(--lila-light); border-radius: 4px; }
   .cart-empty { text-align: center; padding: 52px 20px; color: var(--muted); }
   .cart-item {
     display: flex; gap: 12px; margin-bottom: 12px;
-    background: #fff; border-radius: 14px; padding: 12px;
-    box-shadow: 0 2px 10px rgba(120,80,180,.07);
+    background: #fff; border-radius: 16px; padding: 12px;
+    box-shadow: 0 2px 12px rgba(120,80,180,.09);
+    border: 1px solid rgba(155,114,207,.08);
+    transition: box-shadow .2s;
   }
-  .cart-item-img { width: 68px; height: 68px; border-radius: 10px; object-fit: cover; flex-shrink: 0; }
-  .cart-item-info { flex: 1; min-width: 0; }
-  .cart-item-name { font-size: .9rem; font-weight: 600; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .cart-item-price { color: var(--lila); font-weight: 700; font-size: .95rem; margin-bottom: 8px; }
+  .cart-item:hover { box-shadow: 0 4px 18px rgba(120,80,180,.16); }
+  .cart-item-img { width: 74px; height: 74px; border-radius: 12px; object-fit: cover; flex-shrink: 0; border: 2px solid var(--lila-xlight); }
+  .cart-item-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; }
+  .cart-item-name { font-size: .9rem; font-weight: 700; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--dark); }
+  .cart-item-cat { font-size: .72rem; color: var(--muted); margin-bottom: 4px; }
+  .cart-item-price { color: var(--lila); font-weight: 800; font-size: 1rem; margin-bottom: 8px; }
   .qty-controls { display: flex; align-items: center; gap: 6px; }
   .qty-btn {
     width: 30px; height: 30px; border-radius: 8px;
@@ -503,17 +577,28 @@ const CSS = `
     display: flex; align-items: center; justify-content: center; transition: all .2s;
   }
   .qty-btn:hover { border-color: var(--lila); background: var(--lila-xlight); }
-  .qty-val { font-weight: 600; min-width: 20px; text-align: center; font-size: .95rem; }
-  .cart-remove { background: none; border: none; margin-left: auto; color: var(--pink); font-size: 1rem; }
-  .cart-footer { padding: 14px 16px 24px; border-top: 1px solid var(--lila-xlight); }
-  .cart-row { display: flex; justify-content: space-between; font-size: .92rem; color: var(--brown); margin-bottom: 5px; }
-  .cart-total-row { display: flex; justify-content: space-between; font-weight: 700; font-size: 1.05rem; margin: 10px 0 14px; }
+  .qty-val { font-weight: 700; min-width: 22px; text-align: center; font-size: .95rem; color: var(--dark); }
+  .cart-remove { background: none; border: none; margin-left: auto; color: #F4A7C3; font-size: 1.1rem; padding: 4px; transition: transform .2s; }
+  .cart-remove:hover { transform: scale(1.2); color: #e05a7a; }
+  .cart-footer {
+    padding: 16px 18px 28px; border-top: 2px solid var(--lila-xlight);
+    background: linear-gradient(180deg,var(--cream),#f4eeff);
+    flex-shrink: 0;
+  }
+  .cart-row { display: flex; justify-content: space-between; font-size: .92rem; color: var(--brown); margin-bottom: 6px; }
+  .cart-total-row {
+    display: flex; justify-content: space-between; font-weight: 800; font-size: 1.1rem;
+    margin: 12px 0 16px; padding: 12px 0 0; border-top: 1px solid var(--lila-xlight);
+    color: var(--dark);
+  }
   .checkout-btn {
-    width: 100%; padding: 15px;
+    width: 100%; padding: 16px;
     background: linear-gradient(135deg,var(--lila),var(--lila-dark));
     color: #fff; border: none; border-radius: 14px;
-    font-weight: 700; font-size: 1rem; box-shadow: var(--shadow); transition: all .3s;
+    font-weight: 800; font-size: 1rem; box-shadow: var(--shadow); transition: all .3s;
+    letter-spacing: .02em;
   }
+  .checkout-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 32px rgba(155,114,207,.45); }
 
   /* ════════════════════════════════════════
      CHECKOUT MODAL
@@ -605,40 +690,55 @@ const CSS = `
      WHATSAPP FLOTANTE
   ════════════════════════════════════════ */
   .wa-float {
-    position: fixed; bottom: 22px; right: 16px; z-index: 800;
-    width: 56px; height: 56px; border-radius: 50%;
-    background: linear-gradient(135deg,#25D366,#128C7E);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.7rem; box-shadow: 0 6px 22px rgba(37,211,102,.5);
-    border: none; cursor: pointer; transition: transform .25s; text-decoration: none;
+    position: fixed; bottom: 22px; left: 16px; z-index: 800;
+    display: flex; align-items: center; gap: 10px;
+    background: linear-gradient(135deg, #9B72CF, #6B3FA0);
+    color: #fff; text-decoration: none;
+    padding: 11px 18px 11px 13px;
+    border-radius: 50px;
+    box-shadow: 0 6px 24px rgba(107,63,160,.45);
+    font-weight: 700; font-size: .9rem;
+    transition: transform .25s, box-shadow .25s;
+    border: none; cursor: pointer;
   }
-  .wa-float:hover, .wa-float:active { transform: scale(1.1); }
+  .wa-float:hover, .wa-float:active { transform: scale(1.05); box-shadow: 0 10px 32px rgba(107,63,160,.6); }
+  .wa-float-icon {
+    width: 34px; height: 34px;
+    background: rgba(255,255,255,.2);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.15rem; flex-shrink: 0;
+  }
+  .wa-float-text { display: flex; flex-direction: column; line-height: 1.2; }
+  .wa-float-label { font-size: .7rem; opacity: .8; font-weight: 400; }
+  .wa-float-cta { font-size: .88rem; font-weight: 700; }
 
   /* ════════════════════════════════════════
      TABLET  ≥ 580px
   ════════════════════════════════════════ */
   @media (min-width: 580px) {
     .nav-inner { height: 64px; }
+    .promo-strip { top: 64px; }
     .logo { font-size: 1.5rem; }
     .nav-search-wrap { max-width: 260px; }
     .cart-btn { width: 46px; height: 46px; font-size: 1.15rem; }
     .hbg-btn { width: 46px; height: 46px; font-size: 1.3rem; }
-    .cats-bar { top: 64px; }
-    .hero { padding: 100px 22px 44px; }
+    .cats-bar { top: 98px; }
+    .hero { padding: 166px 22px 44px; }
     .hero-title { font-size: 2.9rem; }
     .hero-btns { flex-direction: row; }
     .btn-primary, .btn-outline { width: auto; }
     .stat-n { font-size: 1.7rem; }
     .product-grid { gap: 14px; }
-    /* card-img-wrap usa aspect-ratio, no necesita height fija */
+    .card-img-wrap { height: 220px; }
     .card-name { font-size: 1rem; }
     .test-grid { grid-template-columns: repeat(2,1fr); }
-    .cart-panel { max-width: 390px; right: 0; left: auto; }
+    .cart-panel { max-width: 400px; }
     .modal-wrap { align-items: center; justify-content: center; padding: 22px; }
     .modal { border-radius: 24px; max-width: 500px; max-height: 90vh; }
     @keyframes slideUp { from{transform:scale(.9) translateY(20px);opacity:0} to{transform:scale(1) translateY(0);opacity:1} }
     .toast { left: 20px; right: auto; max-width: 320px; text-align: left; }
-    .wa-float { width: 60px; height: 60px; font-size: 1.85rem; bottom: 28px; right: 24px; }
+    .wa-float { bottom: 28px; left: 24px; padding: 12px 20px 12px 14px; }
   }
 
   /* ════════════════════════════════════════
@@ -658,9 +758,10 @@ const CSS = `
     }
     .nav-links a:hover, .nav-links a.active { color: var(--lila); border-bottom: 2px solid var(--lila-light); }
     .nav-search-wrap { max-width: 220px; }
+    .promo-strip { top: 70px; }
     .cats-bar { display: none; }
 
-    .hero { padding: 100px 5% 70px; }
+    .hero { padding: 140px 5% 70px; }
     .hero-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 55px; align-items: center; }
     .hero-mosaic { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
     .mosaic-img {
@@ -669,6 +770,7 @@ const CSS = `
     }
     .mosaic-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s; }
     .mosaic-img:hover img { transform: scale(1.05); }
+    .mosaic-img.wide { grid-column: 2 / 4; }
     .hero-title { font-size: 3.6rem; }
     .hero-btns { flex-direction: row; }
     .stat-n { font-size: 1.9rem; }
@@ -687,7 +789,7 @@ const CSS = `
     .cat-pill.active { border-color: transparent; color: #fff; box-shadow: 0 6px 20px rgba(155,114,207,.38); }
     .section-title { font-size: 2.3rem; margin-bottom: 30px; }
     .product-grid { grid-template-columns: repeat(3,1fr); gap: 20px; }
-    /* card-img-wrap usa aspect-ratio, no necesita height fija */
+    .card-img-wrap { height: 220px; }
     .card-body { padding: 14px 16px 16px; }
     .card-name { font-size: 1.02rem; }
     .card-price { font-size: 1.2rem; }
@@ -702,31 +804,72 @@ const CSS = `
     .footer-brand { grid-column: auto; }
     .footer-bottom { flex-direction: row; text-align: left; }
     .social-icons { justify-content: flex-start; }
-    .cart-panel { max-width: 420px; }
+    .cart-panel { max-width: 440px; }
   }
 
   @media (min-width: 1100px) {
     .hero-title { font-size: 4.2rem; }
     .product-grid { grid-template-columns: repeat(4,1fr); gap: 22px; }
-    /* card-img-wrap usa aspect-ratio, no necesita height fija */
+    .card-img-wrap { height: 220px; }
     .test-grid { grid-template-columns: repeat(4,1fr); }
     .footer-grid { grid-template-columns: 2fr 1fr 1fr 1fr; gap: 50px; }
   }
 
   @media (max-height: 500px) and (orientation: landscape) {
-    .hero { padding: 68px 5% 28px; }
+    .hero { padding: 130px 5% 28px; }
     .hero-title { font-size: 1.9rem; }
     .cats-bar { position: relative; top: auto; }
     .modal { max-height: 98vh; }
   }
+
+
+  /* ════════════════════════════════════════
+     WAKE-UP SCREEN — backend durmiendo
+  ════════════════════════════════════════ */
+  .wake-screen{
+    position:fixed;inset:0;z-index:9999;
+    background:linear-gradient(160deg,#EDE4FF 0%,#F5EEFF 45%,#FDE8F5 100%);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:20px;padding:24px;
+  }
+  .wake-logo{
+    font-family:'Playfair Display',serif;font-size:2.8rem;font-weight:900;
+    background:linear-gradient(135deg,var(--lila),var(--pink));
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+    margin-bottom:4px;
+  }
+  .wake-spinner{
+    width:52px;height:52px;border-radius:50%;
+    border:4px solid var(--lila-xlight);
+    border-top-color:var(--lila);
+    animation:spin 0.9s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .wake-msg{
+    font-size:1.05rem;font-weight:600;color:var(--brown);
+    text-align:center;max-width:280px;line-height:1.6;
+  }
+  .wake-sub{
+    font-size:.88rem;color:var(--muted);text-align:center;
+    max-width:260px;line-height:1.55;
+  }
+  .wake-dots span{
+    display:inline-block;width:8px;height:8px;border-radius:50%;
+    background:var(--lila);margin:0 3px;
+    animation:dotBounce 1.2s infinite ease-in-out;
+  }
+  .wake-dots span:nth-child(2){animation-delay:.2s}
+  .wake-dots span:nth-child(3){animation-delay:.4s}
+  @keyframes dotBounce{0%,80%,100%{transform:scale(0.7);opacity:.5}40%{transform:scale(1.1);opacity:1}}
 `;
 
 const CATEGORIES = [
-  { key:"BOLSOS",     label:"👜 Bolsos",     ico:"👜", color:"linear-gradient(135deg,#9B72CF,#7B5EA7)" },
-  { key:"BILLETERAS", label:"💳 Billeteras", ico:"💳", color:"linear-gradient(135deg,#B8A0D8,#9B72CF)" },
-  { key:"MAQUILLAJE", label:"💄 Maquillaje", ico:"💄", color:"linear-gradient(135deg,#F4A7C3,#D4719B)" },
-  { key:"CAPILAR",    label:"✨ Capilar",     ico:"✨", color:"linear-gradient(135deg,#A8D4F0,#72B7D4)" },
-  { key:"ROPA",       label:"👗 Ropa",        ico:"👗", color:"linear-gradient(135deg,#A8DEC4,#72BEA0)" },
+  { key:"BOLSOS",           label:"👜 Bolsos y Morrales",  ico:"👜", color:"linear-gradient(135deg,#9B72CF,#7B5EA7)" },
+  { key:"BILLETERAS",       label:"💳 Billeteras",         ico:"💳", color:"linear-gradient(135deg,#B8A0D8,#9B72CF)" },
+  { key:"MAQUILLAJE",       label:"💄 Maquillaje",         ico:"💄", color:"linear-gradient(135deg,#F4A7C3,#D4719B)" },
+  { key:"CAPILAR",          label:"✨ Capilar",             ico:"✨", color:"linear-gradient(135deg,#A8D4F0,#72B7D4)" },
+  { key:"CUIDADO_PERSONAL", label:"🧴 Cuidado Personal",  ico:"🧴", color:"linear-gradient(135deg,#FFD6A5,#F4A261)" },
+  { key:"ACCESORIOS",       label:"💍 Accesorios",         ico:"💍", color:"linear-gradient(135deg,#FFC8DD,#E07A9A)" },
 ];
 const TESTIMONIALS = [
   { name:"Valentina R.", text:"¡Me llegó todo perfecto! La calidad es increíble, ya hice mi 3ra compra 💕", stars:5 },
@@ -742,6 +885,7 @@ export default function App() {
   const [products,setProducts]               = useState([]);
   const [loading,setLoading]                 = useState(true);
   const [error,setError]                     = useState(null);
+  const [cartPulse, setCartPulse] = useState(false);
   const [cart,setCart]                       = useState([]);
   const [wishlist,setWishlist]               = useState([]);
   const [cartOpen,setCartOpen]               = useState(false);
@@ -753,15 +897,28 @@ export default function App() {
   const [paying,setPaying]                   = useState(false);
   const [selectedProduct,setSelectedProduct] = useState(null);
   const [drawerOpen,setDrawerOpen]           = useState(false);
-  const [form,setForm] = useState({name:"",email:"",address:""});
+  const [form,setForm] = useState({name:"",email:"",phone:"",document:"",city:"",neighborhood:"",address:"",notes:""});
   const ref = useRef(null);
 
+  // ✅ Productos placeholder — se muestran INSTANTÁNEO mientras el servidor despierta
+  const PLACEHOLDER_PRODUCTS = Array(6).fill(null).map((_,i) => ({
+    id: `ph-${i}`, name: '', price: 0, imageUrl: null,
+    badge: null, rating: 0, reviewCount: 0, __placeholder: true,
+  }));
+
   const fetchProducts = useCallback(async () => {
-    setLoading(true); setError(null);
+    setError(null);
+    // Mostrar placeholders inmediatamente para que la UI no quede vacía
+    setProducts(PLACEHOLDER_PRODUCTS);
+    setLoading(true);
     try {
       const d = await productAPI.getByCategory(activeCategory);
-      setProducts(Array.isArray(d) ? d : (d.content||[]));
-    } catch(e){ setError(e.message); }
+      const list = Array.isArray(d) ? d : (d.content||[]);
+      setProducts(list);
+    } catch(e){
+      setProducts([]);
+      setError(e.message);
+    }
     finally{ setLoading(false); }
   },[activeCategory]);
 
@@ -789,6 +946,7 @@ export default function App() {
       if(ex) return prev.map(i=>i.id===p.id?{...i,qty:i.qty+qty}:i);
       return [...prev,{...p,qty}];
     });
+    setCartPulse(true); setTimeout(()=>setCartPulse(false), 500);
     showToast(`✨ ${p.name} agregado`);
   };
   const removeFromCart=id=>setCart(prev=>prev.filter(i=>i.id!==id));
@@ -797,8 +955,48 @@ export default function App() {
 
   const cartTotal=cart.reduce((s,i)=>s+Number(i.price)*i.qty,0);
   const cartCount=cart.reduce((s,i)=>s+i.qty,0);
-  const shipping=cartTotal>=80?0:cartTotal*.08;
-  const grandTotal=cartTotal+shipping;
+  const [carriers, setCarriers]             = useState([]);
+  const [carriersLoading, setCarriersLoading] = useState(false);
+  const [carriersError, setCarriersError]   = useState(null);
+  const [selectedCarrier, setSelectedCarrier] = useState(null);
+  const [carrierModalOpen, setCarrierModalOpen] = useState(false); // desactivado - envío por asesor
+  const shipping   = 0; // El envío lo coordina un asesor con el cliente
+  const grandTotal = cartTotal;
+
+  // Llama al backend que consulta la API real de Envia
+  const fetchRates = async () => {
+    setCarriersLoading(true);
+    setCarriersError(null);
+    setSelectedCarrier(null);
+    setCarriers([]);
+    try {
+      const backendUrl = process.env.REACT_APP_API_URL || 'https://kosmica-backend.onrender.com';
+      const resp = await fetch(`${backendUrl}/api/shipping/rates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name:         form.name  || 'Cliente',
+          phone:        form.phone || '3000000000',
+          city:         form.city,
+          neighborhood: form.neighborhood,
+          address:      form.address,
+        }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || data.error) {
+        const errMsg = typeof data.error === 'string'
+          ? data.error
+          : data.error?.message || data.message || `Error ${resp.status} al cotizar`;
+        throw new Error(errMsg);
+      }
+      const sorted = (data.carriers || []).sort((a, b) => a.price - b.price);
+      setCarriers(sorted);
+    } catch (e) {
+      setCarriersError(e.message);
+    } finally {
+      setCarriersLoading(false);
+    }
+  };
 
   const handleCheckout=async e=>{
     e.preventDefault(); setPaying(true);
@@ -810,7 +1008,7 @@ export default function App() {
       }));
       const result=await orderAPI.createPaymentIntent(grandTotal,"COP",mpItems);
       await orderAPI.createOrder({
-        name:form.name, email:form.email, address:form.address,
+        name:form.name, email:form.email, phone:form.phone, document:form.document, city:form.city, neighborhood:form.neighborhood, address:form.address, notes:form.notes,
         paymentMethod:"MERCADOPAGO",
         paymentIntentId:result.preferenceId,
         items:cart.map(i=>({productId:i.id,quantity:i.qty})),
@@ -884,9 +1082,10 @@ export default function App() {
         <div className="drawer-foot">
           <div className="drawer-foot-txt">Síguenos en redes</div>
           <div className="drawer-contact">
-            {["📘","📷","🎵","▶️"].map((s,i)=>(
-              <a key={i} href="#" onClick={e=>e.preventDefault()} className="drawer-social">{s}</a>
-            ))}
+            <a href="https://facebook.com" target="_blank" rel="noreferrer" className="drawer-social">📘</a>
+              <a href="https://instagram.com" target="_blank" rel="noreferrer" className="drawer-social">📷</a>
+              <a href="https://tiktok.com" target="_blank" rel="noreferrer" className="drawer-social">🎵</a>
+              <a href="https://youtube.com" target="_blank" rel="noreferrer" className="drawer-social">▶️</a>
           </div>
         </div>
       </nav>
@@ -916,12 +1115,15 @@ export default function App() {
               <span className="nav-search-ico">🔍</span>
               <input placeholder="Buscar productos..." value={search} onChange={e=>setSearch(e.target.value)}/>
             </div>
-            <button className="cart-btn" onClick={()=>setCartOpen(true)}>
+            <button className={`cart-btn${cartPulse?" pulse":""}`} onClick={()=>setCartOpen(true)}>
               🛍️{cartCount>0&&<span className="cart-badge">{cartCount}</span>}
             </button>
           </div>
         </div>
       </nav>
+
+      {/* ── PROMO STRIP ── */}
+      <div className="promo-strip">💳 Paga con Nequi, PSE y tarjeta &nbsp;|&nbsp; 🔒 Pago 100% seguro &nbsp;|&nbsp; 📦 Un asesor coordina tu envío ✦</div>
 
       {/* ── CATEGORÍAS BARRA HORIZONTAL ── */}
       <div className="cats-bar">
@@ -934,9 +1136,6 @@ export default function App() {
           </button>
         ))}
       </div>
-
-      {/* ── PROMO STRIP ── */}
-      <div className="promo-strip">✦ Envío GRATIS en compras +$80 &nbsp;|&nbsp; 🎀 Hasta 40% OFF &nbsp;|&nbsp; 💳 Paga con Nequi, PSE, tarjeta ✦</div>
 
       {/* ── HERO ── */}
       <section className="hero">
@@ -957,13 +1156,16 @@ export default function App() {
           </div>
           <div className="hero-mosaic">
             {[
-              {src:"https://images.unsplash.com/photo-1483985988355-763728e1935b?w=340&q=80",h:220},
+              {src:"https://images.unsplash.com/photo-1483985988355-763728e1935b?w=340&q=80",h:220,eager:true},
               {src:"https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=340&q=80",h:180,mt:30},
-              {src:"https://images.unsplash.com/photo-1599744331096-44b7a09e1059?w=340&q=80",h:180,mt:30},
+              {src:"https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=340&q=80",h:180,mt:30},
               {src:"https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=340&q=80",h:220},
             ].map((img,i)=>(
               <div key={i} className="mosaic-img" style={{height:img.h,marginTop:img.mt||0}}>
-                <img src={img.src} alt="" style={{height:"100%"}}/>
+                <img src={img.src} alt="" style={{height:"100%",width:"100%",objectFit:"cover"}}
+                  loading={img.eager ? "eager" : "lazy"}
+                  fetchPriority={img.eager ? "high" : "auto"}
+                />
               </div>
             ))}
           </div>
@@ -992,30 +1194,38 @@ export default function App() {
             </div>
           )}
           <div className="product-grid">
-            {loading
-              ? Array(6).fill(0).map((_,i)=>(
-                  <div key={i} className="product-card">
-                    <div className="skeleton" style={{height:180}}/>
-                    <div style={{padding:"10px 12px 14px"}}>
-                      <div className="skeleton" style={{height:12,width:"55%",marginBottom:8}}/>
-                      <div className="skeleton" style={{height:18,marginBottom:10}}/>
-                      <div className="skeleton" style={{height:36}}/>
-                    </div>
-                  </div>
-                ))
-              : products.length===0
+            {products.length===0 && !loading
               ? <div style={{gridColumn:"1/-1",textAlign:"center",padding:"48px 18px",color:"var(--muted)"}}>
                   <div style={{fontSize:"3rem",marginBottom:12}}>🔍</div>
                   <p style={{fontSize:"1rem",fontWeight:600}}>No se encontraron productos</p>
                 </div>
-              : products.map(p=>{
+              : products.map((p,idx)=>{
+                  // ✅ Placeholder skeleton mientras el servidor responde
+                  if(p.__placeholder) return (
+                    <div key={p.id} className="product-card" style={{animationDelay:`${idx*0.08}s`}}>
+                      <div className="skeleton" style={{height:240}}/>
+                      <div style={{padding:"10px 12px 14px"}}>
+                        <div className="skeleton" style={{height:11,width:"50%",marginBottom:8}}/>
+                        <div className="skeleton" style={{height:17,marginBottom:7}}/>
+                        <div className="skeleton" style={{height:16,width:"40%",marginBottom:10}}/>
+                        <div className="skeleton" style={{height:38}}/>
+                      </div>
+                    </div>
+                  );
                   const pct=discountPct(p);
                   return (
                     <div key={p.id} className="product-card">
                       <div className="card-img-wrap" onClick={()=>setSelectedProduct(p)}>
+                        <div className="img-skeleton" />
                         <img className="card-img"
-                          src={p.imageUrl||"https://images.unsplash.com/photo-1483985988355-763728e1935b?w=400&q=80"}
-                          alt={p.name} loading="lazy"/>
+                          src={imgUrl(p.imageUrl)||"https://images.unsplash.com/photo-1483985988355-763728e1935b?w=400&q=80"}
+                          alt={p.name}
+                          loading="lazy"
+                          width="400"
+                          height="240"
+                          decoding="async"
+                          onLoad={e=>{e.target.classList.add("loaded");const sk=e.target.previousSibling;if(sk)sk.style.display="none";}}
+                        />
                         <div className="card-see-more">{p.videoUrl?"🎥 Ver fotos y video →":"🔍 Ver más →"}</div>
                         {p.badge&&<span className={`card-badge ${p.badge}`}>{p.badge}</span>}
                         <button className="card-wish" onClick={e=>{e.stopPropagation();toggleWishlist(p.id);}}>
@@ -1033,7 +1243,32 @@ export default function App() {
                           {p.originalPrice&&<span className="card-original">{fmtCOP(p.originalPrice)}</span>}
                           {pct>0&&<span className="card-discount">-{pct}%</span>}
                         </div>
-                        <button className="card-add" onClick={()=>addToCart(p)}>🛒 Agregar al carrito</button>
+                        {/* ── STOCK ── */}
+                        {(p.stock != null) && (() => {
+                          const s = p.stock;
+                          const level = s === 0 ? 'low' : s <= 5 ? 'low' : s <= 15 ? 'mid' : 'high';
+                          const pctBar = s === 0 ? 100 : Math.min(100, Math.round((s / 30) * 100));
+                          const label = s === 0 ? 'Agotado' : s === 1 ? '¡Último disponible!' : s <= 5 ? `¡Solo ${s} unidades!` : `${s} disponibles`;
+                          return (
+                            <div className={`card-stock ${level}`}>
+                              <div className="card-stock-bar">
+                                <div className="card-stock-fill" style={{width:`${pctBar}%`}}/>
+                              </div>
+                              <span className="card-stock-label">{label}</span>
+                            </div>
+                          );
+                        })()}
+                        {p.stock === 0
+                          ? <button className="card-add-disabled" disabled>😔 Agotado</button>
+                          : (() => {
+                              const inCart = cart.some(i=>i.id===p.id);
+                              return <button
+                                className="card-add"
+                                onClick={()=>addToCart(p)}
+                                style={inCart?{background:"linear-gradient(135deg,#27AE60,#1a8a4a)"}:{}}
+                              >{inCart?"✓ En el carrito":"🛒 Agregar al carrito"}</button>;
+                            })()
+                        }
                       </div>
                     </div>
                   );
@@ -1066,7 +1301,7 @@ export default function App() {
       {/* ── FEATURES ── */}
       <section className="features">
         <div className="feat-grid">
-          {[["🚚","Envío Express","24–48 hrs Colombia"],["🔒","Pago Seguro","SSL cifrado"],["↩️","30 Días","Devolución fácil"],["💎","Premium","Garantía autenticidad"]].map(([icon,t,d])=>(
+          {[["🚚","Envío Personalizado","Un asesor coordina tu envío"],["🔒","Pago Seguro","SSL cifrado"],["↩️","Calidad garantizada","Garantía de calidad"],["💎","Premium","Garantía autenticidad"]].map(([icon,t,d])=>(
             <div key={t} className="feat-card">
               <div className="feat-icon">{icon}</div>
               <div className="feat-title">{t}</div>
@@ -1084,21 +1319,35 @@ export default function App() {
               <div className="footer-logo">✦ Kosmica</div>
               <p className="footer-desc">Tu destino de moda femenina premium. Calidad, estilo y exclusividad.</p>
               <div className="social-icons" style={{marginTop:14}}>
-                {["📘","📷","🎵","▶️"].map((s,i)=><a key={i} href="#" onClick={e=>e.preventDefault()} className="social-icon">{s}</a>)}
+                {[["📘","https://facebook.com"],["📷","https://instagram.com"],["🎵","https://tiktok.com"],["▶️","https://youtube.com"]].map(([s,url],i)=><a key={i} href={url} target="_blank" rel="noreferrer" className="social-icon">{s}</a>)}
               </div>
             </div>
-            {[["Tienda",["Bolsos","Billeteras","Maquillaje","Capilar","Ropa"]],["Ayuda",["FAQ","Envíos","Devoluciones","Contacto"]]].map(([h,ls])=>(
-              <div key={h}>
-                <div className="footer-heading">{h}</div>
-                <div className="footer-links">{ls.map(l=><a key={l} href="#" onClick={e=>e.preventDefault()}>{l}</a>)}</div>
+            <div>
+              <div className="footer-heading">Tienda</div>
+              <div className="footer-links">
+                <a href="#p" onClick={e=>{e.preventDefault();selectCat("BOLSOS");scrollTo();}}>Bolsos y Morrales</a>
+                <a href="#p" onClick={e=>{e.preventDefault();selectCat("BILLETERAS");scrollTo();}}>Billeteras</a>
+                <a href="#p" onClick={e=>{e.preventDefault();selectCat("MAQUILLAJE");scrollTo();}}>Maquillaje</a>
+                <a href="#p" onClick={e=>{e.preventDefault();selectCat("CAPILAR");scrollTo();}}>Capilar</a>
+                <a href="#p" onClick={e=>{e.preventDefault();selectCat("CUIDADO_PERSONAL");scrollTo();}}>Cuidado Personal</a>
+                <a href="#p" onClick={e=>{e.preventDefault();selectCat("ACCESORIOS");scrollTo();}}>Accesorios</a>
               </div>
-            ))}
+            </div>
+            <div>
+              <div className="footer-heading">Ayuda</div>
+              <div className="footer-links">
+                <a href="https://wa.me/573043927148?text=Hola%20Kosmica%2C%20tengo%20una%20pregunta" target="_blank" rel="noreferrer">Contacto</a>
+                <a href="https://wa.me/573043927148?text=Hola%2C%20quiero%20saber%20sobre%20los%20env%C3%ADos" target="_blank" rel="noreferrer">Envíos</a>
+                <a href="https://wa.me/573043927148?text=Hola%2C%20quiero%20hacer%20una%20devoluci%C3%B3n" target="_blank" rel="noreferrer">Garantías</a>
+                <a href="https://wa.me/573043927148?text=Hola%2C%20tengo%20una%20pregunta%20frecuente" target="_blank" rel="noreferrer">FAQ</a>
+              </div>
+            </div>
             <div>
               <div className="footer-heading">Mi pedido</div>
               <div className="footer-links">
                 <a href="#" onClick={e=>{e.preventDefault();setTrackingMode(true);}}>📦 Rastrear pedido</a>
                 <a href="#" onClick={e=>e.preventDefault()}>Política de envíos</a>
-                <a href="#" onClick={e=>e.preventDefault()}>Política de devoluciones</a>
+                <a href="#" onClick={e=>e.preventDefault()}>Política de garantías</a>
               </div>
             </div>
           </div>
@@ -1127,30 +1376,45 @@ export default function App() {
       {/* ── CARRITO ── */}
       {cartOpen&&(
         <>
-          <div className="overlay" onClick={()=>setCartOpen(false)}/>
+          <div className="cart-overlay" onClick={()=>setCartOpen(false)}/>
           <div className="cart-panel">
             <div className="cart-header">
-              <h2 className="cart-title">🛍️ Mi Carrito</h2>
+              <div style={{display:"flex",alignItems:"center"}}>
+                <h2 className="cart-title">🛍️ Mi Carrito</h2>
+                {cartCount>0&&<span className="cart-count-badge">{cartCount} ítem{cartCount!==1?"s":""}</span>}
+              </div>
               <button className="close-btn" onClick={()=>setCartOpen(false)}>✕</button>
             </div>
             <div className="cart-items">
               {cart.length===0
                 ? <div className="cart-empty">
-                    <div style={{fontSize:"3rem",marginBottom:14}}>🛍️</div>
-                    <p style={{fontWeight:700,fontSize:"1.05rem",color:"var(--dark)"}}>Tu carrito está vacío</p>
-                    <p style={{marginTop:8,color:"var(--muted)",fontSize:".9rem"}}>¡Explora nuestros productos!</p>
+                    <div style={{fontSize:"3.5rem",marginBottom:14}}>🛍️</div>
+                    <p style={{fontWeight:700,fontSize:"1.05rem",color:"var(--dark)",marginBottom:8}}>Tu carrito está vacío</p>
+                    <p style={{color:"var(--muted)",fontSize:".9rem",marginBottom:22}}>¡Explora nuestros productos y encuentra algo que te encante!</p>
+                    <button onClick={()=>setCartOpen(false)} style={{
+                      background:"linear-gradient(135deg,var(--lila),var(--lila-dark))",
+                      color:"#fff",border:"none",borderRadius:12,padding:"11px 24px",
+                      fontWeight:700,fontSize:".95rem",cursor:"pointer",boxShadow:"var(--shadow)"
+                    }}>Ver productos ✦</button>
                   </div>
                 : cart.map(item=>(
                     <div key={item.id} className="cart-item">
-                      <img className="cart-item-img" src={item.imageUrl||"https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=200"} alt={item.name}/>
+                      <img className="cart-item-img"
+                        src={item.imageUrl||"https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=200"}
+                        alt={item.name}
+                        onError={e=>{e.target.src="https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=200";}}/>
                       <div className="cart-item-info">
-                        <div className="cart-item-name">{item.name}</div>
-                        <div className="cart-item-price">{fmtCOP(Number(item.price)*item.qty)}</div>
+                        <div>
+                          {item.category&&<div className="cart-item-cat">{item.category}</div>}
+                          <div className="cart-item-name">{item.name}</div>
+                          <div className="cart-item-price">{fmtCOP(Number(item.price)*item.qty)}</div>
+                          {item.qty>1&&<div style={{fontSize:".78rem",color:"var(--muted)",marginBottom:4}}>{fmtCOP(Number(item.price))} c/u</div>}
+                        </div>
                         <div className="qty-controls">
                           <button className="qty-btn" onClick={()=>updateQty(item.id,-1)}>−</button>
                           <span className="qty-val">{item.qty}</span>
                           <button className="qty-btn" onClick={()=>updateQty(item.id,1)}>+</button>
-                          <button className="cart-remove" onClick={()=>removeFromCart(item.id)}>🗑️</button>
+                          <button className="cart-remove" title="Eliminar" onClick={()=>removeFromCart(item.id)}>🗑️</button>
                         </div>
                       </div>
                     </div>
@@ -1159,15 +1423,21 @@ export default function App() {
             </div>
             {cart.length>0&&(
               <div className="cart-footer">
-                <div className="cart-row"><span>Subtotal</span><span>{fmtCOP(cartTotal)}</span></div>
-                <div className="cart-row" style={{color:shipping===0?"#27AE60":undefined}}>
-                  <span>Envío</span><span>{shipping===0?"GRATIS 🎉":fmtCOP(shipping)}</span>
+                <div className="cart-row"><span>Subtotal ({cartCount} ítem{cartCount!==1?"s":""})</span><span>{fmtCOP(cartTotal)}</span></div>
+                <div className="cart-row">
+                  <span style={{color:"var(--muted)",fontSize:".88rem"}}>🚚 Envío</span>
+                  <span style={{color:"#047857",fontSize:".83rem",fontWeight:600}}>Asesor te contactará</span>
                 </div>
                 <div className="cart-total-row">
                   <span>Total</span>
-                  <span style={{color:"var(--lila)",fontFamily:"'Playfair Display',serif"}}>{fmtCOP(grandTotal)}</span>
+                  <span style={{color:"var(--lila)",fontFamily:"'Playfair Display',serif",fontSize:"1.2rem"}}>{fmtCOP(cartTotal)}</span>
                 </div>
-                <button className="checkout-btn" onClick={()=>{setCartOpen(false);setCheckoutOpen(true);}}>Finalizar Compra →</button>
+                <button className="checkout-btn" onClick={()=>{setCartOpen(false);setCheckoutOpen(true);}}>
+                  Finalizar Compra →
+                </button>
+                <div style={{textAlign:"center",marginTop:10,fontSize:".78rem",color:"var(--muted)",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+                  <span>🔒</span> Pago seguro con MercadoPago
+                </div>
               </div>
             )}
           </div>
@@ -1191,21 +1461,80 @@ export default function App() {
                       <span>{i.name} ×{i.qty}</span><span>{fmtCOP(Number(i.price)*i.qty)}</span>
                     </div>
                   ))}
-                  <div className="summary-item" style={{color:shipping===0?"#27AE60":undefined}}>
-                    <span>Envío</span><span>{shipping===0?"GRATIS":fmtCOP(shipping)}</span>
+                  <div className="summary-item">
+                    <span>Envío</span>
+                    <span style={{color:"var(--muted)",fontSize:".85rem",fontStyle:"italic"}}>Un asesor te contactará 🚚</span>
                   </div>
                   <div className="summary-total">
                     <span>Total</span><span style={{color:"var(--lila)"}}>{fmtCOP(grandTotal)}</span>
                   </div>
                 </div>
-                <p className="form-section">Información Personal</p>
-                {[["Nombre completo","name","text"],["Correo electrónico","email","email"],["Dirección de envío","address","text"]].map(([label,field,type])=>(
-                  <div key={field} className="form-group">
-                    <label className="form-label">{label}</label>
-                    <input required type={type} className="form-input" value={form[field]}
-                      onChange={e=>setForm(p=>({...p,[field]:e.target.value}))}/>
+                <p className="form-section">📋 Datos Personales</p>
+                <div className="form-group">
+                  <label className="form-label">Nombre completo *</label>
+                  <input required type="text" className="form-input" value={form.name} placeholder=""
+                    onChange={e=>setForm(p=>({...p,name:e.target.value}))}/>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                  <div className="form-group">
+                    <label className="form-label">Teléfono / WhatsApp *</label>
+                    <input required type="tel" className="form-input" value={form.phone} placeholder=""
+                      onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/>
                   </div>
-                ))}
+                  <div className="form-group">
+                    <label className="form-label">Cédula *</label>
+                    <input required type="text" className="form-input" value={form.document} placeholder=""
+                      onChange={e=>setForm(p=>({...p,document:e.target.value}))}/>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Correo electrónico *</label>
+                  <input required type="email" className="form-input" value={form.email} placeholder=""
+                    onChange={e=>setForm(p=>({...p,email:e.target.value}))}/>
+                </div>
+                <p className="form-section">📦 Datos de Envío</p>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                  <div className="form-group">
+                    <label className="form-label">Ciudad *</label>
+                    <input required type="text" className="form-input" value={form.city} placeholder=""
+                      onChange={e=>setForm(p=>({...p,city:e.target.value}))}/>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Barrio</label>
+                    <input type="text" className="form-input" value={form.neighborhood} placeholder=""
+                      onChange={e=>setForm(p=>({...p,neighborhood:e.target.value}))}/>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Dirección completa *</label>
+                  <input required type="text" className="form-input" value={form.address} placeholder=""
+                    onChange={e=>setForm(p=>({...p,address:e.target.value}))}/>
+                </div>
+                {/* ── Envío coordinado por asesor ── */}
+                {form.city && form.address && (
+                  <div style={{
+                    width:"100%",marginBottom:14,padding:"13px 16px",
+                    borderRadius:13,
+                    border:"2px solid #A7F3D0",
+                    background:"#F0FFF4",
+                    display:"flex",alignItems:"center",gap:12
+                  }}>
+                    <span style={{fontSize:"1.4rem"}}>🚚</span>
+                    <span>
+                      <span style={{display:"block",fontWeight:700,color:"#065F46",fontSize:".92rem"}}>
+                        Envío a {form.city}
+                      </span>
+                      <span style={{display:"block",fontSize:".78rem",color:"#047857",marginTop:1}}>
+                        Un asesor te contactará para coordinar el envío y confirmar el costo
+                      </span>
+                    </span>
+                  </div>
+                )}
+                <div className="form-group">
+                  <label className="form-label">Nota para el envío (opcional)</label>
+                  <input type="text" className="form-input" value={form.notes} placeholder=""
+                    onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/>
+                </div>
                 <p className="form-section">Método de Pago</p>
                 <div style={{background:'linear-gradient(135deg,#009EE3,#0070B8)',borderRadius:16,padding:'18px 20px',marginBottom:12,display:'flex',alignItems:'center',gap:14}}>
                   <div style={{fontSize:'2.2rem'}}>💳</div>
@@ -1222,9 +1551,18 @@ export default function App() {
                 <div className="secure-note">
                   🔒 Serás redirigido a MercadoPago para completar tu pago de forma segura
                 </div>
-                <button type="submit" className="pay-btn" disabled={paying}
-                  style={{background:'linear-gradient(135deg,#009EE3,#0070B8)'}}>
-                  {paying?"⏳ Redirigiendo...":`Ir a pagar ${fmtCOP(grandTotal)} COP →`}
+                {form.city && form.address && (
+                  <div style={{background:"#F0FFF4",border:"1px solid #A7F3D0",borderRadius:10,
+                    padding:"10px 14px",marginBottom:10,fontSize:".87rem",color:"#065F46",
+                    display:"flex",gap:8,alignItems:"center"}}>
+                    🚚 Un asesor se comunicará contigo para coordinar el envío
+                  </div>
+                )}
+                <button type="submit" className="pay-btn"
+                  disabled={paying}
+                  style={{background:"linear-gradient(135deg,#009EE3,#0070B8)",cursor:paying?"not-allowed":"pointer"}}>
+                  {paying ? "⏳ Redirigiendo..."
+                    : `Ir a pagar ${fmtCOP(grandTotal)} COP →`}
                 </button>
               </form>
             </div>
@@ -1255,12 +1593,100 @@ export default function App() {
         </>
       )}
 
-      {/* ── WHATSAPP ── */}
-      <AIChatBot />
-      {/* ── ISABEL BOT ── */}
 
-      <a className="wa-float" href="https://wa.me/573000000000?text=Hola%20Kosmica%2C%20quiero%20información"
-        target="_blank" rel="noreferrer" aria-label="WhatsApp">💬</a>
+      {/* ── MODAL TRANSPORTADORAS ── */}
+      {carrierModalOpen && (
+        <>
+          <div className="overlay" onClick={()=>setCarrierModalOpen(false)}/>
+          <div className="modal-wrap">
+            <div className="modal" style={{maxWidth:460}}>
+              <div className="modal-header">
+                <div>
+                  <h2 className="modal-title">🚚 Elige tu envío</h2>
+                  <div style={{fontSize:".82rem",color:"var(--muted)",marginTop:2}}>
+                    Enviando a <strong style={{color:"var(--lila)"}}>{form.city}{form.neighborhood?`, ${form.neighborhood}`:""}</strong>
+                  </div>
+                </div>
+                <button className="close-btn" onClick={()=>setCarrierModalOpen(false)}>✕</button>
+              </div>
+              <div className="modal-body" style={{paddingTop:10,paddingBottom:28}}>
+                {carriersLoading && (
+                  <div style={{textAlign:"center",padding:"32px 16px"}}>
+                    <div style={{fontSize:"2rem",marginBottom:12}}>🚚</div>
+                    <div style={{fontWeight:600,color:"var(--lila)",marginBottom:6}}>Cotizando precios reales...</div>
+                    <div style={{fontSize:".85rem",color:"var(--muted)"}}>Consultando transportadoras disponibles para <strong>{form.city}</strong></div>
+                    <div style={{marginTop:16,display:"flex",gap:6,justifyContent:"center"}}>
+                      {[0,1,2].map(i=><div key={i} style={{width:10,height:10,borderRadius:"50%",background:"var(--lila)",animation:`dotBounce 1.2s ${i*0.2}s infinite ease-in-out`}}/>)}
+                    </div>
+                  </div>
+                )}
+                {carriersError && !carriersLoading && (
+                  <div style={{background:"#FFF0F0",border:"1px solid #FFCDD2",borderRadius:12,padding:"14px 16px",marginBottom:12,color:"#C62828",fontSize:".88rem"}}>
+                    ⚠️ {carriersError}
+                    <button onClick={fetchRates} style={{display:"block",marginTop:8,background:"none",border:"1px solid #C62828",borderRadius:8,padding:"4px 14px",cursor:"pointer",color:"#C62828",fontSize:".82rem",fontWeight:700}}>
+                      Reintentar
+                    </button>
+                  </div>
+                )}
+                {!carriersLoading && !carriersError && carriers.length === 0 && (
+                  <div style={{textAlign:"center",padding:"24px",color:"var(--muted)",fontSize:".9rem"}}>
+                    No se encontraron opciones de envío para esta ciudad.
+                  </div>
+                )}
+                {!carriersLoading && carriers.map((c,i)=>(
+                  <div key={c.name}
+                    onClick={()=>{ setSelectedCarrier(c); setCarrierModalOpen(false); }}
+                    style={{
+                      display:"flex",alignItems:"center",justifyContent:"space-between",
+                      padding:"14px 16px",marginBottom:10,borderRadius:14,cursor:"pointer",
+                      border:`2px solid ${selectedCarrier?.name===c.name?"var(--lila)":"var(--lila-xlight)"}`,
+                      background: selectedCarrier?.name===c.name?"var(--lila-xlight)":"#fff",
+                      boxShadow:"0 2px 10px rgba(120,80,180,.07)",
+                      transition:"all .18s"
+                    }}>
+                    <div style={{display:"flex",alignItems:"center",gap:12}}>
+                      <span style={{fontSize:"1.7rem",lineHeight:1}}>{c.logo}</span>
+                      <div>
+                        <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:3}}>
+                          <span style={{fontWeight:700,color:"var(--dark)",fontSize:".97rem"}}>{c.name}</span>
+                          {i===0&&<span style={{background:"#27AE60",color:"#fff",fontSize:".67rem",
+                            fontWeight:800,padding:"2px 8px",borderRadius:20,letterSpacing:".03em"}}>
+                            MEJOR PRECIO
+                          </span>}
+                          {selectedCarrier?.name===c.name&&<span style={{background:"var(--lila)",color:"#fff",
+                            fontSize:".67rem",fontWeight:800,padding:"2px 8px",borderRadius:20}}>
+                            ✓ ELEGIDO
+                          </span>}
+                        </div>
+                        <div style={{fontSize:".8rem",color:"var(--muted)"}}>⏱ {c.days || c.time}</div>
+                      </div>
+                    </div>
+                    <div style={{fontWeight:800,color:"var(--lila)",fontSize:"1.15rem",flexShrink:0}}>
+                      {fmtCOP(c.price)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── ASISTENTE IA LUNA ── */}
+      <AIChatBot
+        products={products}
+        onProductClick={(product) => setSelectedProduct(product)}
+      />
+
+      {/* ── WHATSAPP ── */}
+      <a className="wa-float" href="https://wa.me/573043927148?text=Hola%20Kosmica%2C%20quiero%20información"
+        target="_blank" rel="noreferrer" aria-label="WhatsApp">
+        <span className="wa-float-icon">💬</span>
+        <span className="wa-float-text">
+          <span className="wa-float-label">¿Necesitas ayuda?</span>
+          <span className="wa-float-cta">Escríbenos</span>
+        </span>
+      </a>
     </>
   );
 }
