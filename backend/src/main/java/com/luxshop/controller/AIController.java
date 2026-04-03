@@ -14,6 +14,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 
 @Slf4j
 @RestController
@@ -21,98 +22,83 @@ import java.net.http.HttpResponse;
 @RequiredArgsConstructor
 public class AIController {
 
-    // ✅ Agrega en Render → Environment:
-    //    GROQ_API_KEY = gsk_xxxxxxxxxxxxxxxxxxxx
-    // Obtén tu clave GRATIS en: https://console.groq.com
-    @Value("${groq.api.key:}")
-    private String groqKey;
+    // ✅ Agrega en Render → Environment Variables:
+    //    ANTHROPIC_API_KEY = sk-ant-api03-xxxxxxxxxxxx
+    // Obtén tu clave en: https://console.anthropic.com → API Keys
+    @Value("${anthropic.api.key:}")
+    private String anthropicKey;
 
-    private static final String GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
-    private static final String MODEL    = "llama-3.3-70b-versatile"; // Modelo gratis y potente
+    private static final String ANTHROPIC_URL     = "https://api.anthropic.com/v1/messages";
+    private static final String ANTHROPIC_VERSION = "2023-06-01";
+    private static final String MODEL             = "claude-haiku-4-5-20251001";
 
     private final ObjectMapper mapper = new ObjectMapper();
 
     @PostMapping("/chat")
     public ResponseEntity<String> chat(@RequestBody String body) {
 
-        if (groqKey == null || groqKey.isBlank()) {
-            log.error("Groq API key no configurada. Agrega 'GROQ_API_KEY' en variables de entorno de Render.");
+        if (anthropicKey == null || anthropicKey.isBlank()) {
+            log.error("Anthropic API key no configurada. Agrega 'ANTHROPIC_API_KEY' en Render.");
             return ResponseEntity.internalServerError()
-                    .body("{\"error\":\"API key no configurada en el servidor\"}");
+                    .body("{\"error\":\"ANTHROPIC_API_KEY no configurada en el servidor\"}");
         }
 
         try {
-            // Leer el body que envía el frontend (formato Anthropic)
             JsonNode reqNode = mapper.readTree(body);
 
-            // Construir mensajes en formato OpenAI / Groq
-            ArrayNode messages = mapper.createArrayNode();
+            ObjectNode anthropicBody = mapper.createObjectNode();
+            anthropicBody.put("model", MODEL);
+            anthropicBody.put("max_tokens", 600);
 
-            // El system prompt viene como campo "system" en el formato Anthropic
+            // System prompt
             if (reqNode.has("system")) {
-                ObjectNode systemMsg = mapper.createObjectNode();
-                systemMsg.put("role", "system");
-                systemMsg.put("content", reqNode.get("system").asText());
-                messages.add(systemMsg);
+                anthropicBody.put("system", reqNode.get("system").asText());
             }
 
-            // Los mensajes del historial de conversación
+            // Mensajes — solo "user" y "assistant"
+            ArrayNode messages = mapper.createArrayNode();
             if (reqNode.has("messages")) {
                 for (JsonNode msg : reqNode.get("messages")) {
+                    String role    = msg.get("role").asText();
+                    String content = msg.has("content") ? msg.get("content").asText() : "";
+                    if (content.isBlank()) continue;
+                    String r = role.equals("bot") ? "assistant" : role;
+                    if (!r.equals("user") && !r.equals("assistant")) continue;
                     ObjectNode m = mapper.createObjectNode();
-                    String role = msg.get("role").asText();
-                    // Normalizar "bot" → "assistant" por si acaso
-                    m.put("role", role.equals("bot") ? "assistant" : role);
-                    m.put("content", msg.get("content").asText());
+                    m.put("role", r);
+                    m.put("content", content);
                     messages.add(m);
                 }
             }
+            anthropicBody.set("messages", messages);
 
-            // Construir el request body para Groq (formato OpenAI)
-            ObjectNode groqBody = mapper.createObjectNode();
-            groqBody.put("model", MODEL);
-            groqBody.set("messages", messages);
-            groqBody.put("max_tokens", 1000);
-            groqBody.put("temperature", 0.7);
-
-            // Llamar a la API de Groq
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(GROQ_URL))
-                    .header("Authorization", "Bearer " + groqKey)
+                    .uri(URI.create(ANTHROPIC_URL))
+                    .header("x-api-key", anthropicKey)
+                    .header("anthropic-version", ANTHROPIC_VERSION)
                     .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(groqBody.toString()))
+                    .timeout(Duration.ofSeconds(25))
+                    .POST(HttpRequest.BodyPublishers.ofString(anthropicBody.toString()))
                     .build();
 
-            HttpResponse<String> groqResponse = HttpClient.newHttpClient()
+            HttpResponse<String> response = HttpClient.newBuilder()
+                    .connectTimeout(Duration.ofSeconds(10))
+                    .build()
                     .send(request, HttpResponse.BodyHandlers.ofString());
 
-            log.info("Groq API → HTTP {}", groqResponse.statusCode());
+            log.info("Anthropic API → HTTP {}", response.statusCode());
 
-            if (groqResponse.statusCode() != 200) {
-                log.error("Groq error: {}", groqResponse.body());
-                return ResponseEntity.status(groqResponse.statusCode())
-                        .body("{\"error\":\"Error de Groq: " + groqResponse.statusCode() + "\"}");
+            if (response.statusCode() != 200) {
+                log.error("Anthropic error {}: {}", response.statusCode(), response.body());
+                return ResponseEntity.status(response.statusCode())
+                        .body("{\"error\":\"Error Anthropic: " + response.statusCode() + "\"}");
             }
 
-            // Extraer el texto de la respuesta Groq
-            JsonNode groqJson  = mapper.readTree(groqResponse.body());
-            String textContent = groqJson
-                    .path("choices").path(0)
-                    .path("message").path("content").asText("");
-
-            // Convertir al formato Anthropic que espera el frontend (no hay que tocar AIChatBot.jsx)
-            ObjectNode anthropicFormat = mapper.createObjectNode();
-            ArrayNode  contentArray    = mapper.createArrayNode();
-            ObjectNode textBlock       = mapper.createObjectNode();
-            textBlock.put("type", "text");
-            textBlock.put("text", textContent);
-            contentArray.add(textBlock);
-            anthropicFormat.set("content", contentArray);
-
-            return ResponseEntity.ok(anthropicFormat.toString());
+            // Anthropic ya devuelve el formato exacto que necesita el frontend
+            return ResponseEntity.ok(response.body());
 
         } catch (Exception e) {
-            log.error("Error llamando a Groq API: {}", e.getMessage());
+            log.error("Error llamando a Anthropic: {}", e.getMessage());
             return ResponseEntity.internalServerError()
                     .body("{\"error\":\"" + e.getMessage() + "\"}");
         }
