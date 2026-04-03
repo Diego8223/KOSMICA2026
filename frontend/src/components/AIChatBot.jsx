@@ -77,20 +77,23 @@ const QUICK = [
     chips: [] },
 ];
 
-// ─── Chips contextuales ───────────────────────────────────
-const ctxChips = t => {
+// ─── Chips contextuales con categorías ───────────────────
+const ctxChips = (t, cats = []) => {
   const m = t.toLowerCase();
-  if (/regalo/.test(m))                  return ["Para dama 👜","Para caballero 💼","¿El más popular?"];
-  if (/bolso|cartera/.test(m))           return ["Ver más bolsos 👜","Ver morrales 🎒","¿Hay ofertas?"];
-  if (/morral|mochila/.test(m))          return ["Ver más morrales 🎒","Ver bolsos 👜","Agregar al pedido"];
+  // Chips de categorías disponibles (máx 3)
+  const catChips = cats.slice(0, 3).map(c => `${catEmoji(c)} ${c.charAt(0)+c.slice(1).toLowerCase()}`);
+
+  if (/regalo/.test(m))                  return ["Para dama 👜","Para caballero 💼","¿El más popular?",...catChips].slice(0,4);
+  if (/bolso|cartera/.test(m))           return ["Ver más bolsos 👜","Ver morrales 🎒","¿Hay ofertas?",...catChips].slice(0,4);
+  if (/morral|mochila/.test(m))          return ["Ver más morrales 🎒","Ver bolsos 👜","Agregar al pedido",...catChips].slice(0,4);
   if (/billetera|monedero/.test(m))      return ["Para dama 💜","Para caballero 💙","Ver todos"];
-  if (/maquillaje|labial|sombra/.test(m))return ["Kits completos 💄","Ver labiales","Ver paletas"];
+  if (/maquillaje|labial|sombra/.test(m))return ["Kits completos 💄","Ver labiales","Ver paletas",...catChips].slice(0,4);
   if (/capilar|cabello|shampoo/.test(m)) return ["Ver shampoos ✨","Ver tratamientos","Kits capilares"];
   if (/accesorio|aretes|collar/.test(m)) return ["Ver aretes 💍","Ver collares","Ver pulseras"];
   if (/cuidado|crema|perfume/.test(m))   return ["Ver cremas 🧴","Sets de baño","Ver perfumes 🌸"];
-  if (/oferta|descuento|promo/.test(m))  return ["Ver ofertas 🏷️","Lo más vendido ⭐"];
+  if (/oferta|descuento|promo/.test(m))  return ["Ver ofertas 🏷️","Lo más vendido ⭐",...catChips].slice(0,4);
   if (/env[íi]o|enviar/.test(m))         return ["🏍️ Local $15.000","📦 Nacional $20.000","Ver carrito 🛒"];
-  return ["¿Hay ofertas? 🏷️","Lo más vendido ⭐","Ver carrito 🛒"];
+  return [...catChips, "¿Hay ofertas? 🏷️","Lo más vendido ⭐","Ver carrito 🛒"].slice(0,4);
 };
 
 // ─── System Prompt ────────────────────────────────────────
@@ -220,6 +223,26 @@ const lsGet = (k, fallback) => {
 };
 const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
+// ─── Sesiones archivadas ──────────────────────────────────
+const SESSIONS_KEY = "kb_sessions";
+const MAX_SESSIONS = 10;
+
+const saveSession = (name, msgs, aiHist) => {
+  if (!msgs || msgs.length < 2) return;
+  const sessions = lsGet(SESSIONS_KEY, []);
+  const session = {
+    id: Date.now(),
+    name: name || "Cliente",
+    date: new Date().toLocaleString("es-CO", { dateStyle:"short", timeStyle:"short" }),
+    preview: msgs.filter(m=>m.role==="user").slice(-1)[0]?.text?.slice(0,60) || "Conversación",
+    msgCount: msgs.length,
+    msgs: msgs.slice(-30),
+    aiHist: aiHist.slice(-40),
+  };
+  const updated = [session, ...sessions.filter(s=>s.id!==session.id)].slice(0, MAX_SESSIONS);
+  lsSet(SESSIONS_KEY, updated);
+};
+
 // ─── CSS ──────────────────────────────────────────────────
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
@@ -272,8 +295,9 @@ const CSS = `
 .kb-win.kb-open{transform:none;opacity:1;pointer-events:all}
 /* Móvil: ventana ocupa casi toda la pantalla */
 @media(max-width:480px){
-  .kb-overlay{padding:0 6px 82px}
-  .kb-win{width:calc(100vw - 12px);height:calc(100dvh - 96px);border-radius:18px}
+  .kb-overlay{padding:0 0 0;bottom:0;right:0;left:0;align-items:flex-end;justify-content:center}
+  .kb-win{width:100vw;height:calc(100dvh - 70px);border-radius:18px 18px 0 0;margin:0}
+  .kb-fab{bottom:16px;right:14px}
 }
 
 /* Header */
@@ -350,12 +374,18 @@ const CSS = `
 
 /* Mensajes */
 .kb-msgs{
-  flex:1;overflow-y:auto;padding:13px 13px 7px;
+  flex:1;overflow-y:auto;overflow-x:hidden;padding:13px 13px 7px;
   display:flex;flex-direction:column;gap:9px;
   scroll-behavior:smooth;background:#FDFCFF;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
 }
-.kb-msgs::-webkit-scrollbar{width:3px}
-.kb-msgs::-webkit-scrollbar-thumb{background:#C4B5FD;border-radius:3px}
+.kb-msgs::-webkit-scrollbar{width:4px}
+.kb-msgs::-webkit-scrollbar-thumb{background:#C4B5FD;border-radius:4px}
+.kb-msgs::-webkit-scrollbar-track{background:transparent}
+@media(max-width:480px){
+  .kb-msgs::-webkit-scrollbar{width:2px}
+}
 
 .kb-row-bot,.kb-row-user{
   max-width:88%;display:flex;flex-direction:column;gap:3px;
@@ -504,6 +534,37 @@ const CSS = `
   display:flex;align-items:center;justify-content:center;padding:16px;
   animation:kbFadeIn .25s;
 }
+/* Panel sesiones archivadas */
+.kb-sessions-overlay{
+  position:absolute;inset:0;background:rgba(20,5,45,.9);
+  backdrop-filter:blur(8px);z-index:31;
+  display:flex;align-items:center;justify-content:center;padding:16px;
+  animation:kbFadeIn .25s;
+}
+.kb-session-item{
+  background:#fff;border:1.5px solid #EDE9FE;border-radius:13px;
+  padding:11px 14px;cursor:pointer;transition:all .2s;
+  display:flex;flex-direction:column;gap:3px;
+}
+.kb-session-item:hover{border-color:#6D28D9;box-shadow:0 3px 12px rgba(109,40,217,.14)}
+.kb-session-date{font-size:10px;color:#9CA3AF;font-weight:600}
+.kb-session-preview{font-size:12.5px;color:#1A0A2E;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kb-session-count{font-size:10px;color:#7C3AED;font-weight:700}
+.kb-session-actions{display:flex;gap:6px;margin-top:6px}
+.kb-session-btn{flex:1;padding:5px 8px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:none;font-family:inherit;transition:all .18s}
+.kb-session-btn.load{background:linear-gradient(135deg,#4C1D95,#6D28D9);color:#fff}
+.kb-session-btn.del{background:#FEF2F2;color:#DC2626;border:1.5px solid #FECACA}
+/* Editar nombre */
+.kb-edit-name{
+  display:flex;gap:6px;padding:8px 12px;background:#F3EEFF;
+  border-bottom:1px solid #EDE9FE;flex-shrink:0;align-items:center;
+}
+.kb-edit-name input{
+  flex:1;padding:6px 11px;border:1.5px solid #EDE9FE;border-radius:10px;
+  font-size:12.5px;font-family:inherit;outline:none;color:#1A0A2E;background:#fff;
+}
+.kb-edit-name input:focus{border-color:#6D28D9}
+.kb-edit-name button{padding:6px 13px;border-radius:10px;background:linear-gradient(135deg,#4C1D95,#6D28D9);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
 @keyframes kbFadeIn{from{opacity:0}to{opacity:1}}
 .kb-hist-box{
   background:#fff;border-radius:18px;width:100%;max-height:85%;
@@ -550,10 +611,10 @@ const CSS = `
 .kb-hist-btn.danger{background:#FEF2F2;border:1.5px solid #FECACA;color:#DC2626}
 .kb-hist-btn.danger:hover{background:#FEE2E2}
 
-@media(min-width:640px){
-  .kb-overlay{padding:0 28px 28px}
+@media(min-width:481px){
+  .kb-overlay{padding:0 28px 90px;align-items:flex-end;justify-content:flex-end}
   .kb-fab{bottom:28px;right:28px}
-  .kb-win{width:min(480px,90vw)}
+  .kb-win{width:min(480px,90vw);height:min(700px,88vh)}
 }
 `;
 
@@ -615,6 +676,9 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
   const [typing,    setTyping]    = useState(false);
   const [toast,     setToast]     = useState("");
   const [showHist,  setShowHist]  = useState(false);
+  const [showSessions, setShowSessions] = useState(false);
+  const [editingName,  setEditingName]  = useState(false);
+  const [nameInput,    setNameInput]    = useState("");
 
   const [allProds,  setAllProds]  = useState([]);
   const [cats,      setCats]      = useState([]);
@@ -651,7 +715,11 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
     if (open && inputRef.current) {
       setTimeout(() => inputRef.current?.focus(), 360);
     }
-  }, [open]);
+    // Archivar sesión al cerrar
+    if (!open && msgs.length >= 2) {
+      saveSession(clientName, msgs, aiHist);
+    }
+  }, [open]); // eslint-disable-line
 
   // ── Helpers de mensaje ───────────────────────────────────
   const addBot = useCallback((html, nextChips = [], prods = [], shipping = false) => {
@@ -830,7 +898,7 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
         .filter(Boolean);
 
       const showShip = /env[íi]o|enviar|domicilio|despacho/i.test(msg);
-      addBot(clean, ctxChips(msg), recProds, showShip);
+      addBot(clean, ctxChips(msg, cats), recProds, showShip);
 
     } catch (err) {
       if (retryCount < 1) {
@@ -842,13 +910,13 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
       const tl = msg.toLowerCase();
       if (/bolso|cartera|morral/i.test(tl)) {
         const prods = allProds.filter(p => /BOLSO|MORRAL/i.test(p.category||"") && Number(p.stock)>0).slice(0,3);
-        addBot(`Mira estas opciones de bolsos que tenemos 💜`, ctxChips(msg), prods);
+        addBot(`Mira estas opciones de bolsos que tenemos 💜`, ctxChips(msg, cats), prods);
       } else if (/maquillaje|labial|cosm/i.test(tl)) {
         const prods = allProds.filter(p => /MAQUILLAJE/i.test(p.category||"") && Number(p.stock)>0).slice(0,3);
-        addBot(`Te muestro lo mejor en maquillaje ✨`, ctxChips(msg), prods);
+        addBot(`Te muestro lo mejor en maquillaje ✨`, ctxChips(msg, cats), prods);
       } else if (/billetera/i.test(tl)) {
         const prods = allProds.filter(p => /BILLETERA/i.test(p.category||"") && Number(p.stock)>0).slice(0,3);
-        addBot(`Aquí las billeteras disponibles 💳`, ctxChips(msg), prods);
+        addBot(`Aquí las billeteras disponibles 💳`, ctxChips(msg, cats), prods);
       } else {
         const top = allProds.filter(p => Number(p.stock)>0 && (p.badge || Number(p.rating)>=4.5)).slice(0,3);
         addBot(
@@ -988,6 +1056,45 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
     }, 200);
   };
 
+  // ── Cargar sesión archivada ──────────────────────────────
+  const loadSession = (session) => {
+    setMsgs(session.msgs || []);
+    setAiHist(session.aiHist || []);
+    setClientName(session.name || "");
+    lsSet("kb_msgs", session.msgs || []);
+    lsSet("kb_aihist", session.aiHist || []);
+    lsSet("kb_name", session.name || "");
+    setShowSessions(false);
+    setChips([]);
+    setTimeout(() => addBot(
+      `¡Bienvenida de nuevo, <strong>${session.name}</strong>! 💜 Retomé tu conversación del ${session.date} ✨`,
+      ["Ver lo más vendido ⭐","¿Qué hay de nuevo? ✨","Seguir comprando 🛍️"]
+    ), 300);
+  };
+
+  // ── Borrar sesión archivada ──────────────────────────────
+  const deleteSession = (id) => {
+    const sessions = lsGet(SESSIONS_KEY, []).filter(s => s.id !== id);
+    lsSet(SESSIONS_KEY, sessions);
+    showToast("Sesión eliminada");
+    // Forzar re-render
+    setShowSessions(false);
+    setTimeout(() => setShowSessions(true), 50);
+  };
+
+  // ── Guardar nuevo nombre ─────────────────────────────────
+  const saveEditedName = () => {
+    const n = nameInput.trim();
+    if (!n) return;
+    const name = n.charAt(0).toUpperCase() + n.slice(1).toLowerCase();
+    setClientName(name);
+    lsSet("kb_name", name);
+    setEditingName(false);
+    setNameInput("");
+    showToast(`✓ Nombre actualizado a ${name}`);
+    addBot(`¡Listo! Ahora te llamo <strong>${name}</strong> 💜`, []);
+  };
+
   // ── Render historial legible ─────────────────────────────
   const histToShow = aiHist
     .filter(h => h.content && h.content.trim().length > 0)
@@ -1043,6 +1150,39 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
             </div>
           )}
 
+          {/* ── Panel sesiones archivadas ── */}
+          {showSessions && (
+            <div className="kb-sessions-overlay">
+              <div className="kb-hist-box">
+                <div className="kb-hist-hd">
+                  <div className="kb-hist-title"><span>🗂️</span> Conversaciones guardadas</div>
+                  <button className="kb-close" style={{ background:"rgba(76,29,149,.1)", border:"1px solid #EDE9FE", color:"#4C1D95" }} onClick={() => setShowSessions(false)}>✕</button>
+                </div>
+                <div className="kb-hist-body">
+                  {(() => {
+                    const sessions = lsGet(SESSIONS_KEY, []);
+                    return sessions.length === 0
+                      ? <div className="kb-hist-empty">📭 No hay conversaciones archivadas.<br/>Cada vez que cierres el chat, se guardará aquí.</div>
+                      : sessions.map(s => (
+                          <div key={s.id} className="kb-session-item">
+                            <div className="kb-session-date">📅 {s.date} · {s.name}</div>
+                            <div className="kb-session-preview">"{s.preview}"</div>
+                            <div className="kb-session-count">💬 {s.msgCount} mensajes</div>
+                            <div className="kb-session-actions">
+                              <button className="kb-session-btn load" onClick={() => loadSession(s)}>↩️ Retomar</button>
+                              <button className="kb-session-btn del" onClick={() => deleteSession(s.id)}>🗑️ Borrar</button>
+                            </div>
+                          </div>
+                        ));
+                  })()}
+                </div>
+                <div className="kb-hist-footer">
+                  <button className="kb-hist-btn secondary" onClick={() => setShowSessions(false)}>Cerrar</button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ── Header con logo Kosmica ── */}
           <div className="kb-head">
             <div className="kb-logo">
@@ -1053,7 +1193,12 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
             <div className="kb-hinfo">
               <div className="kb-hname">
                 <div className="kb-dot-online" />
-                Isabel está en línea
+                {clientName
+                  ? <span style={{cursor:"pointer"}} onClick={() => { setEditingName(e=>!e); setNameInput(clientName); }} title="Editar nombre">
+                      {clientName} ✏️
+                    </span>
+                  : "Isabel está en línea"
+                }
                 <span className="kb-badge">IA PRO</span>
               </div>
               <div className="kb-hsub">
@@ -1064,10 +1209,26 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
               </div>
             </div>
             <div className="kb-hbtns">
-              <button className="kb-hbtn" onClick={() => setShowHist(true)}>Historial</button>
+              <button className="kb-hbtn" onClick={() => setShowSessions(true)} title="Conversaciones guardadas">🗂️</button>
+              <button className="kb-hbtn" onClick={() => setShowHist(true)}>📋</button>
               <button className="kb-close" onClick={() => setOpen(false)}>✕</button>
             </div>
           </div>
+
+          {/* ── Editar nombre ── */}
+          {editingName && (
+            <div className="kb-edit-name">
+              <input
+                autoFocus
+                value={nameInput}
+                onChange={e => setNameInput(e.target.value)}
+                onKeyDown={e => e.key==="Enter" && saveEditedName()}
+                placeholder="Tu nombre..."
+              />
+              <button onClick={saveEditedName}>Guardar</button>
+              <button onClick={() => setEditingName(false)} style={{background:"#F3EEFF",color:"#4C1D95",border:"1.5px solid #EDE9FE",borderRadius:10,padding:"6px 11px",cursor:"pointer",fontSize:12,fontWeight:700}}>✕</button>
+            </div>
+          )}
 
           {/* ── Categorías ── */}
           <div className="kb-cats">

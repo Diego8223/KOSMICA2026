@@ -194,9 +194,11 @@ const CSS = `
     position: fixed; top: 58px; left: 0; right: 0; z-index: 890;
     background: linear-gradient(90deg,var(--lila),var(--pink),var(--mint),var(--lila));
     background-size: 300%; animation: moveGrad 6s linear infinite;
-    padding: 8px 0; text-align: center;
-    color: #fff; font-size: .84rem; font-weight: 700; letter-spacing: .04em;
+    padding: 10px 16px; text-align: center;
+    color: #fff; font-size: .88rem; font-weight: 700; letter-spacing: .03em;
+    display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
   }
+  .promo-strip-sep { opacity: .6; font-size: .7rem; }
 
   /* ════════════════════════════════════════
      HERO MÓVIL
@@ -260,15 +262,16 @@ const CSS = `
   ════════════════════════════════════════ */
   .cats-bar {
     position: sticky; top: 92px; z-index: 880;
-    display: flex; gap: 8px; overflow-x: auto; padding: 10px 14px;
+    display: flex; gap: 10px; overflow-x: auto; padding: 12px 14px;
     background: rgba(253,248,255,.97); border-bottom: 1px solid var(--lila-xlight);
     scrollbar-width: none; -webkit-overflow-scrolling: touch;
   }
   .cats-bar::-webkit-scrollbar { display: none; }
   .cats-bar-btn {
-    padding: 8px 16px; border-radius: 30px; border: 2px solid var(--lila-xlight);
-    background: #fff; color: var(--brown); font-size: .92rem; font-weight: 600;
-    white-space: nowrap; flex-shrink: 0; transition: all .22s; min-height: 40px;
+    padding: 11px 20px; border-radius: 30px; border: 2px solid var(--lila-xlight);
+    background: #fff; color: var(--brown); font-size: 1rem; font-weight: 700;
+    white-space: nowrap; flex-shrink: 0; transition: all .22s; min-height: 46px;
+    letter-spacing: .01em;
   }
   .cats-bar-btn.on { border-color: transparent; color: #fff; box-shadow: 0 3px 12px rgba(155,114,207,.38); }
 
@@ -723,8 +726,8 @@ const CSS = `
     .nav-search-wrap { max-width: 260px; }
     .cart-btn { width: 46px; height: 46px; font-size: 1.15rem; }
     .hbg-btn { width: 46px; height: 46px; font-size: 1.3rem; }
-    .cats-bar { top: 98px; }
-    .hero { padding: 166px 22px 44px; }
+    .cats-bar { top: 102px; }
+    .hero { padding: 170px 22px 44px; }
     .hero-title { font-size: 2.9rem; }
     .hero-btns { flex-direction: row; }
     .btn-primary, .btn-outline { width: auto; }
@@ -1153,7 +1156,13 @@ export default function App() {
       </nav>
 
       {/* ── PROMO STRIP ── */}
-      <div className="promo-strip">💳 Paga con Nequi, PSE y tarjeta &nbsp;|&nbsp; 🔒 Pago 100% seguro &nbsp;|&nbsp; 🚚 Elige tu envío al finalizar compra ✦</div>
+      <div className="promo-strip">
+        <span>💳 Nequi · PSE · Tarjeta</span>
+        <span className="promo-strip-sep">◆</span>
+        <span>🔒 Pago 100% seguro</span>
+        <span className="promo-strip-sep">◆</span>
+        <span>🚚 Envío a todo Colombia</span>
+      </div>
 
       {/* ── CATEGORÍAS BARRA HORIZONTAL ── */}
       <div className="cats-bar">
