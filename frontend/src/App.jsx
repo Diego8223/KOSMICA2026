@@ -898,6 +898,25 @@ export default function App() {
   const [selectedProduct,setSelectedProduct] = useState(null);
   const [drawerOpen,setDrawerOpen]           = useState(false);
   const [form,setForm] = useState({name:"",email:"",phone:"",document:"",city:"",neighborhood:"",address:"",notes:""});
+  const [selectedShippingMethod, setSelectedShippingMethod] = useState(null);
+  const SHIPPING_OPTIONS = [
+    {
+      id: "local",
+      label: "🏍️ Entrega Local",
+      cost: 15999,
+      desc: "Medellín y Área Metropolitana",
+      detail: "Tu pedido llega en máximo 24 horas. Un domiciliario te contactará para confirmar dirección y horario.",
+      badge: "⚡ Más rápido"
+    },
+    {
+      id: "national",
+      label: "📦 Envío Nacional",
+      cost: 20000,
+      desc: "Todo Colombia",
+      detail: "Se envía al día siguiente de tu compra. Un asesor te contactará para seguimiento y asesoría personalizada.",
+      badge: "🇨🇴 A todo el país"
+    }
+  ];
   const ref = useRef(null);
 
   // ✅ Productos placeholder — se muestran INSTANTÁNEO mientras el servidor despierta
@@ -960,8 +979,8 @@ export default function App() {
   const [carriersError, setCarriersError]   = useState(null);
   const [selectedCarrier, setSelectedCarrier] = useState(null);
   const [carrierModalOpen, setCarrierModalOpen] = useState(false); // desactivado - envío por asesor
-  const shipping   = 0; // El envío lo coordina un asesor con el cliente
-  const grandTotal = cartTotal;
+  const shipping   = selectedShippingMethod ? selectedShippingMethod.cost : 0;
+  const grandTotal = cartTotal + shipping;
 
   // Llama al backend que consulta la API real de Envia
   const fetchRates = async () => {
@@ -999,21 +1018,32 @@ export default function App() {
   };
 
   const handleCheckout=async e=>{
-    e.preventDefault(); setPaying(true);
+    e.preventDefault();
+    if (!selectedShippingMethod) { showToast("⚠️ Selecciona un método de envío"); return; }
+    setPaying(true);
     try{
       const mpItems=cart.map(i=>({
         id:i.id, name:i.name,
         description:i.description||i.name,
         quantity:i.qty, price:Number(i.price),
       }));
+      // Agregar envío como ítem adicional
+      mpItems.push({
+        id:"shipping", name:selectedShippingMethod.label,
+        description:selectedShippingMethod.desc,
+        quantity:1, price:selectedShippingMethod.cost,
+      });
       const result=await orderAPI.createPaymentIntent(grandTotal,"COP",mpItems);
       await orderAPI.createOrder({
         name:form.name, email:form.email, phone:form.phone, document:form.document, city:form.city, neighborhood:form.neighborhood, address:form.address, notes:form.notes,
         paymentMethod:"MERCADOPAGO",
         paymentIntentId:result.preferenceId,
+        shippingMethod:selectedShippingMethod.id,
+        shippingCost:selectedShippingMethod.cost,
         items:cart.map(i=>({productId:i.id,quantity:i.qty})),
       });
       setCart([]);
+      setSelectedShippingMethod(null);
       setCheckoutOpen(false);
       window.location.href=result.initPoint;
     }catch(e){ showToast("⚠️ "+e.message); }
@@ -1426,11 +1456,14 @@ export default function App() {
                 <div className="cart-row"><span>Subtotal ({cartCount} ítem{cartCount!==1?"s":""})</span><span>{fmtCOP(cartTotal)}</span></div>
                 <div className="cart-row">
                   <span style={{color:"var(--muted)",fontSize:".88rem"}}>🚚 Envío</span>
-                  <span style={{color:"#047857",fontSize:".83rem",fontWeight:600}}>Asesor te contactará</span>
+                  {selectedShippingMethod
+                    ? <span style={{color:"#4C1D95",fontSize:".83rem",fontWeight:700}}>{selectedShippingMethod.label} · {fmtCOP(selectedShippingMethod.cost)}</span>
+                    : <span style={{color:"#6B7280",fontSize:".83rem",fontStyle:"italic"}}>Elige al finalizar compra</span>
+                  }
                 </div>
                 <div className="cart-total-row">
                   <span>Total</span>
-                  <span style={{color:"var(--lila)",fontFamily:"'Playfair Display',serif",fontSize:"1.2rem"}}>{fmtCOP(cartTotal)}</span>
+                  <span style={{color:"var(--lila)",fontFamily:"'Playfair Display',serif",fontSize:"1.2rem"}}>{fmtCOP(grandTotal)}</span>
                 </div>
                 <button className="checkout-btn" onClick={()=>{setCartOpen(false);setCheckoutOpen(true);}}>
                   Finalizar Compra →
@@ -1463,7 +1496,9 @@ export default function App() {
                   ))}
                   <div className="summary-item">
                     <span>Envío</span>
-                    <span style={{color:"var(--muted)",fontSize:".85rem",fontStyle:"italic"}}>Un asesor te contactará 🚚</span>
+                    <span style={{color: selectedShippingMethod ? "var(--lila)" : "var(--muted)", fontSize:".85rem", fontStyle: selectedShippingMethod ? "normal" : "italic", fontWeight: selectedShippingMethod ? 700 : 400}}>
+                      {selectedShippingMethod ? fmtCOP(selectedShippingMethod.cost) : "Elige un método abajo 👇"}
+                    </span>
                   </div>
                   <div className="summary-total">
                     <span>Total</span><span style={{color:"var(--lila)"}}>{fmtCOP(grandTotal)}</span>
@@ -1510,26 +1545,61 @@ export default function App() {
                   <input required type="text" className="form-input" value={form.address} placeholder=""
                     onChange={e=>setForm(p=>({...p,address:e.target.value}))}/>
                 </div>
-                {/* ── Envío coordinado por asesor ── */}
-                {form.city && form.address && (
-                  <div style={{
-                    width:"100%",marginBottom:14,padding:"13px 16px",
-                    borderRadius:13,
-                    border:"2px solid #A7F3D0",
-                    background:"#F0FFF4",
-                    display:"flex",alignItems:"center",gap:12
-                  }}>
-                    <span style={{fontSize:"1.4rem"}}>🚚</span>
-                    <span>
-                      <span style={{display:"block",fontWeight:700,color:"#065F46",fontSize:".92rem"}}>
-                        Envío a {form.city}
-                      </span>
-                      <span style={{display:"block",fontSize:".78rem",color:"#047857",marginTop:1}}>
-                        Un asesor te contactará para coordinar el envío y confirmar el costo
-                      </span>
-                    </span>
-                  </div>
-                )}
+                {/* ── Selección de método de envío ── */}
+                <p className="form-section">🚚 Método de Envío</p>
+                <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
+                  {SHIPPING_OPTIONS.map(method => (
+                    <div
+                      key={method.id}
+                      onClick={() => setSelectedShippingMethod(method)}
+                      style={{
+                        border: selectedShippingMethod?.id === method.id
+                          ? "2.5px solid #6D28D9"
+                          : "2px solid #EDE9FE",
+                        borderRadius: 13,
+                        padding: "13px 16px",
+                        cursor: "pointer",
+                        background: selectedShippingMethod?.id === method.id
+                          ? "linear-gradient(135deg,#F5F0FF,#EDE9FE)"
+                          : "#FDFCFF",
+                        transition: "all .2s",
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 13,
+                        boxShadow: selectedShippingMethod?.id === method.id
+                          ? "0 4px 16px rgba(109,40,217,.15)"
+                          : "none",
+                      }}
+                    >
+                      <div style={{
+                        width:22, height:22, borderRadius:"50%", flexShrink:0, marginTop:2,
+                        border: selectedShippingMethod?.id === method.id
+                          ? "6px solid #6D28D9"
+                          : "2.5px solid #C4B5FD",
+                        background: selectedShippingMethod?.id === method.id ? "#fff" : "transparent",
+                        transition: "all .2s",
+                      }}/>
+                      <div style={{flex:1}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:3}}>
+                          <span style={{fontWeight:800,fontSize:"1rem",color:"#2E1065"}}>{method.label}</span>
+                          <span style={{fontWeight:900,fontSize:"1rem",color:"#4C1D95"}}>{fmtCOP(method.cost)}</span>
+                        </div>
+                        <div style={{
+                          display:"inline-block",fontSize:".72rem",fontWeight:800,
+                          padding:"1px 8px",borderRadius:8,marginBottom:4,
+                          background:"#F3EEFF",color:"#6D28D9",border:"1px solid #EDE9FE"
+                        }}>{method.badge}</div>
+                        <div style={{fontSize:".82rem",color:"#374151",fontWeight:600,marginBottom:2}}>{method.desc}</div>
+                        <div style={{fontSize:".78rem",color:"#6B7280",lineHeight:1.4}}>{method.detail}</div>
+                      </div>
+                    </div>
+                  ))}
+                  {!selectedShippingMethod && (
+                    <p style={{fontSize:".8rem",color:"#EF4444",margin:0,paddingLeft:4}}>
+                      ⚠️ Debes seleccionar un método de envío para continuar
+                    </p>
+                  )}
+                </div>
                 <div className="form-group">
                   <label className="form-label">Nota para el envío (opcional)</label>
                   <input type="text" className="form-input" value={form.notes} placeholder=""
@@ -1551,17 +1621,11 @@ export default function App() {
                 <div className="secure-note">
                   🔒 Serás redirigido a MercadoPago para completar tu pago de forma segura
                 </div>
-                {form.city && form.address && (
-                  <div style={{background:"#F0FFF4",border:"1px solid #A7F3D0",borderRadius:10,
-                    padding:"10px 14px",marginBottom:10,fontSize:".87rem",color:"#065F46",
-                    display:"flex",gap:8,alignItems:"center"}}>
-                    🚚 Un asesor se comunicará contigo para coordinar el envío
-                  </div>
-                )}
                 <button type="submit" className="pay-btn"
-                  disabled={paying}
-                  style={{background:"linear-gradient(135deg,#009EE3,#0070B8)",cursor:paying?"not-allowed":"pointer"}}>
+                  disabled={paying || !selectedShippingMethod}
+                  style={{background:paying||!selectedShippingMethod?"#A0AEC0":"linear-gradient(135deg,#009EE3,#0070B8)",cursor:paying||!selectedShippingMethod?"not-allowed":"pointer"}}>
                   {paying ? "⏳ Redirigiendo..."
+                    : !selectedShippingMethod ? "Selecciona un método de envío"
                     : `Ir a pagar ${fmtCOP(grandTotal)} COP →`}
                 </button>
               </form>
@@ -1673,7 +1737,11 @@ export default function App() {
       )}
 
       {/* ── ASISTENTE IA LUNA ── */}
-      <AIChatBot onAddToCart={addToCart} onOpenCart={() => setCartOpen(true)} />
+      <AIChatBot
+        onAddToCart={addToCart}
+        onOpenCart={() => { setCartOpen(true); }}
+        onSelectShipping={(method) => { setSelectedShippingMethod(method); showToast(`✓ ${method.label} seleccionado`); }}
+      />
 
       {/* ── WHATSAPP ── */}
       <a className="wa-float" href="https://wa.me/573043927148?text=Hola%20Kosmica%2C%20quiero%20información"

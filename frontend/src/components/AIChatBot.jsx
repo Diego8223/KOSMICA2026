@@ -1,17 +1,16 @@
 // ============================================================
-//  src/components/AIChatBot.jsx — Isabel · Asesora Kosmica v16
+//  src/components/AIChatBot.jsx — Isabel · Asesora Kosmica v17
+//  ✅ Bot súper inteligente con cierre de ventas
+//  ✅ Conoce TODO el catálogo en tiempo real
+//  ✅ Métodos de envío integrados (local $15.999 / nacional $20.000)
+//  ✅ Sin opción "contactar asesor"
 //  ✅ Agrega al carrito REAL de App.jsx (onAddToCart prop)
-//  ✅ Logo ✦ Kosmica en cabecera (no ícono genérico)
 //  ✅ Historial de conversación funcional y persistente
-//  ✅ Categorías desplazables en todas las resoluciones
-//  ✅ Diseño desktop mejorado — ventana más ancha
-//  ✅ Fetch independiente de TODO el catálogo
-//  ✅ Pregunta el nombre al iniciar
 // ============================================================
 import { useState, useEffect, useRef, useCallback } from "react";
 
 // ─── Config ───────────────────────────────────────────────
-const MAX_HIST = 18;
+const MAX_HIST = 20;
 
 // ─── Helpers ──────────────────────────────────────────────
 const fmtCOP = n =>
@@ -36,19 +35,39 @@ const catEmoji = (c = "") => {
   return "🛍️";
 };
 
+// ─── Métodos de envío ─────────────────────────────────────
+export const SHIPPING_METHODS = [
+  {
+    id: "local",
+    label: "🏍️ Entrega Local",
+    cost: 15999,
+    desc: "Medellín y Área Metropolitana",
+    detail: "Tu pedido llega en máximo 24 horas. Uno de nuestros domiciliarios te contactará para confirmar dirección y horario.",
+    badge: "⚡ Más rápido"
+  },
+  {
+    id: "national",
+    label: "📦 Envío Nacional",
+    cost: 20000,
+    desc: "Todo Colombia",
+    detail: "Se enviará al día siguiente de tu compra. Un asesor se contactará contigo para el seguimiento de tu pedido y asesoría personalizada.",
+    badge: "🇨🇴 A todo el país"
+  }
+];
+
 // ─── Intenciones rápidas ──────────────────────────────────
 const QUICK = [
   { test: /^(hola|buenas|buenos?\s?d[íi]as?|tardes?|noches?|hey|hi|ola)\b/i,
     reply: n => `¡Hola${n?", <strong>"+n+"</strong>":""}! Soy Isabel, tu asesora de Kosmica 💜<br>¿Buscas algo para ti o es un regalo especial?`,
     chips: ["Para mí 💜","Es un regalo 🎁","Ver lo más vendido ⭐","Ver ofertas 🏷️"] },
-  { test: /env[íi]o|domicilio|despacho|transporte|flete/i,
-    reply: () => "El valor del envío lo coordina un asesor contigo 🚚<br>¿Te ayudo a elegir algo primero?",
-    chips: ["Ver catálogo 🛍️","Lo más vendido ⭐"] },
+  { test: /env[íi]o|domicilio|despacho|transporte|flete|cuánto.*env[íi]o|costo.*env[íi]o/i,
+    reply: () => `Tenemos dos opciones de envío 🚚<br><br><strong>🏍️ Entrega Local</strong> — ${fmtCOP(15999)}<br>Medellín y Área Metropolitana. Llega en máx 24h.<br><br><strong>📦 Envío Nacional</strong> — ${fmtCOP(20000)}<br>A todo Colombia. Se envía al día siguiente.<br><br>¿Cuál te queda mejor?`,
+    chips: ["Ver catálogo 🛍️","Lo más vendido ⭐","¿Cómo pago? 💳"] },
   { test: /pago|mercado\s?pago|tarjeta|pse|nequi|daviplata|efectivo|c[oó]mo pago/i,
-    reply: () => "Aceptamos MercadoPago: tarjeta, PSE, Nequi, Daviplata y efectivo 💳<br>Todo 100% seguro.",
-    chips: ["Ver catálogo 🛍️"] },
+    reply: () => "Aceptamos MercadoPago: tarjeta, PSE, Nequi, Daviplata y efectivo 💳<br>Todo 100% seguro y con confirmación inmediata.",
+    chips: ["Ver catálogo 🛍️","¿Cuánto es el envío? 🚚"] },
   { test: /devoluci[oó]n|cambio|garant[íi]a|devolver/i,
-    reply: () => "Tienes 15 días para cambios si el producto llega con defecto 💜<br>Escríbenos con fotos y lo resolvemos.",
+    reply: () => "Tienes 15 días para cambios si el producto llega con defecto 💜<br>Escríbenos al WhatsApp con fotos y lo resolvemos rápido.",
     chips: ["Ver productos 🛍️"] },
   { test: /gracias|muchas gracias|perfecto|excelente|ch[eé]vere/i,
     reply: n => `¡Con mucho gusto${n?", <strong>"+n+"</strong>":""}! Para eso estoy ✨ ¿Te ayudo con algo más?`,
@@ -70,7 +89,8 @@ const ctxChips = t => {
   if (/accesorio|aretes|collar/.test(m)) return ["Ver aretes 💍","Ver collares","Ver pulseras"];
   if (/cuidado|crema|perfume/.test(m))   return ["Ver cremas 🧴","Sets de baño","Ver perfumes 🌸"];
   if (/oferta|descuento|promo/.test(m))  return ["Ver ofertas 🏷️","Lo más vendido ⭐"];
-  return ["¿Hay ofertas? 🏷️","Lo más vendido ⭐","Quiero que me contacten"];
+  if (/env[íi]o|enviar/.test(m))         return ["🏍️ Local $15.999","📦 Nacional $20.000","Ver carrito 🛒"];
+  return ["¿Hay ofertas? 🏷️","Lo más vendido ⭐","Ver carrito 🛒"];
 };
 
 // ─── System Prompt ────────────────────────────────────────
@@ -83,27 +103,53 @@ const buildPrompt = (products, name) => {
     groups[cat].push(p);
   });
   const catalog = Object.entries(groups).map(([cat, ps]) =>
-    `\n## ${cat.toUpperCase()} (${ps.length})\n` +
+    `\n## ${cat.toUpperCase()} (${ps.length} productos disponibles)\n` +
     ps.map(p =>
-      `  [ID:${p.id}] ${p.name} | ${fmtCOP(p.price)}` +
-      (p.badge?` [${p.badge}]`:"") +
-      (Number(p.stock)<=5?` ⚡ÚLTIMAS ${p.stock}`:"") +
-      (p.rating?` ★${p.rating}`:"") +
-      (p.description?` | ${String(p.description).slice(0,80)}`:"")
+      `  [ID:${p.id}] ${p.name} | Precio: ${fmtCOP(p.price)}` +
+      (p.badge?` | DESTACADO: ${p.badge}`:"") +
+      (Number(p.stock)<=5?` | ⚡ ÚLTIMAS ${p.stock} unidades`:"") +
+      (p.rating?` | ★${p.rating}`:"") +
+      (p.description?` | ${String(p.description).slice(0,100)}`:
+       "")
     ).join("\n")
   ).join("\n");
 
-  return `Eres ISABEL, asesora de ventas experta de KOSMICA, tienda colombiana de moda y belleza.
-CLIENTE: ${name ? `Su nombre es ${name}. SIEMPRE llámala por su nombre.` : "Nombre desconocido, no inventes uno."}
-PERSONALIDAD: Colombiana cálida, directa. Respuestas cortas (máx 3 líneas + productos). Máx 2 emojis.
-NUNCA empieces con "¡Claro!", "Por supuesto" ni "Entendido".
-META: CERRAR VENTAS. Cada respuesta acerca al cliente a comprar.
-PROCESO: 1) Escucha (pregunta ocasión/presupuesto UNA a la vez) 2) Recomienda máx 3 productos con razón 3) Menciona urgencia de stock 4) Cierra: "¿Lo agregamos?" o "¿Cuál prefieres?"
-ENVÍO: Solo di "Lo coordina un asesor contigo 🚚". NUNCA inventes precio.
-CATÁLOGO:${catalog}
-REGLA CRÍTICA: Si recomiendas productos específicos, escribe al final exactamente:
+  return `Eres ISABEL, asesora de ventas EXPERTA y CERRADORA de KOSMICA, tienda colombiana de moda y belleza.
+
+CLIENTE: ${name ? `Su nombre es **${name}**. SIEMPRE llámala por su nombre en cada respuesta.` : "Nombre desconocido todavía."}
+
+PERSONALIDAD Y ESTILO:
+- Colombiana cálida, directa, empática y MUY convincente
+- Usas lenguaje natural y cercano, como una amiga experta
+- Máximo 2-3 emojis por respuesta
+- Respuestas concisas (máx 4 líneas + productos recomendados)
+- NUNCA empieces con "¡Claro!", "Por supuesto", "Entendido" ni "Con gusto"
+- NUNCA digas "un asesor te contactará" ni "contacta a un asesor"
+
+PROCESO DE VENTA (sigue este orden):
+1. ESCUCHA: Pregunta ocasión/presupuesto, UNA pregunta a la vez
+2. RECOMIENDA: Máximo 3 productos con razón específica por qué ese producto
+3. URGENCIA: Menciona cuando hay stock limitado (ÚLTIMAS X unidades)
+4. CIERRA: Siempre termina con "¿Lo agregamos al carrito?" o "¿Cuál prefieres?"
+5. POST-VENTA: Si agregó al carrito, confirma y guía hacia el checkout
+
+MÉTODOS DE ENVÍO (esto lo decides tú, siempre informa al cliente):
+- 🏍️ ENTREGA LOCAL: $15.999 — Medellín y Área Metropolitana. Llega en máx 24 horas. Un domiciliario confirma dirección y horario.
+- 📦 ENVÍO NACIONAL: $20.000 — Todo Colombia. Se envía al día siguiente. Seguimiento personalizado.
+- Cuando el cliente pregunte por envío, explica ambas opciones con sus precios y que lo elige al momento de pagar.
+
+TÉCNICAS DE CIERRE:
+- Si duda del precio: "Este precio no lo encuentras en otro lado, y con envío rápido"
+- Si pide descuento: "Por el momento el precio está muy competitivo, pero te incluye X beneficio"
+- Si dice "lo pienso": "Te entiendo, pero hay ÚLTIMAS unidades — ¿lo separamos?"
+- Si pregunta por regalo: "¿Para quién es? Te ayudo a elegir el perfecto"
+
+CATÁLOGO COMPLETO DISPONIBLE:
+${catalog}
+
+REGLA CRÍTICA: Cuando recomiendes productos específicos, escribe AL FINAL:
 PRODUCTOS_RECOMENDADOS:id1,id2,id3
-Solo IDs numéricos. NUNCA inventes IDs.`;
+Solo IDs numéricos separados por comas. NUNCA inventes IDs que no estén en el catálogo.`;
 };
 
 const extractIds = t => {
@@ -184,7 +230,6 @@ const CSS = `
   content:'';position:absolute;inset:0;pointer-events:none;
   background:radial-gradient(ellipse 60% 90% at 85% -5%,rgba(255,255,255,.13) 0%,transparent 70%);
 }
-/* Logo Kosmica en el header */
 .kb-logo{
   font-family:'Plus Jakarta Sans',sans-serif;
   font-size:22px;font-weight:900;font-style:italic;
@@ -314,6 +359,18 @@ const CSS = `
 .kb-pbtn:hover{opacity:.85}
 .kb-pbtn:active{transform:scale(.97)}
 .kb-pbtn.added{background:linear-gradient(135deg,#065F46,#059669)!important}
+
+/* Card envío */
+.kb-ship-card{
+  background:#fff;border:1.5px solid #EDE9FE;border-radius:13px;
+  padding:10px 13px;margin-top:5px;cursor:pointer;
+  transition:border-color .2s,box-shadow .2s;
+}
+.kb-ship-card:hover{border-color:#6D28D9;box-shadow:0 3px 12px rgba(109,40,217,.12)}
+.kb-ship-title{font-size:13px;font-weight:800;color:#2E1065;margin-bottom:2px}
+.kb-ship-price{font-size:14px;font-weight:900;color:#4C1D95}
+.kb-ship-desc{font-size:11px;color:#6B7280;margin-top:3px;line-height:1.4}
+.kb-ship-badge{display:inline-block;font-size:9px;font-weight:800;padding:1px 7px;border-radius:8px;margin-bottom:4px;background:#F3EEFF;color:#6D28D9;border:1px solid #EDE9FE}
 
 /* Typing */
 .kb-typing{
@@ -473,8 +530,21 @@ function ProdCard({ p, onAdd, added }) {
   );
 }
 
+// ─── Tarjeta de método de envío ───────────────────────────
+function ShippingCard({ method, onSelect }) {
+  return (
+    <div className="kb-ship-card" onClick={() => onSelect(method)}>
+      <div className="kb-ship-badge">{method.badge}</div>
+      <div className="kb-ship-title">{method.label}</div>
+      <div className="kb-ship-price">{fmtCOP(method.cost)} COP</div>
+      <div className="kb-ship-desc">{method.desc}<br/>{method.detail}</div>
+      <button className="kb-pbtn" style={{marginTop:8}}>Seleccionar este método</button>
+    </div>
+  );
+}
+
 // ─── Componente principal ─────────────────────────────────
-export default function AIChatBot({ onAddToCart, onOpenCart }) {
+export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping }) {
   const [open,      setOpen]      = useState(false);
   const [msgs,      setMsgs]      = useState([]);
   const [chips,     setChips]     = useState([]);
@@ -489,17 +559,18 @@ export default function AIChatBot({ onAddToCart, onOpenCart }) {
 
   const [clientName, setClientName] = useState("");
   const [waitName,   setWaitName]   = useState(false);
-  const [aiHist,     setAiHist]     = useState([]);     // historial para la IA
-  const [addedIds,   setAddedIds]   = useState(new Set()); // IDs ya agregados
+  const [aiHist,     setAiHist]     = useState([]);
+  const [addedIds,   setAddedIds]   = useState(new Set());
+  const [showShipping, setShowShipping] = useState(false);
 
   const msgsRef = useRef(null);
   const inputRef = useRef(null);
 
   // ── Inyectar CSS ────────────────────────────────────────
   useEffect(() => {
-    if (!document.getElementById("kb-style-v16")) {
+    if (!document.getElementById("kb-style-v17")) {
       const s = document.createElement("style");
-      s.id = "kb-style-v16";
+      s.id = "kb-style-v17";
       s.textContent = CSS;
       document.head.appendChild(s);
     }
@@ -520,8 +591,8 @@ export default function AIChatBot({ onAddToCart, onOpenCart }) {
   }, [open]);
 
   // ── Helpers de mensaje ───────────────────────────────────
-  const addBot = useCallback((html, nextChips = [], prods = []) => {
-    setMsgs(p => [...p, { role:"bot", html, prods, time:ts(), id:Date.now()+Math.random() }]);
+  const addBot = useCallback((html, nextChips = [], prods = [], shipping = false) => {
+    setMsgs(p => [...p, { role:"bot", html, prods, shipping, time:ts(), id:Date.now()+Math.random() }]);
     setChips(nextChips);
   }, []);
 
@@ -532,7 +603,7 @@ export default function AIChatBot({ onAddToCart, onOpenCart }) {
 
   const showToast = useCallback(msg => {
     setToast(msg);
-    setTimeout(() => setToast(""), 2000);
+    setTimeout(() => setToast(""), 2200);
   }, []);
 
   // ── Cargar catálogo completo ─────────────────────────────
@@ -562,7 +633,7 @@ export default function AIChatBot({ onAddToCart, onOpenCart }) {
       setClientName(savedName);
       setAiHist(savedHist);
       addBot(
-        `¡Hola de nuevo, <strong>${savedName}</strong>! 💜 Qué bueno verte. ¿Qué te llama la atención hoy?`,
+        `¡Hola de nuevo, <strong>${savedName}</strong>! 💜 Qué bueno verte. Tenemos ${allProds.filter(p=>Number(p.stock)>0).length} productos esperándote ✨`,
         ["Ver lo más vendido ⭐","Ver novedades ✨","Necesito un regalo 🎁","Ver todo el catálogo"]
       );
     } else {
@@ -581,10 +652,20 @@ export default function AIChatBot({ onAddToCart, onOpenCart }) {
     setAddedIds(prev => new Set([...prev, p.id]));
     showToast(`✓ ${p.name} agregado al carrito`);
     addBot(
-      `¡Listo! 🛒 Agregué <strong>${p.name}</strong> a tu carrito.<br>¿Quieres ver tu carrito o seguir comprando?`,
-      ["Ver mi carrito 🛒","Seguir comprando 🛍️","Confirmar pedido ✅"]
+      `¡Listo! 🛒 Agregué <strong>${p.name}</strong> a tu carrito.<br>¿Quieres seguir viendo productos o finalizamos tu compra?`,
+      ["Seguir comprando 🛍️","Ver mi carrito 🛒","Finalizar compra ✅"]
     );
   }, [onAddToCart, showToast, addBot]);
+
+  // ── Seleccionar método de envío ──────────────────────────
+  const handleSelectShipping = useCallback(method => {
+    if (onSelectShipping) onSelectShipping(method);
+    showToast(`✓ ${method.label} seleccionado`);
+    addBot(
+      `¡Perfecto! Elegiste <strong>${method.label}</strong> — ${fmtCOP(method.cost)}<br>${method.detail}<br><br>¿Continuamos con el pago?`,
+      ["Ver mi carrito 🛒","Finalizar compra ✅","Seguir comprando 🛍️"]
+    );
+  }, [onSelectShipping, showToast, addBot]);
 
   // ── Filtrar por categoría ────────────────────────────────
   const filterCat = useCallback((cat, btn) => {
@@ -596,7 +677,7 @@ export default function AIChatBot({ onAddToCart, onOpenCart }) {
     const label = cat === "_all" ? "catálogo completo" : `<strong>${cat}</strong>`;
     addBot(
       `Aquí están los productos de ${label} 💜`,
-      ["¿Tienen ofertas? 🏷️","Ver otra categoría","Quiero asesoría"],
+      ["¿Tienen ofertas? 🏷️","Ver otra categoría","¿Cuánto es el envío? 🚚"],
       prods
     );
   }, [allProds, addBot]);
@@ -616,7 +697,7 @@ export default function AIChatBot({ onAddToCart, onOpenCart }) {
         body: JSON.stringify({
           system: buildPrompt(allProds, name),
           messages: newHist.slice(-MAX_HIST),
-          max_tokens: 700,
+          max_tokens: 800,
         }),
       });
       if (!res.ok) throw new Error("HTTP " + res.status);
@@ -632,11 +713,16 @@ export default function AIChatBot({ onAddToCart, onOpenCart }) {
       const clean = cleanAI(raw);
       const recProds = ids.map(id => allProds.find(p => p.id === id || p.id === String(id))).filter(Boolean);
 
+      // Detectar si hablan de envío
       const lower = raw.toLowerCase();
-      const closing = ["contactará","confirmar","asesor"].some(k => lower.includes(k));
-      addBot(clean, closing ? ["Ver mi carrito 🛒","Seguir comprando","Ver otra categoría"] : ctxChips(msg), recProds);
+      const showShip = /env[íi]o|enviar|domicilio|despacho|cuánto.*env/i.test(msg);
+
+      addBot(clean, ctxChips(msg), recProds, showShip);
     } catch {
-      addBot("Disculpa el inconveniente. Un asesor de Kosmica te contactará 💜",["Quiero que me contacten 📱"]);
+      addBot(
+        "Tuve un inconveniente técnico 😕 Puedes escribirnos al WhatsApp o intenta de nuevo.",
+        ["Reintentar 🔄","Ver catálogo 🛍️","Ver mi carrito 🛒"]
+      );
     } finally {
       setTyping(false);
     }
@@ -657,21 +743,41 @@ export default function AIChatBot({ onAddToCart, onOpenCart }) {
       setWaitName(false);
       lsSet("kb_name", name);
       setTimeout(() => addBot(
-        `¡Mucho gusto, <strong>${name}</strong>! 💜 Bienvenida a Kosmica.<br>¿En qué te puedo ayudar hoy? ✨`,
+        `¡Mucho gusto, <strong>${name}</strong>! 💜 Bienvenida a Kosmica.<br>¿En qué te puedo ayudar hoy? Tengo ${allProds.filter(p=>Number(p.stock)>0).length} productos disponibles ✨`,
         ["Ver lo más vendido ⭐","Ver novedades ✨","Necesito un regalo 🎁","Ver todo el catálogo"]
       ), 350);
       return;
     }
 
-    // Chips especiales
     const tl = t.toLowerCase();
+
+    // Ver carrito
     if (tl.includes("ver mi carrito") || tl.includes("mi carrito")) {
       if (onOpenCart) onOpenCart();
-      addBot("¡Aquí va tu carrito! Puedes ver y editar todo 🛒",["Seguir comprando 🛍️","Confirmar pedido ✅"]);
+      addBot("¡Aquí va tu carrito! Puedes ver y editar todo 🛒",[
+        "Seguir comprando 🛍️","Finalizar compra ✅","¿Cuánto es el envío? 🚚"
+      ]);
       return;
     }
-    if (tl.includes("confirmar pedido") || tl.includes("quiero que me contacten") || tl.includes("contacten")) {
-      addBot(`✅ ¡Listo${clientName ? ", <strong>"+clientName+"</strong>" : ""}! Un asesor de Kosmica se pondrá en contacto para confirmar tu pedido y coordinar el envío. ¡Gracias por elegirnos! 💜`);
+
+    // Finalizar compra
+    if (tl.includes("finalizar compra") || tl.includes("confirmar pedido") || tl.includes("pagar")) {
+      if (onOpenCart) onOpenCart();
+      addBot(
+        `¡Vamos a finalizar tu compra${clientName ? ", <strong>"+clientName+"</strong>" : ""}! 🎉<br>Recuerda elegir tu método de envío al pagar.`,
+        ["Ver mi carrito 🛒","¿Cuánto es el envío? 🚚"]
+      );
+      return;
+    }
+
+    // Información de envío
+    if (/env[íi]o|despacho|dom[ií]cilio|cuánto.*env|costo.*env|opciones.*env/i.test(tl)) {
+      addBot(
+        `Tenemos dos métodos de envío 🚚 Elige el que más te convenga:`,
+        ["¿Cómo pago? 💳","Ver mi carrito 🛒"],
+        [],
+        true
+      );
       return;
     }
 
@@ -684,7 +790,7 @@ export default function AIChatBot({ onAddToCart, onOpenCart }) {
     }
 
     await callIsabel(t, clientName, aiHist);
-  }, [input, waitName, clientName, aiHist, addUser, addBot, callIsabel, onOpenCart]);
+  }, [input, waitName, clientName, aiHist, addUser, addBot, callIsabel, onOpenCart, allProds]);
 
   // ── Borrar historial ─────────────────────────────────────
   const clearHistory = () => {
@@ -817,6 +923,17 @@ export default function AIChatBot({ onAddToCart, onOpenCart }) {
                         p={p}
                         onAdd={handleAdd}
                         added={addedIds.has(p.id)}
+                      />
+                    ))}
+                  </div>
+                )}
+                {m.shipping && (
+                  <div style={{marginTop:8,display:"flex",flexDirection:"column",gap:8,maxWidth:340}}>
+                    {SHIPPING_METHODS.map(method => (
+                      <ShippingCard
+                        key={method.id}
+                        method={method}
+                        onSelect={handleSelectShipping}
                       />
                     ))}
                   </div>
