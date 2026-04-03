@@ -1153,7 +1153,7 @@ export default function App() {
       </nav>
 
       {/* ── PROMO STRIP ── */}
-      <div className="promo-strip">💳 Paga con Nequi, PSE y tarjeta &nbsp;|&nbsp; 🔒 Pago 100% seguro &nbsp;|&nbsp; 📦 Un asesor coordina tu envío ✦</div>
+      <div className="promo-strip">💳 Paga con Nequi, PSE y tarjeta &nbsp;|&nbsp; 🔒 Pago 100% seguro &nbsp;|&nbsp; 🚚 Elige tu envío al finalizar compra ✦</div>
 
       {/* ── CATEGORÍAS BARRA HORIZONTAL ── */}
       <div className="cats-bar">
@@ -1331,7 +1331,7 @@ export default function App() {
       {/* ── FEATURES ── */}
       <section className="features">
         <div className="feat-grid">
-          {[["🚚","Envío Personalizado","Un asesor coordina tu envío"],["🔒","Pago Seguro","SSL cifrado"],["↩️","Calidad garantizada","Garantía de calidad"],["💎","Premium","Garantía autenticidad"]].map(([icon,t,d])=>(
+          {[["🚚","Envío a todo Colombia","Elige tu método al finalizar compra"],["🔒","Pago Seguro","SSL cifrado"],["↩️","Calidad garantizada","Garantía de calidad"],["💎","Premium","Garantía autenticidad"]].map(([icon,t,d])=>(
             <div key={t} className="feat-card">
               <div className="feat-icon">{icon}</div>
               <div className="feat-title">{t}</div>

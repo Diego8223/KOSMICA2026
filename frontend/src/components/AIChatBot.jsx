@@ -136,7 +136,7 @@ PROCESO DE VENTA (sigue este orden):
 MÉTODOS DE ENVÍO (esto lo decides tú, siempre informa al cliente):
 - 🏍️ ENTREGA LOCAL: $15.999 — Medellín y Área Metropolitana. Llega en máx 24 horas. Un domiciliario confirma dirección y horario.
 - 📦 ENVÍO NACIONAL: $20.000 — Todo Colombia. Se envía al día siguiente. Seguimiento personalizado.
-- Cuando el cliente pregunte por envío, explica ambas opciones con sus precios y que lo elige al momento de pagar.
+- Cuando el cliente pregunte por envío, explica ambas opciones con sus precios y que lo elige al momento de finalizar la compra.
 
 TÉCNICAS DE CIERRE:
 - Si duda del precio: "Este precio no lo encuentras en otro lado, y con envío rápido"
@@ -174,7 +174,7 @@ const CSS = `
 
 /* FAB */
 .kb-fab{
-  position:fixed;bottom:22px;right:18px;z-index:1002;
+  position:fixed;bottom:22px;right:18px;z-index:1003;
   width:58px;height:58px;border-radius:50%;
   background:linear-gradient(135deg,#4C1D95,#6D28D9,#8B5CF6);
   border:none;cursor:pointer;
@@ -218,6 +218,11 @@ const CSS = `
   font-family:'Plus Jakarta Sans',sans-serif;
 }
 .kb-win.kb-open{transform:none;opacity:1;pointer-events:all}
+/* Móvil: ventana ocupa casi toda la pantalla */
+@media(max-width:480px){
+  .kb-overlay{padding:0 6px 82px}
+  .kb-win{width:calc(100vw - 12px);height:calc(100dvh - 96px);border-radius:18px}
+}
 
 /* Header */
 .kb-head{
@@ -274,10 +279,15 @@ const CSS = `
 .kb-cats{
   display:flex;gap:6px;padding:8px 12px 7px;
   overflow-x:auto;background:#fff;
-  border-bottom:1px solid #F3EEFF;scrollbar-width:none;flex-shrink:0;
+  border-bottom:1px solid #F3EEFF;scrollbar-width:thin;scrollbar-color:#C4B5FD transparent;flex-shrink:0;
   -webkit-overflow-scrolling:touch;
 }
-.kb-cats::-webkit-scrollbar{display:none}
+.kb-cats::-webkit-scrollbar{display:block;height:3px}
+.kb-cats::-webkit-scrollbar-thumb{background:#C4B5FD;border-radius:3px}
+@media(max-width:480px){
+  .kb-cats{scrollbar-width:none}
+  .kb-cats::-webkit-scrollbar{display:none}
+}
 .kb-cat{
   flex-shrink:0;padding:5px 12px;border-radius:20px;
   border:1.5px solid #EDE9FE;background:#FAF7FF;
@@ -406,6 +416,7 @@ const CSS = `
   padding:9px 12px 11px;background:#fff;
   border-top:1px solid #F3EEFF;
   display:flex;gap:8px;align-items:center;flex-shrink:0;
+  position:relative;z-index:10;
 }
 .kb-inp{
   flex:1;padding:10px 15px;border:2px solid #EDE9FE;
@@ -592,12 +603,20 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
 
   // ── Helpers de mensaje ───────────────────────────────────
   const addBot = useCallback((html, nextChips = [], prods = [], shipping = false) => {
-    setMsgs(p => [...p, { role:"bot", html, prods, shipping, time:ts(), id:Date.now()+Math.random() }]);
+    setMsgs(p => {
+      const next = [...p, { role:"bot", html, prods, shipping, time:ts(), id:Date.now()+Math.random() }];
+      lsSet("kb_msgs", next.slice(-30));
+      return next;
+    });
     setChips(nextChips);
   }, []);
 
   const addUser = useCallback(text => {
-    setMsgs(p => [...p, { role:"user", text, time:ts(), id:Date.now()+Math.random() }]);
+    setMsgs(p => {
+      const next = [...p, { role:"user", text, time:ts(), id:Date.now()+Math.random() }];
+      lsSet("kb_msgs", next.slice(-30));
+      return next;
+    });
     setChips([]);
   }, []);
 
@@ -627,18 +646,30 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
   useEffect(() => {
     if (loadCat) return;
     const savedName = lsGet("kb_name", "");
+    const savedMsgs = lsGet("kb_msgs", []);
     const savedHist = lsGet("kb_aihist", []);
+    const available = allProds.filter(p=>Number(p.stock)>0).length;
 
     if (savedName) {
       setClientName(savedName);
       setAiHist(savedHist);
-      addBot(
-        `¡Hola de nuevo, <strong>${savedName}</strong>! 💜 Qué bueno verte. Tenemos ${allProds.filter(p=>Number(p.stock)>0).length} productos esperándote ✨`,
-        ["Ver lo más vendido ⭐","Ver novedades ✨","Necesito un regalo 🎁","Ver todo el catálogo"]
-      );
+      // Restaurar mensajes previos si los hay
+      if (savedMsgs.length > 0) {
+        setMsgs(savedMsgs.slice(-30));
+        // Solo saludo corto al volver
+        setTimeout(() => addBot(
+          `¡Bienvenida de nuevo, <strong>${savedName}</strong>! 💜 Aquí continúa tu conversación ✨`,
+          ["Ver lo más vendido ⭐","Quiero un regalo 🎁","Ver novedades ✨","¿Qué hay de nuevo?"]
+        ), 300);
+      } else {
+        addBot(
+          `¡Hola de nuevo, <strong>${savedName}</strong>! 💜 Qué bueno verte.<br>Tenemos <strong>${available} productos</strong> esperándote hoy ✨`,
+          ["Ver lo más vendido ⭐","Quiero un regalo 🎁","Ver novedades ✨","Ver ofertas 🏷️"]
+        );
+      }
     } else {
       addBot(
-        `¡Hola! Soy <strong>Isabel</strong>, tu asesora personal de Kosmica ✨<br><br>Tenemos bolsos, morrales, maquillaje, capilar, accesorios y mucho más.<br><br><strong>¿Cómo te llamas? 💜</strong>`
+        `¡Hola! Soy <strong>Isabel</strong> ✨ tu asesora personal de Kosmica 💜<br><br>Tenemos bolsos, morrales, maquillaje, capilar y mucho más — <strong>${available} productos</strong> disponibles hoy.<br><br>Para darte una atención personalizada... <strong>¿Cómo te llamas?</strong> 😊`
       );
       setWaitName(true);
     }
@@ -671,19 +702,36 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
   const filterCat = useCallback((cat, btn) => {
     document.querySelectorAll(".kb-cat").forEach(b => b.classList.remove("on"));
     btn?.classList.add("on");
+
+    // Accesorios = próximamente
+    if (cat === "ACCESORIOS") {
+      addBot(
+        `¡Los accesorios están llegando muy pronto! 💍✨<br>Mientras tanto tenemos bolsos, maquillaje y mucho más.<br>¿Qué te gustaría ver?`,
+        ["Ver bolsos 👜","Ver maquillaje 💄","Ver todo el catálogo 🛍️"]
+      );
+      return;
+    }
+
     const prods = cat === "_all"
       ? allProds.filter(p => Number(p.stock) > 0).slice(0, 6)
       : allProds.filter(p => p.category === cat && Number(p.stock) > 0).slice(0, 6);
-    const label = cat === "_all" ? "catálogo completo" : `<strong>${cat}</strong>`;
+    const label = cat === "_all" ? "catálogo completo" : `<strong>${cat.charAt(0)+cat.slice(1).toLowerCase()}</strong>`;
+    if (prods.length === 0) {
+      addBot(
+        `Ahorita no tenemos productos de ${label} disponibles, pero están llegando nuevos muy pronto 💜`,
+        ["Ver todo el catálogo 🛍️","Ver lo más vendido ⭐"]
+      );
+      return;
+    }
     addBot(
-      `Aquí están los productos de ${label} 💜`,
-      ["¿Tienen ofertas? 🏷️","Ver otra categoría","¿Cuánto es el envío? 🚚"],
+      `Aquí tienes los mejores de ${label} 💜`,
+      ["¿Hay ofertas? 🏷️","Ver otra categoría","¿Cuánto es el envío? 🚚"],
       prods
     );
   }, [allProds, addBot]);
 
   // ── Llamada al backend IA ────────────────────────────────
-  const callIsabel = useCallback(async (msg, name, hist) => {
+  const callIsabel = useCallback(async (msg, name, hist, retryCount = 0) => {
     const newHist = [...hist, { role:"user", content:msg }];
     setAiHist(newHist);
     lsSet("kb_aihist", newHist.slice(-40));
@@ -699,29 +747,39 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
           messages: newHist.slice(-MAX_HIST),
           max_tokens: 800,
         }),
+        signal: AbortSignal.timeout(15000),
       });
       if (!res.ok) throw new Error("HTTP " + res.status);
       const data = await res.json();
-      const raw = (data.content||[]).map(x => x.text||"").join("") ||
-        "Disculpa, tuve un inconveniente. ¿Me repites tu pregunta? 💜";
+      const raw = (data.content||[]).map(x => x.text||"").join("") || "";
 
-      const updHist = [...newHist, { role:"assistant", content:raw }];
+      if (!raw && retryCount < 2) {
+        setTyping(false);
+        return callIsabel(msg, name, hist, retryCount + 1);
+      }
+
+      const finalRaw = raw || `Hola${name?", <strong>"+name+"</strong>":""}! Un momento que te busco algo perfecto 💜`;
+      const updHist = [...newHist, { role:"assistant", content:finalRaw }];
       setAiHist(updHist);
       lsSet("kb_aihist", updHist.slice(-40));
 
-      const ids = extractIds(raw);
-      const clean = cleanAI(raw);
+      const ids = extractIds(finalRaw);
+      const clean = cleanAI(finalRaw);
       const recProds = ids.map(id => allProds.find(p => p.id === id || p.id === String(id))).filter(Boolean);
 
-      // Detectar si hablan de envío
-      const lower = raw.toLowerCase();
       const showShip = /env[íi]o|enviar|domicilio|despacho|cuánto.*env/i.test(msg);
-
       addBot(clean, ctxChips(msg), recProds, showShip);
-    } catch {
+    } catch (err) {
+      if (retryCount < 2) {
+        // Reintento silencioso
+        setTyping(false);
+        await new Promise(r => setTimeout(r, 1200));
+        return callIsabel(msg, name, hist, retryCount + 1);
+      }
+      // Solo después de 3 intentos fallidos, mostrar sugerencia amable
       addBot(
-        "Tuve un inconveniente técnico 😕 Puedes escribirnos al WhatsApp o intenta de nuevo.",
-        ["Reintentar 🔄","Ver catálogo 🛍️","Ver mi carrito 🛒"]
+        `Un momento, parece que la conexión está lenta 😊<br>¿Quieres ver el catálogo mientras tanto?`,
+        ["Ver catálogo 🛍️","Ver lo más vendido ⭐","¿Cuánto es el envío? 🚚"]
       );
     } finally {
       setTyping(false);
@@ -743,8 +801,8 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
       setWaitName(false);
       lsSet("kb_name", name);
       setTimeout(() => addBot(
-        `¡Mucho gusto, <strong>${name}</strong>! 💜 Bienvenida a Kosmica.<br>¿En qué te puedo ayudar hoy? Tengo ${allProds.filter(p=>Number(p.stock)>0).length} productos disponibles ✨`,
-        ["Ver lo más vendido ⭐","Ver novedades ✨","Necesito un regalo 🎁","Ver todo el catálogo"]
+        `¡Qué nombre tan bonito, <strong>${name}</strong>! 💜 Bienvenida a Kosmica.<br>Tengo <strong>${allProds.filter(p=>Number(p.stock)>0).length} productos</strong> listos para ti hoy ✨<br>¿Qué estás buscando?`,
+        ["Ver lo más vendido ⭐","Quiero algo para mí 💜","Busco un regalo 🎁","Ver lo nuevo ✨"]
       ), 350);
       return;
     }
@@ -754,7 +812,7 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
     // Ver carrito
     if (tl.includes("ver mi carrito") || tl.includes("mi carrito")) {
       if (onOpenCart) onOpenCart();
-      addBot("¡Aquí va tu carrito! Puedes ver y editar todo 🛒",[
+      addBot(`¡Aquí va tu carrito${clientName?", <strong>"+clientName+"</strong>":""}! 🛒`,[
         "Seguir comprando 🛍️","Finalizar compra ✅","¿Cuánto es el envío? 🚚"
       ]);
       return;
@@ -764,16 +822,60 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
     if (tl.includes("finalizar compra") || tl.includes("confirmar pedido") || tl.includes("pagar")) {
       if (onOpenCart) onOpenCart();
       addBot(
-        `¡Vamos a finalizar tu compra${clientName ? ", <strong>"+clientName+"</strong>" : ""}! 🎉<br>Recuerda elegir tu método de envío al pagar.`,
+        `¡Vamos${clientName?", <strong>"+clientName+"</strong>":""}! 🎉<br>Recuerda seleccionar tu método de envío al finalizar — elige el que más te convenga.`,
         ["Ver mi carrito 🛒","¿Cuánto es el envío? 🚚"]
       );
+      return;
+    }
+
+    // Lo más vendido
+    if (/m[aá]s vendido|top|popular|mejor|destacado/i.test(tl)) {
+      const top = allProds
+        .filter(p => Number(p.stock) > 0 && (p.badge || Number(p.rating) >= 4.5))
+        .slice(0, 4);
+      const fallback = allProds.filter(p => Number(p.stock) > 0).slice(0, 4);
+      const prods = top.length >= 2 ? top : fallback;
+      setTimeout(() => addBot(
+        `Estos son los más amados por nuestras clientas${clientName?", <strong>"+clientName+"</strong>":""}! ⭐`,
+        ["¿Cuánto es el envío? 🚚","Busco un regalo 🎁","Ver más 🛍️"],
+        prods
+      ), 400);
+      return;
+    }
+
+    // Para mí / quiero algo para mí
+    if (/para m[íi]|algo para m[íi]|quiero algo/i.test(tl)) {
+      setTimeout(() => addBot(
+        `¡Me encanta! ¿Qué tipo de producto estás buscando${clientName?", <strong>"+clientName+"</strong>":""}? 💜`,
+        ["Bolso o cartera 👜","Maquillaje 💄","Capilar ✨","Cuidado personal 🧴"]
+      ), 350);
+      return;
+    }
+
+    // Regalo
+    if (/regalo|obsequio|para.*ella|para.*él|para.*esposa|para.*mamá|para.*amiga/i.test(tl)) {
+      setTimeout(() => addBot(
+        `¡Qué detalle tan especial! 🎁 Para elegir el regalo perfecto, ¿me cuentas el presupuesto${clientName?", <strong>"+clientName+"</strong>":""}?`,
+        ["Hasta $50.000","Entre $50.000 y $100.000","Más de $100.000","Sorpréndeme 💜"]
+      ), 400);
+      return;
+    }
+
+    // Ver novedades / lo nuevo
+    if (/novedad|nuevo|reciente|lleg[oó]|estreno/i.test(tl)) {
+      const nuevos = allProds.filter(p => Number(p.stock) > 0).slice(-4).reverse();
+      setTimeout(() => addBot(
+        `¡Mira lo que acaba de llegar${clientName?", <strong>"+clientName+"</strong>":""}! ✨`,
+        ["Ver más novedades","¿Cuánto es el envío? 🚚","Agregar al carrito 🛒"],
+        nuevos
+      ), 400);
       return;
     }
 
     // Información de envío
     if (/env[íi]o|despacho|dom[ií]cilio|cuánto.*env|costo.*env|opciones.*env/i.test(tl)) {
       addBot(
-        `Tenemos dos métodos de envío 🚚 Elige el que más te convenga:`,
+        `Tenemos dos opciones de envío 🚚 Elige al momento de finalizar tu compra:`,
         ["¿Cómo pago? 💳","Ver mi carrito 🛒"],
         [],
         true
@@ -797,6 +899,7 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
     setAiHist([]);
     lsSet("kb_aihist", []);
     lsSet("kb_name", "");
+    lsSet("kb_msgs", []);
     setClientName("");
     setWaitName(false);
     setMsgs([]);
@@ -898,6 +1001,20 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
                 {catEmoji(cat)} {cat.charAt(0).toUpperCase() + cat.slice(1).toLowerCase()}
               </button>
             ))}
+            {/* Accesorios - próximamente */}
+            {!cats.includes("ACCESORIOS") && (
+              <button className="kb-cat" onClick={e => filterCat("ACCESORIOS", e.currentTarget)}
+                style={{opacity:.7,position:"relative"}}>
+                💍 Accesorios
+                <span style={{
+                  position:"absolute",top:-7,right:-4,
+                  background:"linear-gradient(135deg,#C026D3,#7C3AED)",
+                  color:"#fff",fontSize:"7px",fontWeight:800,
+                  padding:"1px 5px",borderRadius:"8px",letterSpacing:".3px",
+                  whiteSpace:"nowrap"
+                }}>Pronto</span>
+              </button>
+            )}
           </div>
 
           {/* ── Mensajes ── */}
