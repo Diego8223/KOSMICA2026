@@ -84,8 +84,8 @@ const ctxChips = (t, cats = []) => {
   const catChips = cats.slice(0, 3).map(c => `${catEmoji(c)} ${c.charAt(0)+c.slice(1).toLowerCase()}`);
 
   if (/regalo/.test(m))                  return ["Para dama 👜","Para caballero 💼","¿El más popular?",...catChips].slice(0,4);
-  if (/bolso|cartera/.test(m))           return ["Ver más bolsos 👜","Ver morrales 🎒","¿Hay ofertas?",...catChips].slice(0,4);
-  if (/morral|mochila/.test(m))          return ["Ver más morrales 🎒","Ver bolsos 👜","Agregar al pedido",...catChips].slice(0,4);
+  if (/bolso|cartera/.test(m))           return ["Bolsos y morrales 👜","Billeteras 💳","Maquillaje 💄","Capilar ✨",...catChips].slice(0,4);
+  if (/morral|mochila/.test(m))          return ["Bolsos y morrales 👜","Billeteras 💳","Maquillaje 💄","Capilar ✨",...catChips].slice(0,4);
   if (/billetera|monedero/.test(m))      return ["Para dama 💜","Para caballero 💙","Ver todos"];
   if (/maquillaje|labial|sombra/.test(m))return ["Kits completos 💄","Ver labiales","Ver paletas",...catChips].slice(0,4);
   if (/capilar|cabello|shampoo/.test(m)) return ["Ver shampoos ✨","Ver tratamientos","Kits capilares"];
@@ -833,7 +833,7 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
     if (cat === "ACCESORIOS") {
       addBot(
         `¡Los accesorios están llegando muy pronto! 💍✨<br>Mientras tanto tenemos bolsos, morrales, maquillaje, capilar, billeteras y más.<br>¿Qué te gustaría ver?`,
-        ["Ver bolsos 👜","Ver morrales 🎒","Ver maquillaje 💄","Capilar ✨","Billeteras 💳","Cuidado personal 🧴"]
+        ["Bolsos y morrales 👜","Billeteras 💳","Maquillaje 💄","Capilar ✨","Cuidado personal 🧴","Accesorios 💍"]
       );
       return;
     }
@@ -927,7 +927,7 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
         const top = allProds.filter(p => Number(p.stock)>0 && (p.badge || Number(p.rating)>=4.5)).slice(0,3);
         addBot(
           `¿Qué tipo de producto buscas${name?", <strong>"+name+"</strong>":""}? Cuéntame y te recomiendo lo mejor 💜`,
-          ["Bolso o cartera 👜","Morral 🎒","Maquillaje 💄","Capilar ✨","Billeteras 💳","Cuidado personal 🧴","Accesorios 💍","Lo más vendido ⭐"],
+          ["Bolsos y morrales 👜","Billeteras 💳","Maquillaje 💄","Capilar ✨","Cuidado personal 🧴","Accesorios 💍","Lo más vendido ⭐"],
           top
         );
       }
@@ -997,7 +997,7 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
     if (/para m[íi]|algo para m[íi]|quiero algo/i.test(tl)) {
       setTimeout(() => addBot(
         `¡Me encanta! ¿Qué tipo de producto estás buscando${clientName?", <strong>"+clientName+"</strong>":""}? 💜`,
-        ["Bolso o cartera 👜","Morral o mochila 🎒","Maquillaje 💄","Capilar ✨","Cuidado personal 🧴","Billeteras 💳","Accesorios 💍","Lo más vendido ⭐"]
+        ["Bolsos y morrales 👜","Billeteras 💳","Maquillaje 💄","Capilar ✨","Cuidado personal 🧴","Accesorios 💍","Lo más vendido ⭐"]
       ), 350);
       return;
     }
@@ -1043,21 +1043,17 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
 
     // ── Filtro directo por categoría desde chips ──────────
     const catMap = [
-      { regex: /bolso|cartera/i,              cat: null, key: /BOLSO|CARTERA/i },
-      { regex: /morral|mochila/i,             cat: null, key: /MORRAL|MOCHILA/i },
-      { regex: /maquillaje|labial|cosm/i,     cat: null, key: /MAQUILLAJE|COSM/i },
-      { regex: /capilar|cabello|shampoo/i,    cat: null, key: /CAPILAR|CABELLO/i },
-      { regex: /billetera|monedero|wallet/i,  cat: null, key: /BILLETERA|WALLET/i },
-      { regex: /cuidado personal|crema|cuidado/i, cat: null, key: /CUIDADO|CREMA|PERSONAL/i },
-      { regex: /accesorio|aretes|collar|joya/i, cat: null, key: /ACCESORIO|ARETE|COLLAR|JOYA/i },
+      { regex: /bolsos y morrales|bolso|cartera|morral|mochila/i, label: "Bolsos y morrales", key: /BOLSO|CARTERA|MORRAL|MOCHILA/i },
+      { regex: /maquillaje|labial|cosm/i,     label: "Maquillaje",       key: /MAQUILLAJE|COSM/i },
+      { regex: /capilar|cabello|shampoo/i,    label: "Capilar",          key: /CAPILAR|CABELLO/i },
+      { regex: /billetera|monedero|wallet/i,  label: "Billeteras",       key: /BILLETERA|WALLET/i },
+      { regex: /cuidado personal|crema|cuidado/i, label: "Cuidado personal", key: /CUIDADO|CREMA|PERSONAL/i },
+      { regex: /accesorio|aretes|collar|joya/i, label: "Accesorios",    key: /ACCESORIO|ARETE|COLLAR|JOYA/i },
     ];
-    for (const { regex, key } of catMap) {
+    for (const { regex, label, key } of catMap) {
       if (regex.test(tl)) {
         const prods = allProds.filter(p => key.test(p.category || "") && Number(p.stock) > 0).slice(0, 6);
         if (prods.length > 0) {
-          const label = prods[0].category
-            ? prods[0].category.charAt(0).toUpperCase() + prods[0].category.slice(1).toLowerCase()
-            : "productos";
           setTimeout(() => addBot(
             `Aquí tienes lo mejor en <strong>${label}</strong>${clientName ? ", <strong>" + clientName + "</strong>" : ""} 💜`,
             ["¿Hay ofertas? 🏷️","Ver otra categoría 🛍️","¿Cuánto es el envío? 🚚","Lo más vendido ⭐"],
@@ -1068,7 +1064,7 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
         // Si no hay stock en esa categoría
         setTimeout(() => addBot(
           `Ahorita no tenemos productos de esa categoría disponibles, pero están llegando muy pronto 💜<br>¿Te muestro algo más?`,
-          ["Bolso o cartera 👜","Morral o mochila 🎒","Maquillaje 💄","Capilar ✨","Billeteras 💳","Cuidado personal 🧴"]
+          ["Bolsos y morrales 👜","Billeteras 💳","Maquillaje 💄","Capilar ✨","Cuidado personal 🧴","Accesorios 💍"]
         ), 350);
         return;
       }
