@@ -298,6 +298,7 @@ const CSS = `
   .kb-overlay{padding:0 0 0;bottom:0;right:0;left:0;align-items:flex-end;justify-content:center}
   .kb-win{width:100vw;height:calc(100dvh - 70px);border-radius:18px 18px 0 0;margin:0}
   .kb-fab{bottom:16px;right:14px}
+  .kb-fab.kb-fab-hidden{display:none}
 }
 
 /* Header */
@@ -499,6 +500,11 @@ const CSS = `
   border-top:1px solid #F3EEFF;
   display:flex;gap:8px;align-items:center;flex-shrink:0;
   position:relative;z-index:10;
+}
+@media(max-width:480px){
+  .kb-footer{
+    padding:10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
 }
 .kb-inp{
   flex:1;padding:10px 15px;border:2px solid #EDE9FE;
@@ -1113,7 +1119,7 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
   return (
     <>
       {/* Botón flotante ✨ */}
-      <button className="kb-fab" onClick={() => setOpen(o => !o)} aria-label="Chat con Isabel">
+      <button className={`kb-fab${open ? " kb-fab-hidden" : ""}`} onClick={() => setOpen(o => !o)} aria-label="Chat con Isabel">
         {open ? "✕" : "✨"}
         {!open && addedIds.size > 0 && <span className="kb-fab-badge">{addedIds.size}</span>}
       </button>
