@@ -636,7 +636,7 @@ export default function ProductDetailModal({
             <div className="pdm-cp-footer">
               <div className="pdm-cp-row"><span>Subtotal</span><span>{fmtCOP(cartTotal)}</span></div>
               <div className="pdm-cp-row" style={{color:shipping===0?'#52B788':undefined}}>
-                <span>Envío</span><span>{shipping===0?'Sin costo':fmtCOP(shipping)}</span>
+                <span>Envío</span><span>{shipping===0?'Elige al finalizar la compra':fmtCOP(shipping)}</span>
               </div>
               <div className="pdm-cp-total">
                 <span>Total</span>
