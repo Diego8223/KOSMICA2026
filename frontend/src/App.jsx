@@ -903,7 +903,7 @@ export default function App() {
     {
       id: "local",
       label: "🏍️ Entrega Local",
-      cost: 15999,
+      cost: 15000,
       desc: "Medellín y Área Metropolitana",
       detail: "Tu pedido llega en máximo 24 horas. Un domiciliario te contactará para confirmar dirección y horario.",
       badge: "⚡ Más rápido"
