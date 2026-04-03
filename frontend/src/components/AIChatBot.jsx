@@ -1041,6 +1041,39 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
       }
     }
 
+    // ── Filtro directo por categoría desde chips ──────────
+    const catMap = [
+      { regex: /bolso|cartera/i,              cat: null, key: /BOLSO|CARTERA/i },
+      { regex: /morral|mochila/i,             cat: null, key: /MORRAL|MOCHILA/i },
+      { regex: /maquillaje|labial|cosm/i,     cat: null, key: /MAQUILLAJE|COSM/i },
+      { regex: /capilar|cabello|shampoo/i,    cat: null, key: /CAPILAR|CABELLO/i },
+      { regex: /billetera|monedero|wallet/i,  cat: null, key: /BILLETERA|WALLET/i },
+      { regex: /cuidado personal|crema|cuidado/i, cat: null, key: /CUIDADO|CREMA|PERSONAL/i },
+      { regex: /accesorio|aretes|collar|joya/i, cat: null, key: /ACCESORIO|ARETE|COLLAR|JOYA/i },
+    ];
+    for (const { regex, key } of catMap) {
+      if (regex.test(tl)) {
+        const prods = allProds.filter(p => key.test(p.category || "") && Number(p.stock) > 0).slice(0, 6);
+        if (prods.length > 0) {
+          const label = prods[0].category
+            ? prods[0].category.charAt(0).toUpperCase() + prods[0].category.slice(1).toLowerCase()
+            : "productos";
+          setTimeout(() => addBot(
+            `Aquí tienes lo mejor en <strong>${label}</strong>${clientName ? ", <strong>" + clientName + "</strong>" : ""} 💜`,
+            ["¿Hay ofertas? 🏷️","Ver otra categoría 🛍️","¿Cuánto es el envío? 🚚","Lo más vendido ⭐"],
+            prods
+          ), 350);
+          return;
+        }
+        // Si no hay stock en esa categoría
+        setTimeout(() => addBot(
+          `Ahorita no tenemos productos de esa categoría disponibles, pero están llegando muy pronto 💜<br>¿Te muestro algo más?`,
+          ["Bolso o cartera 👜","Morral o mochila 🎒","Maquillaje 💄","Capilar ✨","Billeteras 💳","Cuidado personal 🧴"]
+        ), 350);
+        return;
+      }
+    }
+
     await callIsabel(t, clientName, aiHist);
   }, [input, waitName, clientName, aiHist, addUser, addBot, callIsabel, onOpenCart, allProds]);
 
