@@ -832,8 +832,8 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
     // Accesorios = próximamente
     if (cat === "ACCESORIOS") {
       addBot(
-        `¡Los accesorios están llegando muy pronto! 💍✨<br>Mientras tanto tenemos bolsos, maquillaje y mucho más.<br>¿Qué te gustaría ver?`,
-        ["Ver bolsos 👜","Ver maquillaje 💄","Ver todo el catálogo 🛍️"]
+        `¡Los accesorios están llegando muy pronto! 💍✨<br>Mientras tanto tenemos bolsos, morrales, maquillaje, capilar, billeteras y más.<br>¿Qué te gustaría ver?`,
+        ["Ver bolsos 👜","Ver morrales 🎒","Ver maquillaje 💄","Capilar ✨","Billeteras 💳","Cuidado personal 🧴"]
       );
       return;
     }
@@ -927,7 +927,7 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
         const top = allProds.filter(p => Number(p.stock)>0 && (p.badge || Number(p.rating)>=4.5)).slice(0,3);
         addBot(
           `¿Qué tipo de producto buscas${name?", <strong>"+name+"</strong>":""}? Cuéntame y te recomiendo lo mejor 💜`,
-          ["Ver bolsos 👜","Ver maquillaje 💄","Busco un regalo 🎁","Lo más vendido ⭐"],
+          ["Bolso o cartera 👜","Morral 🎒","Maquillaje 💄","Capilar ✨","Billeteras 💳","Cuidado personal 🧴","Accesorios 💍","Lo más vendido ⭐"],
           top
         );
       }
@@ -997,7 +997,7 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
     if (/para m[íi]|algo para m[íi]|quiero algo/i.test(tl)) {
       setTimeout(() => addBot(
         `¡Me encanta! ¿Qué tipo de producto estás buscando${clientName?", <strong>"+clientName+"</strong>":""}? 💜`,
-        ["Bolso o cartera 👜","Maquillaje 💄","Capilar ✨","Cuidado personal 🧴"]
+        ["Bolso o cartera 👜","Morral o mochila 🎒","Maquillaje 💄","Capilar ✨","Cuidado personal 🧴","Billeteras 💳","Accesorios 💍","Lo más vendido ⭐"]
       ), 350);
       return;
     }
