@@ -40,7 +40,7 @@ export const SHIPPING_METHODS = [
   {
     id: "local",
     label: "🏍️ Entrega Local",
-    cost: 15999,
+    cost: 15000,
     desc: "Medellín y Área Metropolitana",
     detail: "Tu pedido llega en máximo 24 horas. Uno de nuestros domiciliarios te contactará para confirmar dirección y horario.",
     badge: "⚡ Más rápido"
@@ -61,7 +61,7 @@ const QUICK = [
     reply: n => `¡Hola${n?", <strong>"+n+"</strong>":""}! Soy Isabel, tu asesora de Kosmica 💜<br>¿Buscas algo para ti o es un regalo especial?`,
     chips: ["Para mí 💜","Es un regalo 🎁","Ver lo más vendido ⭐","Ver ofertas 🏷️"] },
   { test: /env[íi]o|domicilio|despacho|transporte|flete|cuánto.*env[íi]o|costo.*env[íi]o/i,
-    reply: () => `Tenemos dos opciones de envío 🚚<br><br><strong>🏍️ Entrega Local</strong> — ${fmtCOP(15999)}<br>Medellín y Área Metropolitana. Llega en máx 24h.<br><br><strong>📦 Envío Nacional</strong> — ${fmtCOP(20000)}<br>A todo Colombia. Se envía al día siguiente.<br><br>¿Cuál te queda mejor?`,
+    reply: () => `Tenemos dos opciones de envío 🚚<br><br><strong>🏍️ Entrega Local</strong> — ${fmtCOP(15000)}<br>Medellín y Área Metropolitana. Llega en máx 24h.<br><br><strong>📦 Envío Nacional</strong> — ${fmtCOP(20000)}<br>A todo Colombia. Se envía al día siguiente.<br><br>Lo eliges al finalizar tu compra 😊`,
     chips: ["Ver catálogo 🛍️","Lo más vendido ⭐","¿Cómo pago? 💳"] },
   { test: /pago|mercado\s?pago|tarjeta|pse|nequi|daviplata|efectivo|c[oó]mo pago/i,
     reply: () => "Aceptamos MercadoPago: tarjeta, PSE, Nequi, Daviplata y efectivo 💳<br>Todo 100% seguro y con confirmación inmediata.",
@@ -89,7 +89,7 @@ const ctxChips = t => {
   if (/accesorio|aretes|collar/.test(m)) return ["Ver aretes 💍","Ver collares","Ver pulseras"];
   if (/cuidado|crema|perfume/.test(m))   return ["Ver cremas 🧴","Sets de baño","Ver perfumes 🌸"];
   if (/oferta|descuento|promo/.test(m))  return ["Ver ofertas 🏷️","Lo más vendido ⭐"];
-  if (/env[íi]o|enviar/.test(m))         return ["🏍️ Local $15.999","📦 Nacional $20.000","Ver carrito 🛒"];
+  if (/env[íi]o|enviar/.test(m))         return ["🏍️ Local $15.000","📦 Nacional $20.000","Ver carrito 🛒"];
   return ["¿Hay ofertas? 🏷️","Lo más vendido ⭐","Ver carrito 🛒"];
 };
 
@@ -183,7 +183,7 @@ Si ya está listo para comprar ("lo quiero", "me gusta", "lo compro"):
 ENVÍOS
 ═══════════════════════════════════
 Cuando pregunten por envío, explica ambas opciones y que se elige al finalizar la compra:
-- 🏍️ Entrega Local: $15.999 — Medellín y Área Metropolitana. Llega en máx 24 horas.
+- 🏍️ Entrega Local: $15.000 — Medellín y Área Metropolitana. Llega en máx 24 horas.
 - 📦 Envío Nacional: $20.000 — Todo Colombia. Se envía al día siguiente.
 
 ═══════════════════════════════════
@@ -782,7 +782,7 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
     );
   }, [allProds, addBot]);
 
-  // ── Llamada al backend IA ────────────────────────────────
+  // ── Llamada directa a Anthropic ─────────────────────────
   const callIsabel = useCallback(async (msg, name, hist, retryCount = 0) => {
     const newHist = [...hist, { role:"user", content:msg }];
     setAiHist(newHist);
@@ -790,49 +790,73 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
     setTyping(true);
 
     try {
-      const API = process.env.REACT_APP_API_URL || "http://localhost:8080";
-      const res = await fetch(`${API}/api/ai/chat`, {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": process.env.REACT_APP_ANTHROPIC_KEY || "",
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+        },
         body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 600,
           system: buildPrompt(allProds, name),
-          messages: newHist.slice(-MAX_HIST),
-          max_tokens: 800,
+          messages: newHist.slice(-MAX_HIST).map(h => ({
+            role: h.role === "bot" ? "assistant" : h.role,
+            content: h.content,
+          })),
         }),
-        signal: AbortSignal.timeout(15000),
       });
+
       if (!res.ok) throw new Error("HTTP " + res.status);
       const data = await res.json();
-      const raw = (data.content||[]).map(x => x.text||"").join("") || "";
+      const raw = (data.content || []).map(x => x.text || "").join("").trim();
 
-      if (!raw && retryCount < 2) {
+      if (!raw && retryCount < 1) {
         setTyping(false);
         return callIsabel(msg, name, hist, retryCount + 1);
       }
 
-      const finalRaw = raw || `Hola${name?", <strong>"+name+"</strong>":""}! Un momento que te busco algo perfecto 💜`;
+      const finalRaw = raw || `¿Me cuentas un poco más qué estás buscando${name ? ", <strong>" + name + "</strong>" : ""}? Así te ayudo mejor 💜`;
       const updHist = [...newHist, { role:"assistant", content:finalRaw }];
       setAiHist(updHist);
       lsSet("kb_aihist", updHist.slice(-40));
 
       const ids = extractIds(finalRaw);
       const clean = cleanAI(finalRaw);
-      const recProds = ids.map(id => allProds.find(p => p.id === id || p.id === String(id))).filter(Boolean);
+      const recProds = ids
+        .map(id => allProds.find(p => p.id === id || p.id === String(id)))
+        .filter(Boolean);
 
-      const showShip = /env[íi]o|enviar|domicilio|despacho|cuánto.*env/i.test(msg);
+      const showShip = /env[íi]o|enviar|domicilio|despacho/i.test(msg);
       addBot(clean, ctxChips(msg), recProds, showShip);
+
     } catch (err) {
-      if (retryCount < 2) {
-        // Reintento silencioso
+      if (retryCount < 1) {
         setTyping(false);
-        await new Promise(r => setTimeout(r, 1200));
+        await new Promise(r => setTimeout(r, 800));
         return callIsabel(msg, name, hist, retryCount + 1);
       }
-      // Solo después de 3 intentos fallidos, mostrar sugerencia amable
-      addBot(
-        `Un momento, parece que la conexión está lenta 😊<br>¿Quieres ver el catálogo mientras tanto?`,
-        ["Ver catálogo 🛍️","Ver lo más vendido ⭐","¿Cuánto es el envío? 🚚"]
-      );
+      // Fallback inteligente: Isabel responde con recursos locales
+      const tl = msg.toLowerCase();
+      if (/bolso|cartera|morral/i.test(tl)) {
+        const prods = allProds.filter(p => /BOLSO|MORRAL/i.test(p.category||"") && Number(p.stock)>0).slice(0,3);
+        addBot(`Mira estas opciones de bolsos que tenemos 💜`, ctxChips(msg), prods);
+      } else if (/maquillaje|labial|cosm/i.test(tl)) {
+        const prods = allProds.filter(p => /MAQUILLAJE/i.test(p.category||"") && Number(p.stock)>0).slice(0,3);
+        addBot(`Te muestro lo mejor en maquillaje ✨`, ctxChips(msg), prods);
+      } else if (/billetera/i.test(tl)) {
+        const prods = allProds.filter(p => /BILLETERA/i.test(p.category||"") && Number(p.stock)>0).slice(0,3);
+        addBot(`Aquí las billeteras disponibles 💳`, ctxChips(msg), prods);
+      } else {
+        const top = allProds.filter(p => Number(p.stock)>0 && (p.badge || Number(p.rating)>=4.5)).slice(0,3);
+        addBot(
+          `¿Qué tipo de producto buscas${name?", <strong>"+name+"</strong>":""}? Cuéntame y te recomiendo lo mejor 💜`,
+          ["Ver bolsos 👜","Ver maquillaje 💄","Busco un regalo 🎁","Lo más vendido ⭐"],
+          top
+        );
+      }
     } finally {
       setTyping(false);
     }
