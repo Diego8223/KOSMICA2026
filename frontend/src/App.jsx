@@ -1132,8 +1132,7 @@ export default function App() {
           <div className="drawer-contact">
             <a href="https://www.facebook.com/profile.php?id=61584826324919" target="_blank" rel="noreferrer" className="drawer-social">📘</a>
               <a href="https://www.instagram.com/kosmica2109" target="_blank" rel="noreferrer" className="drawer-social">📷</a>
-              <a href="https://www.tiktok.com/@kosmica_2109" target="_blank" rel="noreferrer" className="drawer-social">🎵</a>
-              <a href="https://youtube.com" target="_blank" rel="noreferrer" className="drawer-social">▶️</a>
+              <a href="https://www.tiktok.com/@kosmica_2109" target="_blank" rel="noreferrer" className="drawer-social">🎵</a>   
           </div>
         </div>
       </nav>
