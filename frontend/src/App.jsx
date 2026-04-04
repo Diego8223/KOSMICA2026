@@ -511,6 +511,40 @@ const CSS = `
     display: flex; flex-direction: column; gap: 10px;
     text-align: center; font-size: .88rem;
   }
+
+  /* ✅ PWA INSTALL BANNER */
+  .pwa-banner {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    width: calc(100% - 32px); max-width: 420px;
+    background: linear-gradient(135deg, #7B5EA7, #9B72CF);
+    border-radius: 20px; padding: 16px 18px;
+    display: flex; align-items: center; gap: 14px;
+    box-shadow: 0 8px 32px rgba(123,94,167,.45);
+    z-index: 9999; animation: pwa-slide-up .4s cubic-bezier(.22,1,.36,1);
+  }
+  @keyframes pwa-slide-up {
+    from { opacity:0; transform: translateX(-50%) translateY(30px); }
+    to   { opacity:1; transform: translateX(-50%) translateY(0); }
+  }
+  .pwa-banner-icon {
+    width: 52px; height: 52px; border-radius: 14px; flex-shrink: 0;
+    background: rgba(255,255,255,.15); display: flex; align-items: center;
+    justify-content: center; font-size: 1.6rem;
+  }
+  .pwa-banner-text { flex: 1; }
+  .pwa-banner-title { color: #fff; font-weight: 700; font-size: 1rem; line-height: 1.3; }
+  .pwa-banner-sub { color: rgba(255,255,255,.75); font-size: .82rem; margin-top: 2px; }
+  .pwa-banner-btn {
+    background: #fff; color: #7B5EA7; border: none; border-radius: 50px;
+    padding: 10px 18px; font-weight: 700; font-size: .9rem; cursor: pointer;
+    white-space: nowrap; flex-shrink: 0; transition: transform .15s;
+  }
+  .pwa-banner-btn:active { transform: scale(.95); }
+  .pwa-banner-close {
+    position: absolute; top: 8px; right: 10px; background: none; border: none;
+    color: rgba(255,255,255,.6); font-size: 1rem; cursor: pointer; padding: 4px;
+  }
+
   .social-icons { display: flex; gap: 8px; justify-content: center; }
   .social-icon {
     width: 36px; height: 36px; border-radius: 10px;
@@ -1299,6 +1333,10 @@ export default function App() {
   const [referralCopied, setReferralCopied]   = useState(false);
   const [sharePopup, setSharePopup]           = useState(null); // {product, x, y}
   const [sharePos, setSharePos]               = useState({top:0,left:0});
+  // ✅ PWA — botón de instalación propio
+  const [pwaPrompt, setPwaPrompt]             = useState(null);
+  const [pwaVisible, setPwaVisible]           = useState(false);
+
   const SHIPPING_OPTIONS = [
     {
       id: "local",
@@ -1422,6 +1460,25 @@ export default function App() {
     if (!el) { el = document.createElement("script"); el.id = "schema-products"; el.type = "application/ld+json"; document.head.appendChild(el); }
     el.textContent = JSON.stringify(schemas);
   }, [products]);
+
+  // ✅ PWA — capturar el evento de instalación del navegador
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      setPwaPrompt(e);
+      setPwaVisible(true);
+    };
+    window.addEventListener("beforeinstallprompt", handler);
+    window.addEventListener("appinstalled", () => setPwaVisible(false));
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  const installPwa = async () => {
+    if (!pwaPrompt) return;
+    pwaPrompt.prompt();
+    const { outcome } = await pwaPrompt.userChoice;
+    if (outcome === "accepted") { setPwaVisible(false); setPwaPrompt(null); }
+  };
 
   const showToast=msg=>{ setToast(msg); setTimeout(()=>setToast(""),2800); };
   const addToCart=(p,qty=1)=>{
@@ -1943,7 +2000,10 @@ export default function App() {
         <div className="footer-inner">
           <div className="footer-grid">
             <div className="footer-brand">
-              <div className="footer-logo">✦ Kosmica</div>
+              <div className="footer-logo">
+                <div>✦ Kosmica</div>
+                <div style={{fontSize:\"1rem\",fontWeight:400,letterSpacing:\".18em\",textTransform:\"uppercase\",opacity:.75,marginTop:4}}>Kosmica</div>
+              </div>
               <p className="footer-desc">Tu destino de moda femenina premium. Calidad, estilo y exclusividad.</p>
               <div className="social-icons" style={{marginTop:14}}>
                 {[["📘","https://www.facebook.com/profile.php?id=61584826324919"],["📷","https://www.instagram.com/kosmica2109"],["🎵","https://www.tiktok.com/@kosmica_2109"],["▶️","https://www.youtube.com/@kosmica_2109"]].map(([s,url],i)=><a key={i} href={url} target="_blank" rel="noreferrer" className="social-icon">{s}</a>)}
@@ -2572,6 +2632,19 @@ export default function App() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ✅ PWA INSTALL BANNER — aparece cuando el navegador permite instalar */}
+      {pwaVisible && (
+        <div className="pwa-banner" style={{position:"fixed"}}>
+          <button className="pwa-banner-close" onClick={()=>setPwaVisible(false)} aria-label="Cerrar">✕</button>
+          <div className="pwa-banner-icon">✦</div>
+          <div className="pwa-banner-text">
+            <div className="pwa-banner-title">Instala Kosmica 💜</div>
+            <div className="pwa-banner-sub">Acceso rápido desde tu celular, sin Play Store</div>
+          </div>
+          <button className="pwa-banner-btn" onClick={installPwa}>Instalar</button>
         </div>
       )}
     </>
