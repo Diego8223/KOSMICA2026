@@ -2002,7 +2002,7 @@ export default function App() {
             <div className="footer-brand">
               <div className="footer-logo">
                 <div>✦ Kosmica</div>
-                <div style={{fontSize:\"1rem\",fontWeight:400,letterSpacing:\".18em\",textTransform:\"uppercase\",opacity:.75,marginTop:4}}>Kosmica</div>
+                <div style={{fontSize:"1rem",fontWeight:400,letterSpacing:".18em",textTransform:"uppercase",opacity:.75,marginTop:4}}>Kosmica</div>
               </div>
               <p className="footer-desc">Tu destino de moda femenina premium. Calidad, estilo y exclusividad.</p>
               <div className="social-icons" style={{marginTop:14}}>
