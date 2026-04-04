@@ -861,6 +861,271 @@ const CSS = `
   .wake-dots span:nth-child(2){animation-delay:.2s}
   .wake-dots span:nth-child(3){animation-delay:.4s}
   @keyframes dotBounce{0%,80%,100%{transform:scale(0.7);opacity:.5}40%{transform:scale(1.1);opacity:1}}
+
+  /* ════════════════════════════════════════
+     💌 NEWSLETTER POPUP
+  ════════════════════════════════════════ */
+  .nl-overlay {
+    position: fixed; inset: 0; z-index: 2000;
+    background: rgba(45,27,78,.65); backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center; padding: 18px;
+  }
+  .nl-box {
+    background: #fff; border-radius: 28px; max-width: 400px; width: 100%;
+    overflow: hidden; box-shadow: 0 24px 80px rgba(120,80,180,.35);
+    animation: popIn .4s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes popIn { from{transform:scale(.75);opacity:0} to{transform:scale(1);opacity:1} }
+  .nl-hero {
+    background: linear-gradient(140deg,#2D1B4E 0%,#6B3FA0 50%,#C04898 100%);
+    padding: 32px 28px 24px; text-align: center; position: relative;
+  }
+  .nl-close {
+    position: absolute; top: 14px; right: 14px;
+    background: rgba(255,255,255,.18); border: none; border-radius: 50%;
+    width: 32px; height: 32px; font-size: 1.1rem; color: #fff; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; transition: all .2s;
+  }
+  .nl-close:hover { background: rgba(255,255,255,.32); }
+  .nl-emoji { font-size: 3rem; margin-bottom: 10px; }
+  .nl-title {
+    font-family: 'Playfair Display', serif; font-size: 1.8rem; font-weight: 900;
+    color: #fff; line-height: 1.15; margin-bottom: 8px;
+  }
+  .nl-sub { color: rgba(255,255,255,.82); font-size: .95rem; line-height: 1.5; }
+  .nl-body { padding: 24px 28px 28px; }
+  .nl-input-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .nl-input {
+    flex: 1; padding: 13px 16px; border-radius: 50px;
+    border: 2px solid var(--lila-xlight); font-size: .97rem;
+    outline: none; transition: border .2s; color: var(--dark);
+  }
+  .nl-input:focus { border-color: var(--lila); }
+  .nl-btn {
+    padding: 13px 18px; border-radius: 50px; border: none;
+    background: linear-gradient(135deg,var(--lila),var(--lila-dark));
+    color: #fff; font-weight: 700; font-size: .9rem; cursor: pointer;
+    white-space: nowrap; transition: all .2s;
+  }
+  .nl-btn:hover { transform: scale(1.04); }
+  .nl-disclaimer { font-size: .78rem; color: var(--muted); text-align: center; }
+  .nl-coupon {
+    background: var(--lila-xlight); border: 2px dashed var(--lila-light);
+    border-radius: 18px; padding: 18px; text-align: center; margin-bottom: 14px;
+  }
+  .nl-coupon-label { font-size: .82rem; color: var(--brown); margin-bottom: 6px; }
+  .nl-coupon-code {
+    font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 900;
+    color: var(--lila-dark); letter-spacing: .08em;
+  }
+  .nl-coupon-copy {
+    margin-top: 10px; padding: 9px 20px; border-radius: 50px;
+    background: var(--lila); color: #fff; border: none;
+    font-weight: 700; font-size: .88rem; cursor: pointer; transition: all .2s;
+  }
+  .nl-coupon-copy:hover { background: var(--lila-dark); }
+
+  /* ════════════════════════════════════════
+     🚪 EXIT INTENT POPUP
+  ════════════════════════════════════════ */
+  .exit-overlay {
+    position: fixed; inset: 0; z-index: 2100;
+    background: rgba(45,27,78,.7); backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center; padding: 18px;
+  }
+  .exit-box {
+    background: linear-gradient(160deg,#2D1B4E,#4A2D7A);
+    border-radius: 28px; max-width: 380px; width: 100%;
+    padding: 36px 28px 28px; text-align: center; position: relative;
+    box-shadow: 0 24px 80px rgba(45,27,78,.6);
+    animation: popIn .35s cubic-bezier(.34,1.56,.64,1);
+  }
+  .exit-close {
+    position: absolute; top: 14px; right: 14px;
+    background: rgba(255,255,255,.15); border: none; border-radius: 50%;
+    width: 32px; height: 32px; color: #fff; cursor: pointer; font-size: 1.1rem;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .exit-emoji { font-size: 3.5rem; margin-bottom: 12px; }
+  .exit-title {
+    font-family: 'Playfair Display', serif; font-size: 1.7rem; font-weight: 900;
+    color: #fff; margin-bottom: 10px; line-height: 1.2;
+  }
+  .exit-sub { color: rgba(255,255,255,.75); font-size: .93rem; line-height: 1.55; margin-bottom: 22px; }
+  .exit-code {
+    background: rgba(255,255,255,.12); border: 2px dashed rgba(255,255,255,.35);
+    border-radius: 14px; padding: 14px; margin-bottom: 18px;
+  }
+  .exit-code-label { font-size: .78rem; color: rgba(255,255,255,.6); margin-bottom: 4px; }
+  .exit-code-val {
+    font-family: 'Playfair Display', serif; font-size: 1.9rem; font-weight: 900;
+    color: var(--pink); letter-spacing: .1em;
+  }
+  .exit-btn {
+    width: 100%; padding: 15px; border-radius: 50px; border: none;
+    background: linear-gradient(135deg,#F4A7C3,#D4719B);
+    color: #fff; font-weight: 800; font-size: 1rem; cursor: pointer;
+    margin-bottom: 10px; transition: all .2s;
+  }
+  .exit-btn:hover { transform: scale(1.03); }
+  .exit-skip { background: none; border: none; color: rgba(255,255,255,.4); font-size: .82rem; cursor: pointer; }
+  .exit-skip:hover { color: rgba(255,255,255,.7); }
+
+  /* ════════════════════════════════════════
+     📤 SHARE BUTTON en tarjeta de producto
+  ════════════════════════════════════════ */
+  .card-share {
+    position: absolute; bottom: 100px; right: 8px;
+    background: rgba(255,255,255,.95); border: none; border-radius: 50%;
+    width: 34px; height: 34px; font-size: .95rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,.15); transition: all .2s;
+    z-index: 5;
+  }
+  .card-share:hover { transform: scale(1.12); background: #fff; }
+
+  /* Share popup mini */
+  .share-popup {
+    position: fixed; z-index: 3000;
+    background: #fff; border-radius: 18px;
+    padding: 14px 18px; box-shadow: 0 12px 40px rgba(120,80,180,.28);
+    display: flex; flex-direction: column; gap: 8px; min-width: 220px;
+    animation: popIn .25s ease;
+  }
+  .share-title { font-size: .8rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  .share-opt {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 12px; border: none; background: none;
+    font-size: .95rem; font-weight: 600; color: var(--dark);
+    cursor: pointer; transition: all .15s; text-align: left;
+  }
+  .share-opt:hover { background: var(--lila-xlight); color: var(--lila-dark); }
+  .share-opt-ico { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; }
+  .share-wa-ico { background: #dcf8c6; }
+  .share-cp-ico { background: var(--lila-xlight); }
+
+  /* ════════════════════════════════════════
+     ⭐ MODAL DE RESEÑAS
+  ════════════════════════════════════════ */
+  .review-overlay {
+    position: fixed; inset: 0; z-index: 2000;
+    background: rgba(45,27,78,.6); backdrop-filter: blur(6px);
+    display: flex; align-items: flex-end; justify-content: center;
+  }
+  .review-box {
+    background: #fff; border-radius: 28px 28px 0 0; width: 100%;
+    max-width: 500px; padding: 28px 24px 36px;
+    box-shadow: 0 -8px 50px rgba(120,80,180,.3);
+    animation: slideUp .35s ease;
+  }
+  .review-title {
+    font-family: 'Playfair Display', serif; font-size: 1.3rem; font-weight: 700;
+    color: var(--dark); margin-bottom: 4px;
+  }
+  .review-sub { font-size: .88rem; color: var(--muted); margin-bottom: 18px; }
+  .star-select { display: flex; gap: 8px; margin-bottom: 18px; }
+  .star-btn {
+    font-size: 2rem; background: none; border: none; cursor: pointer;
+    transition: transform .15s; line-height: 1;
+  }
+  .star-btn:hover { transform: scale(1.15); }
+  .review-textarea {
+    width: 100%; padding: 13px 16px; border-radius: 14px;
+    border: 2px solid var(--lila-xlight); font-size: .97rem;
+    outline: none; resize: none; color: var(--dark); font-family: inherit;
+    transition: border .2s; margin-bottom: 14px;
+  }
+  .review-textarea:focus { border-color: var(--lila); }
+  .review-submit {
+    width: 100%; padding: 14px; border-radius: 14px; border: none;
+    background: linear-gradient(135deg,var(--lila),var(--lila-dark));
+    color: #fff; font-weight: 800; font-size: 1rem; cursor: pointer;
+    box-shadow: var(--shadow); transition: all .2s;
+  }
+  .review-submit:hover { transform: translateY(-1px); }
+
+  /* ════════════════════════════════════════
+     🎁 MODAL DE REFERIDOS
+  ════════════════════════════════════════ */
+  .ref-overlay {
+    position: fixed; inset: 0; z-index: 2000;
+    background: rgba(45,27,78,.6); backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center; padding: 18px;
+  }
+  .ref-box {
+    background: #fff; border-radius: 28px; max-width: 400px; width: 100%;
+    overflow: hidden; box-shadow: 0 24px 80px rgba(120,80,180,.35);
+    animation: popIn .4s cubic-bezier(.34,1.56,.64,1);
+  }
+  .ref-hero {
+    background: linear-gradient(140deg,#C04898,#F4A7C3);
+    padding: 30px 24px 22px; text-align: center; position: relative;
+  }
+  .ref-close {
+    position: absolute; top: 12px; right: 12px;
+    background: rgba(255,255,255,.2); border: none; border-radius: 50%;
+    width: 30px; height: 30px; color: #fff; cursor: pointer; font-size: 1rem;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .ref-emoji { font-size: 2.8rem; margin-bottom: 8px; }
+  .ref-title { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-weight: 900; color: #fff; margin-bottom: 6px; }
+  .ref-sub { color: rgba(255,255,255,.85); font-size: .88rem; line-height: 1.5; }
+  .ref-body { padding: 22px 24px 26px; }
+  .ref-steps { margin-bottom: 18px; }
+  .ref-step { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+  .ref-step-num {
+    width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+    background: var(--lila-xlight); color: var(--lila-dark);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .82rem; font-weight: 800;
+  }
+  .ref-step-text { font-size: .9rem; color: var(--brown); line-height: 1.45; padding-top: 4px; }
+  .ref-link-box {
+    background: var(--lila-xlight); border-radius: 14px;
+    padding: 12px 14px; display: flex; align-items: center; gap: 10px;
+    margin-bottom: 14px;
+  }
+  .ref-link-val { flex: 1; font-size: .82rem; color: var(--brown); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ref-copy-btn {
+    padding: 8px 16px; border-radius: 50px; border: none;
+    background: var(--lila); color: #fff; font-weight: 700; font-size: .82rem;
+    cursor: pointer; transition: all .2s; white-space: nowrap; flex-shrink: 0;
+  }
+  .ref-copy-btn:hover { background: var(--lila-dark); }
+  .ref-wa-btn {
+    width: 100%; padding: 13px; border-radius: 14px; border: none;
+    background: linear-gradient(135deg,#25D366,#128C7E);
+    color: #fff; font-weight: 800; font-size: .97rem; cursor: pointer;
+    transition: all .2s;
+  }
+  .ref-wa-btn:hover { transform: translateY(-1px); }
+
+  /* ════════════════════════════════════════
+     ⭐ BOTÓN DE RESEÑA EN TARJETA
+  ════════════════════════════════════════ */
+  .card-review-btn {
+    display: flex; align-items: center; gap: 5px;
+    background: none; border: 1px solid var(--lila-xlight);
+    border-radius: 50px; padding: 5px 10px; font-size: .78rem;
+    color: var(--muted); cursor: pointer; margin-top: 6px;
+    transition: all .18s; width: fit-content;
+  }
+  .card-review-btn:hover { border-color: var(--lila); color: var(--lila); background: var(--lila-xlight); }
+
+  /* ════════════════════════════════════════
+     🎁 BANNER REFERIDOS en footer/drawer
+  ════════════════════════════════════════ */
+  .ref-banner {
+    background: linear-gradient(135deg,#F0E8FF,#FDE8F5);
+    border: 1.5px solid var(--lila-xlight); border-radius: 16px;
+    padding: 14px 16px; display: flex; align-items: center; gap: 12px;
+    cursor: pointer; transition: all .2s; margin: 10px 20px;
+  }
+  .ref-banner:hover { border-color: var(--lila-light); transform: translateY(-1px); }
+  .ref-banner-ico { font-size: 1.6rem; flex-shrink: 0; }
+  .ref-banner-text { flex: 1; }
+  .ref-banner-title { font-size: .95rem; font-weight: 700; color: var(--dark); }
+  .ref-banner-sub { font-size: .78rem; color: var(--muted); margin-top: 2px; }
 `;
 
 const CATEGORIES = [
@@ -899,6 +1164,19 @@ export default function App() {
   const [drawerOpen,setDrawerOpen]           = useState(false);
   const [form,setForm] = useState({name:"",email:"",phone:"",document:"",city:"",neighborhood:"",address:"",notes:""});
   const [selectedShippingMethod, setSelectedShippingMethod] = useState(null);
+  // ── VIRAL FEATURES ──
+  const [newsletterOpen, setNewsletterOpen]   = useState(false);
+  const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [couponVisible, setCouponVisible]     = useState(false);
+  const [exitPopupShown, setExitPopupShown]   = useState(false);
+  const [exitPopupOpen, setExitPopupOpen]     = useState(false);
+  const [reviewModal, setReviewModal]         = useState(null); // product object
+  const [reviewStars, setReviewStars]         = useState(0);
+  const [reviewText, setReviewText]           = useState("");
+  const [referralOpen, setReferralOpen]       = useState(false);
+  const [referralCopied, setReferralCopied]   = useState(false);
+  const [sharePopup, setSharePopup]           = useState(null); // {product, x, y}
+  const [sharePos, setSharePos]               = useState({top:0,left:0});
   const SHIPPING_OPTIONS = [
     {
       id: "local",
@@ -947,6 +1225,37 @@ export default function App() {
     window.addEventListener("scroll",fn);
     return ()=>window.removeEventListener("scroll",fn);
   },[]);
+
+  // ── Newsletter: mostrar popup a los 9 segundos ──
+  useEffect(()=>{
+    const seen = localStorage.getItem("kosmica_nl_seen");
+    if(seen) return;
+    const t = setTimeout(()=>{ setNewsletterOpen(true); }, 9000);
+    return ()=>clearTimeout(t);
+  },[]);
+
+  // ── Exit intent: detectar cuando el mouse sale por arriba ──
+  useEffect(()=>{
+    const seen = localStorage.getItem("kosmica_exit_seen");
+    if(seen) return;
+    const handle = (e)=>{
+      if(e.clientY <= 8 && !exitPopupShown){
+        setExitPopupShown(true);
+        setExitPopupOpen(true);
+        localStorage.setItem("kosmica_exit_seen","1");
+      }
+    };
+    document.addEventListener("mouseleave", handle);
+    return ()=>document.removeEventListener("mouseleave", handle);
+  },[exitPopupShown]);
+
+  // ── Cerrar share popup al click fuera ──
+  useEffect(()=>{
+    if(!sharePopup) return;
+    const fn = ()=>setSharePopup(null);
+    setTimeout(()=>document.addEventListener("click",fn),100);
+    return ()=>document.removeEventListener("click",fn);
+  },[sharePopup]);
   useEffect(()=>{
     if(!search.trim()){ fetchProducts(); return; }
     const t=setTimeout(async()=>{
@@ -1071,6 +1380,61 @@ export default function App() {
   const scrollTo=()=>ref.current?.scrollIntoView({behavior:"smooth"});
   const selectCat=cat=>{ setActiveCategory(cat); setSearch(""); setDrawerOpen(false); scrollTo(); };
 
+  // ── VIRAL FUNCTIONS ──
+  const submitNewsletter = (e) => {
+    e.preventDefault();
+    if(!newsletterEmail.trim()) return;
+    // Guardar en localStorage
+    localStorage.setItem("kosmica_nl_seen","1");
+    localStorage.setItem("kosmica_nl_email", newsletterEmail);
+    setCouponVisible(true);
+    // Trackear con Meta Pixel
+    if(typeof window.fbq==="function") window.fbq("track","Lead",{content_name:"newsletter"});
+    // Trackear con TikTok
+    if(typeof window.ttq==="object") window.ttq.track("Subscribe");
+  };
+  const copyNlCoupon = () => {
+    navigator.clipboard.writeText("BIENVENIDA10").then(()=>showToast("💜 Cupón BIENVENIDA10 copiado"));
+  };
+  const openSharePopup = (e, product) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    setSharePos({ top: rect.top + window.scrollY - 10, left: Math.min(rect.left, window.innerWidth - 240) });
+    setSharePopup(product);
+  };
+  const shareViaWhatsApp = (product) => {
+    const url = `https://www.kosmica.com.co/?producto=${product.id}`;
+    const text = `¡Mira esto en Kosmica! 💜\n*${product.name}*\n${fmtCOP(product.price)}\n${url}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,"_blank");
+    setSharePopup(null);
+    if(typeof window.ttq==="object") window.ttq.track("Share",{content_id:String(product.id)});
+  };
+  const copyProductLink = (product) => {
+    const url = `https://www.kosmica.com.co/?producto=${product.id}`;
+    navigator.clipboard.writeText(url).then(()=>showToast("🔗 Link copiado al portapapeles"));
+    setSharePopup(null);
+  };
+  const submitReview = () => {
+    if(reviewStars===0){ showToast("⭐ Selecciona cuántas estrellas"); return; }
+    if(!reviewText.trim()){ showToast("✍️ Escribe tu reseña"); return; }
+    showToast(`💜 ¡Gracias por tu reseña, ${form.name||"amiga"}!`);
+    setReviewModal(null); setReviewStars(0); setReviewText("");
+    if(typeof window.fbq==="function") window.fbq("track","SubmitApplication",{content_name:"review"});
+  };
+  const copyReferral = () => {
+    const ref = `https://www.kosmica.com.co/?ref=amiga`;
+    navigator.clipboard.writeText(ref).then(()=>{
+      setReferralCopied(true);
+      showToast("🎁 Link de referido copiado");
+      setTimeout(()=>setReferralCopied(false), 3000);
+    });
+  };
+  const shareReferralWA = () => {
+    const ref = `https://www.kosmica.com.co/?ref=amiga`;
+    const text = `¡Hola! Te recomiendo Kosmica, una tienda de moda femenina premium 💜\nUsa mi link y obtienes envío prioritario en tu primera compra:\n${ref}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,"_blank");
+  };
+
   if(adminMode) return <AdminPanel onExit={()=>setAdminMode(false)} />;
   if(trackingMode) return (
     <div style={{minHeight:'100vh',background:'#F8F4FF',paddingTop:60}}>
@@ -1128,6 +1492,14 @@ export default function App() {
           </button>
         </div>
         <div className="drawer-foot">
+          <button className="ref-banner" onClick={()=>setReferralOpen(true)}>
+            <span className="ref-banner-ico">🎁</span>
+            <span className="ref-banner-text">
+              <span className="ref-banner-title">Invita y gana</span>
+              <span className="ref-banner-sub">Tu amiga compra, tú ganas descuento</span>
+            </span>
+            <span style={{color:"var(--lila-dark)",fontSize:"1.1rem"}}>›</span>
+          </button>
           <div className="drawer-foot-txt">Síguenos en redes</div>
           <div className="drawer-contact">
             <a href="https://www.facebook.com/profile.php?id=61584826324919" target="_blank" rel="noreferrer" className="drawer-social">📘</a>
@@ -1278,6 +1650,9 @@ export default function App() {
                         <button className="card-wish" onClick={e=>{e.stopPropagation();toggleWishlist(p.id);}}>
                           {wishlist.includes(p.id)?"❤️":"🤍"}
                         </button>
+                        <button className="card-share" onClick={e=>openSharePopup(e,p)} title="Compartir">
+                          📤
+                        </button>
                       </div>
                       <div className="card-body">
                         <div>
@@ -1316,6 +1691,9 @@ export default function App() {
                               >{inCart?"✓ En el carrito":"🛒 Agregar al carrito"}</button>;
                             })()
                         }
+                        <button className="card-review-btn" onClick={()=>{setReviewModal(p);setReviewStars(0);setReviewText("");}}>
+                          ⭐ Dejar reseña
+                        </button>
                       </div>
                     </div>
                   );
@@ -1366,7 +1744,7 @@ export default function App() {
               <div className="footer-logo">✦ Kosmica</div>
               <p className="footer-desc">Tu destino de moda femenina premium. Calidad, estilo y exclusividad.</p>
               <div className="social-icons" style={{marginTop:14}}>
-                {[["📘","https://www.facebook.com/profile.php?id=61584826324919"],["📷","https://www.instagram.com/kosmica2109"],["🎵","https://www.tiktok.com/@kosmica_2109"],["▶️","https://youtube.com"]].map(([s,url],i)=><a key={i} href={url} target="_blank" rel="noreferrer" className="social-icon">{s}</a>)}
+                {[["📘","https://www.facebook.com/profile.php?id=61584826324919"],["📷","https://www.instagram.com/kosmica2109"],["🎵","https://www.tiktok.com/@kosmica_2109"],["▶️","https://www.youtube.com/@kosmica_2109"]].map(([s,url],i)=><a key={i} href={url} target="_blank" rel="noreferrer" className="social-icon">{s}</a>)}
               </div>
             </div>
             <div>
@@ -1769,6 +2147,177 @@ export default function App() {
           <span className="wa-float-cta">Escríbenos</span>
         </span>
       </a>
+
+      {/* ════════════════════════════════════════
+          💌 NEWSLETTER POPUP
+      ════════════════════════════════════════ */}
+      {newsletterOpen&&(
+        <div className="nl-overlay" onClick={()=>{ setNewsletterOpen(false); localStorage.setItem("kosmica_nl_seen","1"); }}>
+          <div className="nl-box" onClick={e=>e.stopPropagation()}>
+            <div className="nl-hero">
+              <button className="nl-close" onClick={()=>{ setNewsletterOpen(false); localStorage.setItem("kosmica_nl_seen","1"); }}>✕</button>
+              <div className="nl-emoji">💜</div>
+              <div className="nl-title">10% de descuento en tu primera compra</div>
+              <div className="nl-sub">Suscríbete y recibe ofertas exclusivas antes que nadie</div>
+            </div>
+            <div className="nl-body">
+              {!couponVisible ? (
+                <>
+                  <form onSubmit={submitNewsletter}>
+                    <div className="nl-input-row">
+                      <input
+                        className="nl-input"
+                        type="email"
+                        placeholder="tu@correo.com"
+                        value={newsletterEmail}
+                        onChange={e=>setNewsletterEmail(e.target.value)}
+                        required
+                      />
+                      <button className="nl-btn" type="submit">¡Quiero!</button>
+                    </div>
+                  </form>
+                  <p className="nl-disclaimer">Sin spam. Solo lo mejor de Kosmica 💜</p>
+                </>
+              ) : (
+                <>
+                  <p style={{textAlign:"center",marginBottom:14,color:"var(--brown)",fontSize:".95rem"}}>
+                    🎉 ¡Listo! Aquí está tu cupón exclusivo:
+                  </p>
+                  <div className="nl-coupon">
+                    <div className="nl-coupon-label">Tu código de descuento</div>
+                    <div className="nl-coupon-code">BIENVENIDA10</div>
+                    <button className="nl-coupon-copy" onClick={copyNlCoupon}>📋 Copiar código</button>
+                  </div>
+                  <button className="nl-btn" style={{width:"100%",padding:"13px",borderRadius:"50px",fontSize:"1rem"}}
+                    onClick={()=>{ setNewsletterOpen(false); scrollTo(); }}>
+                    Ir a comprar →
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════
+          🚪 EXIT INTENT POPUP
+      ════════════════════════════════════════ */}
+      {exitPopupOpen&&(
+        <div className="exit-overlay">
+          <div className="exit-box">
+            <button className="exit-close" onClick={()=>setExitPopupOpen(false)}>✕</button>
+            <div className="exit-emoji">😱</div>
+            <div className="exit-title">¿Ya te vas, amiga?</div>
+            <div className="exit-sub">Espera, tenemos algo especial para ti. Usa este cupón hoy y llévate lo que quieras con descuento.</div>
+            <div className="exit-code">
+              <div className="exit-code-label">Cupón exclusivo de despedida</div>
+              <div className="exit-code-val">VUELVE15</div>
+            </div>
+            <button className="exit-btn" onClick={()=>{
+              navigator.clipboard.writeText("VUELVE15").then(()=>showToast("💜 Cupón VUELVE15 copiado"));
+              setExitPopupOpen(false);
+              scrollTo();
+            }}>
+              💜 Copiar y seguir comprando
+            </button>
+            <button className="exit-skip" onClick={()=>setExitPopupOpen(false)}>No, prefiero pagar precio completo</button>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════
+          📤 SHARE POPUP FLOTANTE
+      ════════════════════════════════════════ */}
+      {sharePopup&&(
+        <div className="share-popup" style={{position:"fixed", top: Math.min(sharePos.top, window.innerHeight-150), left: Math.max(8, sharePos.left), zIndex:3000}} onClick={e=>e.stopPropagation()}>
+          <div className="share-title">Compartir producto</div>
+          <button className="share-opt" onClick={()=>shareViaWhatsApp(sharePopup)}>
+            <span className="share-opt-ico share-wa-ico">💬</span>
+            Enviar por WhatsApp
+          </button>
+          <button className="share-opt" onClick={()=>copyProductLink(sharePopup)}>
+            <span className="share-opt-ico share-cp-ico">🔗</span>
+            Copiar link del producto
+          </button>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════
+          ⭐ MODAL DE RESEÑA
+      ════════════════════════════════════════ */}
+      {reviewModal&&(
+        <div className="review-overlay" onClick={()=>setReviewModal(null)}>
+          <div className="review-box" onClick={e=>e.stopPropagation()}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+              <div>
+                <div className="review-title">Deja tu reseña</div>
+                <div className="review-sub">{reviewModal.name}</div>
+              </div>
+              <button style={{background:"none",border:"none",fontSize:"1.3rem",cursor:"pointer",color:"var(--muted)"}} onClick={()=>setReviewModal(null)}>✕</button>
+            </div>
+            <div style={{fontSize:".88rem",color:"var(--brown)",marginBottom:8,fontWeight:600}}>¿Cuántas estrellas le das?</div>
+            <div className="star-select">
+              {[1,2,3,4,5].map(n=>(
+                <button key={n} className="star-btn" onClick={()=>setReviewStars(n)}>
+                  {n<=reviewStars?"⭐":"☆"}
+                </button>
+              ))}
+            </div>
+            <textarea
+              className="review-textarea"
+              rows={3}
+              placeholder="Cuéntanos tu experiencia con este producto... ¿llegó bien? ¿la calidad es buena? 💜"
+              value={reviewText}
+              onChange={e=>setReviewText(e.target.value)}
+            />
+            <button className="review-submit" onClick={submitReview}>
+              ✨ Publicar reseña
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════
+          🎁 MODAL DE PROGRAMA DE REFERIDOS
+      ════════════════════════════════════════ */}
+      {referralOpen&&(
+        <div className="ref-overlay" onClick={()=>setReferralOpen(false)}>
+          <div className="ref-box" onClick={e=>e.stopPropagation()}>
+            <div className="ref-hero">
+              <button className="ref-close" onClick={()=>setReferralOpen(false)}>✕</button>
+              <div className="ref-emoji">🎁</div>
+              <div className="ref-title">Invita y gana</div>
+              <div className="ref-sub">Comparte Kosmica con tus amigas y todas ganan</div>
+            </div>
+            <div className="ref-body">
+              <div className="ref-steps">
+                <div className="ref-step">
+                  <div className="ref-step-num">1</div>
+                  <div className="ref-step-text">Comparte tu link exclusivo con una amiga</div>
+                </div>
+                <div className="ref-step">
+                  <div className="ref-step-num">2</div>
+                  <div className="ref-step-text">Ella hace su primera compra en Kosmica</div>
+                </div>
+                <div className="ref-step">
+                  <div className="ref-step-num">3</div>
+                  <div className="ref-step-text">Tú recibes un cupón de descuento exclusivo 💜</div>
+                </div>
+              </div>
+              <div style={{fontSize:".82rem",color:"var(--muted)",marginBottom:8,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em"}}>Tu link de referida</div>
+              <div className="ref-link-box">
+                <span className="ref-link-val">kosmica.com.co/?ref=amiga</span>
+                <button className="ref-copy-btn" onClick={copyReferral}>
+                  {referralCopied?"✓ Copiado":"Copiar"}
+                </button>
+              </div>
+              <button className="ref-wa-btn" onClick={shareReferralWA}>
+                💬 Compartir por WhatsApp
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
