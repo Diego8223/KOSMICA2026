@@ -44,6 +44,20 @@ public class OrderService {
         order.setNeighborhood(req.getNeighborhood());
         order.setNotes(req.getNotes());
 
+        // ✅ CUPÓN — guardar código usado y monto descontado
+        if (req.getCouponCode() != null && !req.getCouponCode().isBlank()) {
+            order.setCouponCode(req.getCouponCode().toUpperCase());
+        }
+        if (req.getCouponDiscount() != null) {
+            order.setCouponDiscount(req.getCouponDiscount());
+        }
+
+        // ✅ REFERIDO — guardar de quién vino esta compra
+        if (req.getReferralCode() != null && !req.getReferralCode().isBlank()) {
+            order.setReferralCode(req.getReferralCode());
+            log.info("🎁 Compra referida por: {}", req.getReferralCode());
+        }
+
         List<OrderItem> items = new ArrayList<>();
         BigDecimal subtotal = BigDecimal.ZERO;
 
@@ -67,17 +81,26 @@ public class OrderService {
             subtotal = subtotal.add(oi.getSubtotal());
         }
 
-        BigDecimal shipping = subtotal.compareTo(new BigDecimal("80")) >= 0
-            ? BigDecimal.ZERO
-            : subtotal.multiply(new BigDecimal("0.08")).setScale(2, java.math.RoundingMode.HALF_UP);
+        // Envío desde el request (ya calculado en frontend por el asesor)
+        BigDecimal shipping = req.getShippingCost() != null
+            ? req.getShippingCost()
+            : BigDecimal.ZERO;
+
+        // Descuento del cupón
+        BigDecimal discount = req.getCouponDiscount() != null
+            ? req.getCouponDiscount()
+            : BigDecimal.ZERO;
 
         order.setItems(items);
         order.setSubtotal(subtotal);
         order.setShippingCost(shipping);
-        order.setTotal(subtotal.add(shipping));
+        order.setTotal(subtotal.subtract(discount).add(shipping));
 
         Order saved = orderRepo.save(order);
-        log.info("✅ Pedido creado: {}", saved.getOrderNumber());
+        log.info("✅ Pedido creado: {} | Cupón: {} | Referido: {}",
+            saved.getOrderNumber(),
+            saved.getCouponCode() != null ? saved.getCouponCode() : "ninguno",
+            saved.getReferralCode() != null ? saved.getReferralCode() : "directo");
 
         try { emailService.sendOrderConfirmation(saved); }
         catch (Exception e) { log.warn("Email no enviado: {}", e.getMessage()); }
@@ -104,7 +127,6 @@ public class OrderService {
         return orderRepo.findByCustomerEmailOrderByCreatedAtDesc(email);
     }
 
-    // ✅ USA método Spring Data simple — sin query personalizada
     @Transactional(readOnly = true)
     public Page<Order> getAllOrders(int page, int size) {
         List<Order> allOrders = orderRepo.findAllByOrderByCreatedAtDesc();

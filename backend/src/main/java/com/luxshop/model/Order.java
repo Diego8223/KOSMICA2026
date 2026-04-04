@@ -72,6 +72,19 @@ public class Order {
     @Column(name = "payment_method")
     private String paymentMethod;
 
+    // ✅ CUPÓN DE DESCUENTO — qué código usó y cuánto se descontó
+    @Column(name = "coupon_code")
+    private String couponCode;
+
+    @Builder.Default
+    @Column(name = "coupon_discount", precision = 10, scale = 2)
+    private BigDecimal couponDiscount = BigDecimal.ZERO;
+
+    // ✅ REFERIDO — de quién viene esta compra (valor del ?ref= en la URL)
+    // Ejemplo: si la URL fue kosmica.com.co/?ref=valentina, aquí se guarda "valentina"
+    @Column(name = "referral_code")
+    private String referralCode;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
@@ -81,7 +94,7 @@ public class Order {
     @PrePersist
     protected void onCreate() {
         createdAt = updatedAt = LocalDateTime.now();
-        orderNumber = "LUX-" + System.currentTimeMillis();
+        orderNumber = "KOS-" + System.currentTimeMillis();
     }
 
     @PreUpdate

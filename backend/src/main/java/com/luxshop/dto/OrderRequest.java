@@ -3,6 +3,7 @@ package com.luxshop.dto;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.Data;
+import java.math.BigDecimal;
 import java.util.List;
 
 @Data
@@ -15,7 +16,6 @@ public class OrderRequest {
     @NotBlank(message = "Email requerido")
     private String email;
 
-    // ✅ Nuevos campos para envío completo
     private String phone;
     private String document;
     private String city;
@@ -27,6 +27,19 @@ public class OrderRequest {
 
     private String paymentMethod = "MERCADOPAGO";
     private String paymentIntentId;
+
+    private String shippingMethod;
+
+    @Builder.Default
+    private BigDecimal shippingCost = BigDecimal.ZERO;
+
+    // ✅ CUPÓN — código aplicado y monto descontado
+    private String couponCode;
+
+    private BigDecimal couponDiscount;
+
+    // ✅ REFERIDO — código del link de quien refirió (?ref=nombre)
+    private String referralCode;
 
     @Valid
     @NotEmpty(message = "El carrito está vacío")

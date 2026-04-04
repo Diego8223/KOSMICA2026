@@ -1162,6 +1162,56 @@ const CSS = `
   /* ✅ ASPECT-RATIO en imágenes evita layout shift (CLS) */
   .prod-card-img { aspect-ratio: 3/4; overflow: hidden; background: var(--lila-xlight); }
   .prod-card-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .4s ease; }
+
+  /* ✅ CAMPO DE CUPÓN en checkout */
+  .coupon-row {
+    display: flex; gap: 8px; margin: 14px 0 4px;
+  }
+  .coupon-input {
+    flex: 1; padding: 10px 14px; border-radius: 10px;
+    border: 2px solid var(--lila-xlight); font-size: .95rem;
+    outline: none; transition: border .2s; font-family: inherit;
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .coupon-input:focus { border-color: var(--lila); }
+  .coupon-apply-btn {
+    padding: 10px 16px; background: var(--lila); color: #fff;
+    border: none; border-radius: 10px; font-weight: 700;
+    font-size: .9rem; cursor: pointer; white-space: nowrap;
+    transition: background .2s;
+  }
+  .coupon-apply-btn:hover { background: var(--lila-dark); }
+  .coupon-applied-tag {
+    display: flex; align-items: center; gap: 8px;
+    background: #e8f5e9; border: 1.5px solid #81c784;
+    border-radius: 10px; padding: 8px 12px;
+    font-size: .9rem; color: #2e7d32; font-weight: 600;
+    margin: 8px 0;
+  }
+  .coupon-remove { background: none; border: none; cursor: pointer; font-size: 1rem; color: #e53935; margin-left: auto; }
+  .coupon-error { font-size: .82rem; color: #e53935; margin: 2px 0 8px; }
+  .discount-row { color: #2e7d32; font-weight: 700; }
+
+  /* ✅ PANTALLA DE ÉXITO mejorada */
+  .success-track-btn {
+    display: block; width: 100%; margin-top: 12px; padding: 13px;
+    background: linear-gradient(135deg, #9B72CF, #7B5EA7);
+    color: #fff; border: none; border-radius: 50px;
+    font-size: 1rem; font-weight: 700; cursor: pointer;
+    font-family: inherit;
+  }
+  .success-wa-btn {
+    display: block; width: 100%; margin-top: 10px; padding: 13px;
+    background: #25D366; color: #fff; border: none; border-radius: 50px;
+    font-size: 1rem; font-weight: 700; cursor: pointer;
+    font-family: inherit; text-decoration: none; text-align: center;
+  }
+  .success-order-detail {
+    background: var(--lila-xlight); border-radius: 12px;
+    padding: 14px 16px; margin: 14px 0; text-align: left;
+  }
+  .success-order-detail p { font-size: .88rem; color: var(--brown); margin-bottom: 6px; }
+  .success-order-detail strong { color: var(--dark); }
 `;
 
 const CATEGORIES = [
@@ -1231,6 +1281,15 @@ export default function App() {
   const [newsletterOpen, setNewsletterOpen]   = useState(false);
   const [newsletterEmail, setNewsletterEmail] = useState("");
   const [couponVisible, setCouponVisible]     = useState(false);
+  // ✅ CUPÓN DE DESCUENTO — estado del campo y validación
+  const [couponInput, setCouponInput]         = useState("");
+  const [appliedCoupon, setAppliedCoupon]     = useState(null); // {code, pct}
+  const [couponError, setCouponError]         = useState("");
+  // ✅ REFERIDO — capturar ?ref= de la URL al cargar
+  const [referralCode] = useState(() => {
+    const p = new URLSearchParams(window.location.search);
+    return p.get("ref") || null;
+  });
   const [exitPopupShown, setExitPopupShown]   = useState(false);
   const [exitPopupOpen, setExitPopupOpen]     = useState(false);
   const [reviewModal, setReviewModal]         = useState(null); // product object
@@ -1390,13 +1449,16 @@ export default function App() {
 
   const cartTotal=cart.reduce((s,i)=>s+Number(i.price)*i.qty,0);
   const cartCount=cart.reduce((s,i)=>s+i.qty,0);
+  // ✅ DESCUENTO DEL CUPÓN aplicado al subtotal
+  const couponDiscount = appliedCoupon ? Math.round(cartTotal * appliedCoupon.pct / 100) : 0;
+  const cartTotalWithDiscount = cartTotal - couponDiscount;
   const [carriers, setCarriers]             = useState([]);
   const [carriersLoading, setCarriersLoading] = useState(false);
   const [carriersError, setCarriersError]   = useState(null);
   const [selectedCarrier, setSelectedCarrier] = useState(null);
   const [carrierModalOpen, setCarrierModalOpen] = useState(false); // desactivado - envío por asesor
   const shipping   = selectedShippingMethod ? selectedShippingMethod.cost : 0;
-  const grandTotal = cartTotal + shipping;
+  const grandTotal = cartTotalWithDiscount + shipping;
 
   // Llama al backend que consulta la API real de Envia
   const fetchRates = async () => {
@@ -1449,19 +1511,33 @@ export default function App() {
         description:selectedShippingMethod.desc,
         quantity:1, price:selectedShippingMethod.cost,
       });
+      // ✅ Si hay cupón, agregar ítem de descuento negativo
+      if (appliedCoupon && couponDiscount > 0) {
+        mpItems.push({
+          id:"discount", name:`Descuento ${appliedCoupon.code}`,
+          description: appliedCoupon.label,
+          quantity:1, price: -couponDiscount,
+        });
+      }
       const result=await orderAPI.createPaymentIntent(grandTotal,"COP",mpItems);
-      await orderAPI.createOrder({
-        name:form.name, email:form.email, phone:form.phone, document:form.document, city:form.city, neighborhood:form.neighborhood, address:form.address, notes:form.notes,
+      const orderResp = await orderAPI.createOrder({
+        name:form.name, email:form.email, phone:form.phone, document:form.document,
+        city:form.city, neighborhood:form.neighborhood, address:form.address, notes:form.notes,
         paymentMethod:"MERCADOPAGO",
         paymentIntentId:result.preferenceId,
         shippingMethod:selectedShippingMethod.id,
         shippingCost:selectedShippingMethod.cost,
         items:cart.map(i=>({productId:i.id,quantity:i.qty})),
+        // ✅ CUPÓN Y REFERIDO — se guardan en la orden para el admin
+        couponCode: appliedCoupon ? appliedCoupon.code : null,
+        couponDiscount: couponDiscount,
+        referralCode: referralCode,
       });
       setCart([]);
+      setAppliedCoupon(null);
       setSelectedShippingMethod(null);
       setCheckoutOpen(false);
-      // ✅ Meta Pixel: InitiateCheckout (justo antes de ir a MercadoPago)
+      // ✅ Meta Pixel: Purchase
       if (typeof window.fbq === 'function') {
         window.fbq('track', 'InitiateCheckout', {
           num_items: cart.reduce((s,i) => s + i.qty, 0),
@@ -1478,18 +1554,43 @@ export default function App() {
   const selectCat=cat=>{ setActiveCategory(cat); setSearch(""); setDrawerOpen(false); scrollTo(); };
 
   // ── VIRAL FUNCTIONS ──
-  const submitNewsletter = (e) => {
+  const submitNewsletter = async (e) => {
     e.preventDefault();
     if(!newsletterEmail.trim()) return;
-    // Guardar en localStorage
     localStorage.setItem("kosmica_nl_seen","1");
     localStorage.setItem("kosmica_nl_email", newsletterEmail);
     setCouponVisible(true);
-    // Trackear con Meta Pixel
+    // Trackear con Meta Pixel y TikTok
     if(typeof window.fbq==="function") window.fbq("track","Lead",{content_name:"newsletter"});
-    // Trackear con TikTok
     if(typeof window.ttq==="object") window.ttq.track("Subscribe");
+    // ✅ Enviar código por correo y WhatsApp desde el backend
+    try {
+      await fetch("/api/coupons/welcome", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: newsletterEmail, code: "BIENVENIDA10" })
+      });
+    } catch(_) { /* silencioso — el cupón se muestra igual en pantalla */ }
   };
+
+  // ✅ VALIDAR Y APLICAR CUPÓN en el checkout
+  const VALID_COUPONS = {
+    "BIENVENIDA10": { pct: 10, label: "10% bienvenida" },
+    "KOSMICA15":    { pct: 15, label: "15% especial" },
+  };
+  const applyCoupon = () => {
+    const code = couponInput.trim().toUpperCase();
+    if (!code) return;
+    if (appliedCoupon) { setCouponError("Ya hay un cupón aplicado."); return; }
+    const found = VALID_COUPONS[code];
+    if (!found) { setCouponError("Cupón inválido o ya expirado."); return; }
+    setAppliedCoupon({ code, ...found });
+    setCouponError("");
+    setCouponInput("");
+    showToast(`🎉 Cupón ${code} aplicado — ${found.pct}% de descuento`);
+  };
+  const removeCoupon = () => { setAppliedCoupon(null); setCouponInput(""); setCouponError(""); };
+
   const copyNlCoupon = () => {
     navigator.clipboard.writeText("BIENVENIDA10").then(()=>showToast("💜 Cupón BIENVENIDA10 copiado"));
   };
@@ -1998,6 +2099,34 @@ export default function App() {
                       {selectedShippingMethod ? fmtCOP(selectedShippingMethod.cost) : "Elige un método abajo 👇"}
                     </span>
                   </div>
+                  {/* ✅ CAMPO CUPÓN */}
+                  {!appliedCoupon ? (
+                    <>
+                      <div className="coupon-row">
+                        <input
+                          className="coupon-input"
+                          type="text"
+                          placeholder="Código de descuento"
+                          value={couponInput}
+                          onChange={e=>{setCouponInput(e.target.value); setCouponError("");}}
+                          onKeyDown={e=>e.key==="Enter"&&(e.preventDefault(),applyCoupon())}
+                        />
+                        <button type="button" className="coupon-apply-btn" onClick={applyCoupon}>Aplicar</button>
+                      </div>
+                      {couponError&&<p className="coupon-error">⚠️ {couponError}</p>}
+                    </>
+                  ) : (
+                    <div className="coupon-applied-tag">
+                      🏷️ {appliedCoupon.code} — {appliedCoupon.label}
+                      <button type="button" className="coupon-remove" onClick={removeCoupon} title="Quitar cupón">✕</button>
+                    </div>
+                  )}
+                  {appliedCoupon&&(
+                    <div className="summary-item discount-row">
+                      <span>Descuento ({appliedCoupon.pct}%)</span>
+                      <span>-{fmtCOP(couponDiscount)}</span>
+                    </div>
+                  )}
                   <div className="summary-total">
                     <span>Total</span><span style={{color:"var(--lila)"}}>{fmtCOP(grandTotal)}</span>
                   </div>
@@ -2142,10 +2271,32 @@ export default function App() {
                 <div style={{fontSize:"3.5rem",marginBottom:14}}>🎉</div>
                 <div className="success-icon">✓</div>
                 <h2 className="success-title">¡Compra exitosa!</h2>
-                <p className="success-sub">Tu pedido está siendo preparado. Recibirás un correo con el seguimiento. 💕</p>
-                <div className="order-num-badge">Pedido: {orderSuccess.orderNumber}</div>
-                <br/>
-                <button className="btn-primary" style={{width:"auto",display:"inline-block"}}
+                <p className="success-sub">Tu pedido está siendo preparado con mucho amor. 💕</p>
+
+                {/* ✅ DETALLE DEL PEDIDO */}
+                <div className="success-order-detail">
+                  <p>📦 <strong>Número de pedido</strong></p>
+                  <div className="order-num-badge" style={{marginBottom:10}}>
+                    {orderSuccess.orderNumber}
+                  </div>
+                  <p style={{fontSize:".82rem",color:"var(--muted)"}}>
+                    Guarda este número para rastrear tu pedido en cualquier momento.
+                  </p>
+                  <p style={{marginTop:8}}>📧 Confirmación enviada a <strong>{form.email}</strong></p>
+                  {form.phone&&<p>💬 También te escribimos por WhatsApp al <strong>{form.phone}</strong></p>}
+                </div>
+
+                {/* ✅ BOTONES DE ACCIÓN */}
+                <button className="success-track-btn"
+                  onClick={()=>{ setOrderSuccess(null); setCheckoutOpen(false); setTrackingMode(true); }}>
+                  📦 Rastrear mi pedido en tiempo real
+                </button>
+                <a className="success-wa-btn"
+                  href={`https://wa.me/573043927148?text=Hola%20Kosmica%20🛍️%20Mi%20pedido%20es%20el%20%23${orderSuccess.orderNumber}%2C%20quiero%20saber%20el%20estado%20de%20mi%20compra%20💜`}
+                  target="_blank" rel="noreferrer">
+                  💬 Consultar por WhatsApp
+                </a>
+                <button className="btn-primary" style={{width:"100%",marginTop:10,display:"block"}}
                   onClick={()=>{setOrderSuccess(null);setCheckoutOpen(false);}}>
                   Seguir Comprando ✦
                 </button>
