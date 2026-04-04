@@ -279,6 +279,13 @@ const CSS = `
     font-weight:700;font-size:.88rem;cursor:pointer;transition:all .3s;
   }
   .pdm-wish:hover{background:rgba(155,114,207,.15);border-color:#9B72CF}
+  .pdm-share-wa{
+    padding:13px 0;background:rgba(37,211,102,.08);color:#1a8f42;
+    border:2px solid rgba(37,211,102,.35);border-radius:14px;
+    font-weight:700;font-size:.88rem;cursor:pointer;transition:all .3s;
+    display:flex;align-items:center;justify-content:center;gap:6px;
+  }
+  .pdm-share-wa:hover{background:rgba(37,211,102,.16);border-color:#25d366}
   .pdm-tags{display:flex;flex-wrap:wrap;gap:5px}
   .pdm-tag{background:#F5EEFF;color:#9B72CF;font-size:.7rem;font-weight:600;padding:4px 11px;border-radius:30px}
 
@@ -356,6 +363,16 @@ export default function ProductDetailModal({
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
+    // ✅ Meta Pixel: ViewContent — registra cuando alguien ve un producto
+    if (typeof window.fbq === 'function') {
+      window.fbq('track', 'ViewContent', {
+        content_name: product?.name,
+        content_ids: [String(product?.id)],
+        content_type: 'product',
+        value: Number(product?.price) || 0,
+        currency: 'COP',
+      });
+    }
     return () => { document.body.style.overflow = ''; };
   }, []);
 
@@ -588,6 +605,13 @@ export default function ProductDetailModal({
 
               <button className="pdm-wish" onClick={() => onToggleWishlist(product.id)}>
                 {wishlist?.includes(product.id) ? '❤️ En favoritos' : '🤍 Guardar en favoritos'}
+              </button>
+
+              <button className="pdm-share-wa" onClick={() => {
+                const txt = encodeURIComponent(`¡Mira este producto en Kosmica! 💜\n*${product.name}*\n$${Number(product.price).toLocaleString('es-CO')}\nhttps://www.kosmica.com.co`);
+                window.open(`https://wa.me/?text=${txt}`, '_blank');
+              }}>
+                📲 Compartir por WhatsApp
               </button>
 
               <div className="pdm-tags">

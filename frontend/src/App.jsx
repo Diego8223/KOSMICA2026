@@ -967,6 +967,16 @@ export default function App() {
     });
     setCartPulse(true); setTimeout(()=>setCartPulse(false), 500);
     showToast(`✨ ${p.name} agregado`);
+    // ✅ Meta Pixel: AddToCart
+    if (typeof window.fbq === 'function') {
+      window.fbq('track', 'AddToCart', {
+        content_name: p.name,
+        content_ids: [String(p.id)],
+        content_type: 'product',
+        value: Number(p.price) * qty || 0,
+        currency: 'COP',
+      });
+    }
   };
   const removeFromCart=id=>setCart(prev=>prev.filter(i=>i.id!==id));
   const updateQty=(id,d)=>setCart(prev=>prev.map(i=>i.id===id?{...i,qty:Math.max(1,i.qty+d)}:i));
@@ -1045,6 +1055,14 @@ export default function App() {
       setCart([]);
       setSelectedShippingMethod(null);
       setCheckoutOpen(false);
+      // ✅ Meta Pixel: InitiateCheckout (justo antes de ir a MercadoPago)
+      if (typeof window.fbq === 'function') {
+        window.fbq('track', 'InitiateCheckout', {
+          num_items: cart.reduce((s,i) => s + i.qty, 0),
+          value: grandTotal,
+          currency: 'COP',
+        });
+      }
       window.location.href=result.initPoint;
     }catch(e){ showToast("⚠️ "+e.message); }
     finally{ setPaying(false); }
@@ -1112,9 +1130,9 @@ export default function App() {
         <div className="drawer-foot">
           <div className="drawer-foot-txt">Síguenos en redes</div>
           <div className="drawer-contact">
-            <a href="https://facebook.com" target="_blank" rel="noreferrer" className="drawer-social">📘</a>
-              <a href="https://instagram.com" target="_blank" rel="noreferrer" className="drawer-social">📷</a>
-              <a href="https://tiktok.com" target="_blank" rel="noreferrer" className="drawer-social">🎵</a>
+            <a href="https://www.facebook.com/people/Kosmica/61572884498525" target="_blank" rel="noreferrer" className="drawer-social">📘</a>
+              <a href="https://www.instagram.com/kosmica_2109" target="_blank" rel="noreferrer" className="drawer-social">📷</a>
+              <a href="https://www.tiktok.com/@kosmica_2109" target="_blank" rel="noreferrer" className="drawer-social">🎵</a>
               <a href="https://youtube.com" target="_blank" rel="noreferrer" className="drawer-social">▶️</a>
           </div>
         </div>
@@ -1349,7 +1367,7 @@ export default function App() {
               <div className="footer-logo">✦ Kosmica</div>
               <p className="footer-desc">Tu destino de moda femenina premium. Calidad, estilo y exclusividad.</p>
               <div className="social-icons" style={{marginTop:14}}>
-                {[["📘","https://facebook.com"],["📷","https://instagram.com"],["🎵","https://tiktok.com"],["▶️","https://youtube.com"]].map(([s,url],i)=><a key={i} href={url} target="_blank" rel="noreferrer" className="social-icon">{s}</a>)}
+                {[["📘","https://www.facebook.com/people/Kosmica/61572884498525"],["📷","https://www.instagram.com/kosmica_2109"],["🎵","https://www.tiktok.com/@kosmica_2109"],["▶️","https://youtube.com"]].map(([s,url],i)=><a key={i} href={url} target="_blank" rel="noreferrer" className="social-icon">{s}</a>)}
               </div>
             </div>
             <div>
