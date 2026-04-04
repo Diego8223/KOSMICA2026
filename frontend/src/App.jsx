@@ -1,12 +1,15 @@
 // ============================================================
 //  src/App.jsx — Kosmica v5  MOBILE-FIRST  Amazon-Style UX
+//  ✅ Optimizado: lazy loading, useMemo, Schema.org, CountdownTimer
 // ============================================================
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense, memo } from "react";
 import { productAPI, orderAPI, imgUrl } from "./services/api";
-import ProductDetailModal from "./components/ProductDetailModal";
-import AdminPanel from "./components/AdminPanel";
-import OrderTracking from "./components/OrderTracking";
-import AIChatBot from "./components/AIChatBot";
+
+// ✅ LAZY LOADING — reduce bundle inicial ~160KB (mejora LCP en móvil)
+const ProductDetailModal = lazy(() => import("./components/ProductDetailModal"));
+const AdminPanel         = lazy(() => import("./components/AdminPanel"));
+const OrderTracking      = lazy(() => import("./components/OrderTracking"));
+const AIChatBot          = lazy(() => import("./components/AIChatBot"));
 
 const CSS = `
   /* ✅ FUENTE: cargada en index.html con display=swap — no bloquea render */
@@ -1126,6 +1129,39 @@ const CSS = `
   .ref-banner-text { flex: 1; }
   .ref-banner-title { font-size: .95rem; font-weight: 700; color: var(--dark); }
   .ref-banner-sub { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+
+  /* ✅ RENDIMIENTO — content-visibility ahorra re-layouts en secciones off-screen */
+  .testimonials-section, .features-section, .footer {
+    content-visibility: auto;
+    contain-intrinsic-size: 0 400px;
+  }
+
+  /* ✅ COUNTDOWN TIMER — en tarjetas con descuento */
+  .countdown-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: linear-gradient(135deg, #FF6B6B, #EE4444);
+    color: #fff; font-size: .68rem; font-weight: 700;
+    padding: 3px 8px; border-radius: 20px; letter-spacing: .3px;
+    margin-top: 4px;
+  }
+  .countdown-badge .cd-time { font-variant-numeric: tabular-nums; }
+
+  /* ✅ SUSPENSE FALLBACK */
+  .lazy-spinner {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 60px;
+  }
+  .lazy-spinner::after {
+    content: ''; width: 28px; height: 28px;
+    border: 3px solid var(--lila-xlight);
+    border-top-color: var(--lila);
+    border-radius: 50%; animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ✅ ASPECT-RATIO en imágenes evita layout shift (CLS) */
+  .prod-card-img { aspect-ratio: 3/4; overflow: hidden; background: var(--lila-xlight); }
+  .prod-card-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .4s ease; }
 `;
 
 const CATEGORIES = [
@@ -1142,6 +1178,33 @@ const TESTIMONIALS = [
   { name:"Sofía M.",     text:"El video del producto fue clave. Llegó igual y el maquillaje es increíble 💋", stars:5 },
   { name:"Isabella V.",  text:"Envío rapidísimo y el empaque es hermoso. 100% recomendada 🌸", stars:5 },
 ];
+
+// ✅ COUNTDOWN TIMER — urgencia en productos con descuento
+const CountdownTimer = memo(function CountdownTimer({ endHour = 23, endMin = 59 }) {
+  const calcLeft = () => {
+    const now = new Date();
+    const end = new Date(); end.setHours(endHour, endMin, 59, 0);
+    if (end <= now) end.setDate(end.getDate() + 1);
+    const diff = Math.max(0, Math.floor((end - now) / 1000));
+    const h = String(Math.floor(diff / 3600)).padStart(2, "0");
+    const m = String(Math.floor((diff % 3600) / 60)).padStart(2, "0");
+    const s = String(diff % 60).padStart(2, "0");
+    return `${h}:${m}:${s}`;
+  };
+  const [left, setLeft] = useState(calcLeft);
+  useEffect(() => {
+    const t = setInterval(() => setLeft(calcLeft()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <span className="countdown-badge">
+      🔥 Oferta termina en <span className="cd-time">{left}</span>
+    </span>
+  );
+});
+
+// ✅ SUSPENSE FALLBACK — spinner mientras carga componente lazy
+const SpinFallback = () => <div className="lazy-spinner" />;
 
 export default function App() {
   const [adminMode,setAdminMode]             = useState(false);
@@ -1266,6 +1329,40 @@ export default function App() {
     },350);
     return()=>clearTimeout(t);
   },[search,fetchProducts]);
+
+  // ✅ useMemo — evita recalcular productos filtrados en cada render
+  const filteredProducts = useMemo(() => {
+    if (!search.trim()) return products;
+    const q = search.toLowerCase();
+    return products.filter(p =>
+      (p.name||"").toLowerCase().includes(q) ||
+      (p.description||"").toLowerCase().includes(q)
+    );
+  }, [products, search]);
+
+  // ✅ Schema.org Product — Google Shopping muestra foto+precio gratis
+  useEffect(() => {
+    if (!products.length) return;
+    const schemas = products.slice(0, 10).map(p => ({
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: p.name,
+      description: p.description || "",
+      image: imgUrl(p.imageUrl || p.imageUrls?.[0]),
+      offers: {
+        "@type": "Offer",
+        priceCurrency: "COP",
+        price: p.discountPrice || p.price,
+        availability: p.stock > 0
+          ? "https://schema.org/InStock"
+          : "https://schema.org/OutOfStock",
+        url: `https://www.kosmica.com.co/?producto=${p.id}`
+      }
+    }));
+    let el = document.getElementById("schema-products");
+    if (!el) { el = document.createElement("script"); el.id = "schema-products"; el.type = "application/ld+json"; document.head.appendChild(el); }
+    el.textContent = JSON.stringify(schemas);
+  }, [products]);
 
   const showToast=msg=>{ setToast(msg); setTimeout(()=>setToast(""),2800); };
   const addToCart=(p,qty=1)=>{
@@ -1435,11 +1532,13 @@ export default function App() {
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,"_blank");
   };
 
-  if(adminMode) return <AdminPanel onExit={()=>setAdminMode(false)} />;
+  if(adminMode) return <Suspense fallback={<SpinFallback/>}><AdminPanel onExit={()=>setAdminMode(false)} /></Suspense>;
   if(trackingMode) return (
-    <div style={{minHeight:'100vh',background:'#F8F4FF',paddingTop:60}}>
-      <OrderTracking onBack={()=>setTrackingMode(false)}/>
-    </div>
+    <Suspense fallback={<SpinFallback/>}>
+      <div style={{minHeight:'100vh',background:'#F8F4FF',paddingTop:60}}>
+        <OrderTracking onBack={()=>setTrackingMode(false)}/>
+      </div>
+    </Suspense>
   );
 
   const fmtCOP=(n)=>{
@@ -1613,12 +1712,12 @@ export default function App() {
             </div>
           )}
           <div className="product-grid">
-            {products.length===0 && !loading
+            {filteredProducts.length===0 && !loading
               ? <div style={{gridColumn:"1/-1",textAlign:"center",padding:"48px 18px",color:"var(--muted)"}}>
                   <div style={{fontSize:"3rem",marginBottom:12}}>🔍</div>
                   <p style={{fontSize:"1rem",fontWeight:600}}>No se encontraron productos</p>
                 </div>
-              : products.map((p,idx)=>{
+              : filteredProducts.map((p,idx)=>{
                   // ✅ Placeholder skeleton mientras el servidor responde
                   if(p.__placeholder) return (
                     <div key={p.id} className="product-card" style={{animationDelay:`${idx*0.08}s`}}>
@@ -1665,6 +1764,8 @@ export default function App() {
                           {p.originalPrice&&<span className="card-original">{fmtCOP(p.originalPrice)}</span>}
                           {pct>0&&<span className="card-discount">-{pct}%</span>}
                         </div>
+                        {/* ✅ COUNTDOWN en productos con descuento */}
+                        {pct>0&&<CountdownTimer/>}
                         {/* ── STOCK ── */}
                         {(p.stock != null) && (() => {
                           const s = p.stock;
@@ -1785,17 +1886,19 @@ export default function App() {
 
       {/* ── MODAL PRODUCTO ── */}
       {selectedProduct&&(
-        <ProductDetailModal
-          product={selectedProduct}
-          onClose={()=>setSelectedProduct(null)}
-          onAddToCart={addToCart}
-          cart={cart}
-          onUpdateQty={updateQty}
-          onRemoveFromCart={removeFromCart}
-          wishlist={wishlist}
-          onToggleWishlist={toggleWishlist}
-          onCheckout={()=>{setSelectedProduct(null);setCheckoutOpen(true);}}
-        />
+        <Suspense fallback={<SpinFallback/>}>
+          <ProductDetailModal
+            product={selectedProduct}
+            onClose={()=>setSelectedProduct(null)}
+            onAddToCart={addToCart}
+            cart={cart}
+            onUpdateQty={updateQty}
+            onRemoveFromCart={removeFromCart}
+            wishlist={wishlist}
+            onToggleWishlist={toggleWishlist}
+            onCheckout={()=>{setSelectedProduct(null);setCheckoutOpen(true);}}
+          />
+        </Suspense>
       )}
 
       {/* ── CARRITO ── */}
@@ -2132,11 +2235,13 @@ export default function App() {
       )}
 
       {/* ── ASISTENTE IA LUNA ── */}
-      <AIChatBot
-        onAddToCart={addToCart}
-        onOpenCart={() => { setCartOpen(true); }}
-        onSelectShipping={(method) => { setSelectedShippingMethod(method); showToast(`✓ ${method.label} seleccionado`); }}
-      />
+      <Suspense fallback={null}>
+        <AIChatBot
+          onAddToCart={addToCart}
+          onOpenCart={() => { setCartOpen(true); }}
+          onSelectShipping={(method) => { setSelectedShippingMethod(method); showToast(`✓ ${method.label} seleccionado`); }}
+        />
+      </Suspense>
 
       {/* ── WHATSAPP ── */}
       <a className="wa-float" href="https://wa.me/573043927148?text=Hola%20Kosmica%2C%20quiero%20información"

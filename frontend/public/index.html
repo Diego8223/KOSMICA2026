@@ -9,6 +9,17 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 
+    <!-- ✅ PWA MANIFEST -->
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+
+    <!-- ✅ DNS PREFETCH — reduce latencia al backend y CDN -->
+    <link rel="dns-prefetch" href="https://api.kosmica.com.co" />
+    <link rel="dns-prefetch" href="https://connect.facebook.net" />
+    <link rel="dns-prefetch" href="https://analytics.tiktok.com" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
     <!-- ✅ SEO BÁSICO -->
     <title>Kosmica — Moda femenina premium Colombia</title>
     <meta name="description" content="Kosmica — Bolsos, maquillaje, capilar y ropa femenina premium. Envíos a toda Colombia. ¡Compra ahora en kosmica.com.co!" />
@@ -44,7 +55,7 @@
       "name": "Kosmica",
       "url": "https://www.kosmica.com.co",
       "logo": "https://www.kosmica.com.co/og-image.jpg",
-      "description": "Tienda de moda femenina premium en Colombia. Bolsos y morrales , maquillaje, capilar, cuidado personal y accesorios.",
+      "description": "Tienda de moda femenina premium en Colombia. Bolsos y morrales, maquillaje, capilar, cuidado personal y accesorios.",
       "address": {
         "@type": "PostalAddress",
         "addressCountry": "CO"
@@ -58,8 +69,6 @@
     </script>
 
     <!-- ✅ FUENTES: preload + media=print evita bloqueo del render -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preload" as="style"
       href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500;600;700&display=swap" />
     <link rel="stylesheet"
@@ -79,10 +88,38 @@
         overflow-x: hidden; -webkit-font-smoothing: antialiased;
       }
       #root { min-height: 100vh; }
+      /* ✅ SKELETON LOADER — evita pantalla blanca en móvil mientras carga React */
+      .app-skeleton {
+        min-height: 100vh; background: #FDF8FF;
+        display: flex; flex-direction: column;
+      }
+      .skel-nav {
+        height: 58px; background: rgba(155,114,207,.08);
+        border-bottom: 1px solid rgba(155,114,207,.15);
+      }
+      .skel-hero {
+        height: 220px; margin: 12px;
+        background: linear-gradient(90deg,#f0e8ff 25%,#e8d8ff 50%,#f0e8ff 75%);
+        background-size: 200% 100%; border-radius: 16px;
+        animation: shimmer 1.4s ease-in-out infinite;
+      }
+      .skel-row {
+        display: flex; gap: 10px; padding: 0 12px; margin-top: 12px;
+      }
+      .skel-card {
+        flex: 1; height: 260px;
+        background: linear-gradient(90deg,#f0e8ff 25%,#e8d8ff 50%,#f0e8ff 75%);
+        background-size: 200% 100%; border-radius: 12px;
+        animation: shimmer 1.4s ease-in-out infinite;
+      }
+      .skel-card:nth-child(2) { animation-delay: .1s; }
+      @keyframes shimmer {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+      }
     </style>
+
     <!-- ✅ META PIXEL (Facebook / Instagram Ads) -->
-    <!-- INSTRUCCIÓN: Reemplaza TU_PIXEL_ID con tu ID real de Meta Pixel -->
-    <!-- Encuéntralo en: business.facebook.com → Administrador de eventos → Píxeles -->
     <script>
       !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
       n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
@@ -96,19 +133,15 @@
       src="https://www.facebook.com/tr?id=473792673729739&ev=PageView&noscript=1"/></noscript>
 
     <!-- ✅ TIKTOK PIXEL -->
-    <!-- INSTRUCCIÓN: Reemplaza TU_TIKTOK_PIXEL_ID con tu ID real -->
-    <!-- Encuéntralo en: ads.tiktok.com → Activos → Eventos → Pixel web -->
     <script>
       !function (w, d, t) {
-        w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var i="https://analytics.tiktok.com/i18n/pixel/events.js";ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=i,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};var o=document.createElement("script");o.type="text/javascript",o.async=!0,o.src=i+"?sdkid="+e+"&lib="+t;var a=document.getElementsByTagName("script")[0];a.parentNode.insertBefore(o,a)};
+        w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var i="https://analytics.tiktok.com/i18n/pixel/events.js";ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=i,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};var o=document.createElement("script");o.type="text/javascript",o.async=!0;o.src=i+"?sdkid="+e+"&lib="+t;var a=document.getElementsByTagName("script")[0];a.parentNode.insertBefore(o,a)};
         ttq.load('TU_TIKTOK_PIXEL_ID');
         ttq.page();
       }(window, document, 'ttq');
     </script>
 
     <!-- ✅ GOOGLE ANALYTICS 4 -->
-    <!-- INSTRUCCIÓN: Reemplaza G-XXXXXXXXXX con tu ID de GA4 -->
-    <!-- Encuéntralo en: analytics.google.com → Admin → Flujos de datos -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-DTPMFTV2QY"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
@@ -117,9 +150,28 @@
       gtag('config', 'G-DTPMFTV2QY');
     </script>
 
+    <!-- ✅ SERVICE WORKER — cache offline, carga instantánea en visitas repetidas -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js').catch(function(){});
+        });
+      }
+    </script>
+
   </head>
   <body>
     <noscript>Necesitas JavaScript para ver esta página.</noscript>
-    <div id="root"></div>
+    <!-- ✅ SKELETON visible mientras React carga — el usuario ve algo inmediatamente -->
+    <div id="root">
+      <div class="app-skeleton">
+        <div class="skel-nav"></div>
+        <div class="skel-hero"></div>
+        <div class="skel-row">
+          <div class="skel-card"></div>
+          <div class="skel-card"></div>
+        </div>
+      </div>
+    </div>
   </body>
 </html>
