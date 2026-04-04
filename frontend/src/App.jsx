@@ -1130,8 +1130,8 @@ export default function App() {
         <div className="drawer-foot">
           <div className="drawer-foot-txt">Síguenos en redes</div>
           <div className="drawer-contact">
-            <a href="https://www.facebook.com/people/Kosmica/61572884498525" target="_blank" rel="noreferrer" className="drawer-social">📘</a>
-              <a href="https://www.instagram.com/kosmica_2109" target="_blank" rel="noreferrer" className="drawer-social">📷</a>
+            <a href="https://www.facebook.com/profile.php?id=61584826324919" target="_blank" rel="noreferrer" className="drawer-social">📘</a>
+              <a href="https://www.instagram.com/kosmica2109" target="_blank" rel="noreferrer" className="drawer-social">📷</a>
               <a href="https://www.tiktok.com/@kosmica_2109" target="_blank" rel="noreferrer" className="drawer-social">🎵</a>
               <a href="https://youtube.com" target="_blank" rel="noreferrer" className="drawer-social">▶️</a>
           </div>
@@ -1367,7 +1367,7 @@ export default function App() {
               <div className="footer-logo">✦ Kosmica</div>
               <p className="footer-desc">Tu destino de moda femenina premium. Calidad, estilo y exclusividad.</p>
               <div className="social-icons" style={{marginTop:14}}>
-                {[["📘","https://www.facebook.com/people/Kosmica/61572884498525"],["📷","https://www.instagram.com/kosmica_2109"],["🎵","https://www.tiktok.com/@kosmica_2109"],["▶️","https://youtube.com"]].map(([s,url],i)=><a key={i} href={url} target="_blank" rel="noreferrer" className="social-icon">{s}</a>)}
+                {[["📘","https://www.facebook.com/profile.php?id=61584826324919"],["📷","https://www.instagram.com/kosmica2109"],["🎵","https://www.tiktok.com/@kosmica_2109"],["▶️","https://youtube.com"]].map(([s,url],i)=><a key={i} href={url} target="_blank" rel="noreferrer" className="social-icon">{s}</a>)}
               </div>
             </div>
             <div>
