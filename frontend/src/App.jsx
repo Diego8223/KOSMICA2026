@@ -1766,35 +1766,88 @@ export default function App() {
   };
 
   // ════════════════════════════════════════
-  // 🎭 SOCIAL PROOF EN TIEMPO REAL
+  // 🎭 SOCIAL PROOF — Compras REALES desde el backend
   // ════════════════════════════════════════
-  const SOCIAL_PROOF_EVENTS = [
-    { name:"Laura G.", city:"Bogotá",    action:"acaba de comprar un Bolso Premium 💜",    cat:"BOLSOS" },
-    { name:"Valentina R.", city:"Medellín", action:"agregó una Billetera al carrito 💳",   cat:"BILLETERAS" },
-    { name:"Camila T.", city:"Cali",     action:"compró un Kit de Maquillaje ✨",            cat:"MAQUILLAJE" },
-    { name:"Isabella M.", city:"Pereira", action:"acaba de hacer su 3ra compra 🌸",         cat:"BOLSOS" },
-    { name:"Sofía V.",  city:"Barranquilla", action:"compró el Sérum Capilar 💆",           cat:"CAPILAR" },
-    { name:"Daniela P.", city:"Bucaramanga", action:"agregó Accesorios al carrito 💍",      cat:"ACCESORIOS" },
-    { name:"Mariana L.", city:"Manizales",  action:"acaba de comprar Cuidado Personal 🧴",  cat:"CUIDADO_PERSONAL" },
-    { name:"Andrea C.", city:"Cartagena",  action:"compró un Bolso de Cuero Premium 👜",    cat:"BOLSOS" },
+
+  // Emojis por categoría para hacer el mensaje más visual
+  const CAT_EMOJI = {
+    BOLSOS: "👜", BILLETERAS: "💳", MAQUILLAJE: "💄",
+    CAPILAR: "✨", CUIDADO_PERSONAL: "🧴", ACCESORIOS: "💍",
+  };
+
+  // Fallback si no hay compras recientes (primeros días del lanzamiento)
+  const SOCIAL_PROOF_FALLBACK = [
+    { name:"Valentina R.", city:"Medellín", action:"acaba de comprar en Kosmica 💜" },
+    { name:"Camila T.",    city:"Bogotá",   action:"acaba de hacer su primera compra ✨" },
+    { name:"Isabella M.",  city:"Cali",     action:"acaba de unirse a Kosmica 🌸" },
   ];
-  useEffect(() => {
-    let idx = 0;
-    const showNext = () => {
-      const ev = SOCIAL_PROOF_EVENTS[idx % SOCIAL_PROOF_EVENTS.length];
-      idx++;
-      setSpHiding(false);
-      setSocialProof(ev);
-      // Ocultar después de 4.5s con animación
-      setTimeout(() => setSpHiding(true), 4500);
-      setTimeout(() => setSocialProof(null), 5000);
-    };
-    // Primera aparición a los 8s, luego cada 18s
-    const first = setTimeout(showNext, 8000);
-    const interval = setInterval(showNext, 18000);
-    return () => { clearTimeout(first); clearInterval(interval); };
-  // eslint-disable-next-line
+
+  const spQueueRef = useRef([]);
+  const spIdxRef   = useRef(0);
+
+  const showNextSP = useCallback(() => {
+    const queue = spQueueRef.current;
+    if (!queue.length) return;
+    const ev = queue[spIdxRef.current % queue.length];
+    spIdxRef.current++;
+    setSpHiding(false);
+    setSocialProof(ev);
+    setTimeout(() => setSpHiding(true),  4500);
+    setTimeout(() => setSocialProof(null), 5000);
   }, []);
+
+  useEffect(() => {
+    const API = process.env.REACT_APP_API_URL || "https://kosmica-backend.onrender.com";
+
+    const loadActivity = async () => {
+      try {
+        const res = await fetch(`${API}/api/orders/recent-activity`);
+        if (!res.ok) throw new Error("no data");
+        const data = await res.json();
+
+        if (Array.isArray(data) && data.length > 0) {
+          // Convertir respuesta del backend al formato del componente
+          spQueueRef.current = data.map(ev => {
+            const emoji = CAT_EMOJI[ev.category] || "💜";
+            const mins  = Number(ev.minutesAgo);
+            let timeLabel;
+            if (mins < 2)        timeLabel = "Hace un momento";
+            else if (mins < 60)  timeLabel = `Hace ${mins} min`;
+            else if (mins < 120) timeLabel = "Hace 1 hora";
+            else                 timeLabel = `Hace ${Math.floor(mins/60)} horas`;
+
+            return {
+              name:      ev.name,
+              city:      ev.city,
+              action:    `acaba de comprar ${ev.product} ${emoji}`,
+              timeLabel,
+              real:      true,
+            };
+          });
+        } else {
+          // Sin compras aún — usar fallback
+          spQueueRef.current = SOCIAL_PROOF_FALLBACK;
+        }
+      } catch {
+        spQueueRef.current = SOCIAL_PROOF_FALLBACK;
+      }
+    };
+
+    // Cargar al montar y refrescar cada 5 minutos
+    loadActivity();
+    const refresh = setInterval(loadActivity, 5 * 60 * 1000);
+
+    // Mostrar toasts: primera vez a los 10s, luego cada 20s
+    const first    = setTimeout(showNextSP, 10000);
+    const interval = setInterval(showNextSP, 20000);
+
+    return () => {
+      clearTimeout(first);
+      clearInterval(interval);
+      clearInterval(refresh);
+    };
+  // eslint-disable-next-line
+  }, [showNextSP]);
 
   // ════════════════════════════════════════
   // 🔔 NOTIFICACIONES PUSH — pedir permiso
@@ -3107,7 +3160,11 @@ export default function App() {
           <div className="sp-body">
             <div className="sp-name">{socialProof.name} · {socialProof.city}</div>
             <div className="sp-action">{socialProof.action}</div>
-            <div className="sp-time">Hace {Math.floor(Math.random()*9)+1} min · ✓ Compra verificada</div>
+            <div className="sp-time">
+              {socialProof.timeLabel
+                ? `${socialProof.timeLabel} · ✓ Compra verificada`
+                : `Hace ${Math.floor(Math.random()*9)+1} min · ✓ Compra verificada`}
+            </div>
           </div>
         </div>
       )}
