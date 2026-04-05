@@ -1,7 +1,7 @@
-// ✅ SERVICE WORKER — Kosmica v2
-// Auto-actualización inmediata + cache inteligente por tipo de recurso
+// ✅ SERVICE WORKER — Kosmica v3
+// Auto-actualización inmediata + cache inteligente + push notifications
 
-const CACHE_VERSION = 'kosmica-v2';
+const CACHE_VERSION = 'kosmica-v3';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const IMAGE_CACHE   = `${CACHE_VERSION}-images`;
 const ALL_CACHES    = [STATIC_CACHE, IMAGE_CACHE];
@@ -123,3 +123,35 @@ async function cacheFirstWithExpiry(request, cacheName, maxAge) {
     return cached || new Response('', { status: 408 });
   }
 }
+
+// ── PUSH NOTIFICATIONS ──
+// Muestra la notificación cuando llega un push del servidor
+self.addEventListener('push', e => {
+  const data = e.data ? e.data.json() : {};
+  const title = data.title || '¡Kosmica tiene algo para ti! 💜';
+  const options = {
+    body:  data.body  || 'Entra a ver las últimas novedades ✨',
+    icon:  '/icon-192.png',
+    badge: '/icon-192.png',
+    data:  { url: data.url || '/' },
+    actions: [
+      { action: 'open',    title: 'Ver ahora' },
+      { action: 'dismiss', title: 'Después' },
+    ],
+  };
+  e.waitUntil(self.registration.showNotification(title, options));
+});
+
+// ── Al hacer clic en la notificación — abrir la app ──
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  if (e.action === 'dismiss') return;
+  const url = e.notification.data?.url || '/';
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      const existing = list.find(c => c.url.includes(self.location.origin));
+      if (existing) { existing.focus(); existing.navigate(url); }
+      else clients.openWindow(url);
+    })
+  );
+});

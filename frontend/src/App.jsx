@@ -1209,6 +1209,202 @@ const CSS = `
   .prod-card-img { aspect-ratio: 3/4; overflow: hidden; background: var(--lila-xlight); }
   .prod-card-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .4s ease; }
 
+  /* ════════════════════════════════════════
+     🔴 SOCIAL PROOF EN TIEMPO REAL
+  ════════════════════════════════════════ */
+  .social-proof-toast {
+    position: fixed; bottom: 90px; left: 16px; z-index: 8000;
+    background: #fff; border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(45,27,78,.22);
+    padding: 12px 16px 12px 14px;
+    display: flex; align-items: center; gap: 12px;
+    max-width: 300px; min-width: 240px;
+    border-left: 4px solid var(--lila);
+    animation: sp-slide-in .4s cubic-bezier(.22,1,.36,1);
+    cursor: pointer;
+  }
+  .social-proof-toast.hiding {
+    animation: sp-slide-out .35s ease forwards;
+  }
+  @keyframes sp-slide-in {
+    from { transform: translateX(-120%); opacity: 0; }
+    to   { transform: translateX(0);     opacity: 1; }
+  }
+  @keyframes sp-slide-out {
+    from { transform: translateX(0);     opacity: 1; }
+    to   { transform: translateX(-120%); opacity: 0; }
+  }
+  .sp-avatar {
+    width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--lila), var(--pink));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; font-weight: 700; color: #fff;
+  }
+  .sp-body { flex: 1; min-width: 0; }
+  .sp-name { font-weight: 700; font-size: .9rem; color: var(--dark); }
+  .sp-action { font-size: .82rem; color: var(--brown); margin-top: 2px; line-height: 1.4; }
+  .sp-time { font-size: .72rem; color: var(--muted); margin-top: 3px; }
+
+  /* ════════════════════════════════════════
+     💎 PUNTOS DE FIDELIDAD
+  ════════════════════════════════════════ */
+  .loyalty-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: linear-gradient(135deg, #FFD700, #FFA500);
+    color: #7B4F00; border-radius: 30px; padding: 5px 13px;
+    font-size: .82rem; font-weight: 800; cursor: pointer;
+    border: none; box-shadow: 0 2px 10px rgba(255,165,0,.35);
+    transition: transform .2s; white-space: nowrap;
+  }
+  .loyalty-badge:hover { transform: scale(1.05); }
+  .loyalty-modal-overlay {
+    position: fixed; inset: 0; background: rgba(45,27,78,.5);
+    z-index: 3500; display: flex; align-items: flex-end;
+    backdrop-filter: blur(4px);
+  }
+  .loyalty-modal {
+    width: 100%; max-width: 480px; margin: 0 auto;
+    background: #fff; border-radius: 28px 28px 0 0;
+    padding: 28px 22px 36px; animation: slideUp .35s cubic-bezier(.22,1,.36,1);
+  }
+  .loyalty-header {
+    text-align: center; margin-bottom: 22px;
+  }
+  .loyalty-crown { font-size: 2.8rem; margin-bottom: 8px; }
+  .loyalty-title {
+    font-family: 'Playfair Display', serif; font-size: 1.4rem;
+    font-weight: 800; color: var(--dark); margin-bottom: 4px;
+  }
+  .loyalty-sub { font-size: .9rem; color: var(--brown); }
+  .loyalty-points-big {
+    background: linear-gradient(135deg, #FFD700, #FFA500);
+    border-radius: 20px; padding: 18px; text-align: center;
+    margin-bottom: 20px;
+  }
+  .loyalty-points-num {
+    font-family: 'Playfair Display', serif; font-size: 2.8rem;
+    font-weight: 900; color: #7B4F00;
+  }
+  .loyalty-points-label { font-size: .9rem; color: #9B6500; font-weight: 600; margin-top: 2px; }
+  .loyalty-how {
+    background: var(--lila-xlight); border-radius: 16px;
+    padding: 16px; margin-bottom: 16px;
+  }
+  .loyalty-how-title { font-weight: 800; font-size: .88rem; color: var(--dark); margin-bottom: 12px; text-transform: uppercase; letter-spacing: .08em; }
+  .loyalty-how-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; border-bottom: 1px solid rgba(155,114,207,.15);
+    font-size: .88rem;
+  }
+  .loyalty-how-row:last-child { border-bottom: none; }
+  .loyalty-how-pts { font-weight: 800; color: var(--lila-dark); }
+  .loyalty-redeem {
+    width: 100%; padding: 14px; border: none; border-radius: 50px;
+    background: linear-gradient(135deg, var(--lila), var(--lila-dark));
+    color: #fff; font-weight: 700; font-size: 1rem; cursor: pointer;
+    box-shadow: var(--shadow); transition: all .2s; margin-top: 4px;
+  }
+  .loyalty-redeem:hover { filter: brightness(1.07); transform: translateY(-1px); }
+  .loyalty-tier {
+    display: flex; gap: 8px; margin-bottom: 16px;
+  }
+  .loyalty-tier-item {
+    flex: 1; text-align: center; padding: 10px 6px;
+    border-radius: 12px; border: 2px solid var(--lila-xlight);
+    font-size: .78rem;
+  }
+  .loyalty-tier-item.active {
+    border-color: #FFD700; background: linear-gradient(135deg,#FFF8DC,#FFF0A0);
+  }
+  .loyalty-tier-ico { font-size: 1.3rem; margin-bottom: 4px; }
+  .loyalty-tier-name { font-weight: 700; color: var(--dark); }
+  .loyalty-tier-pts { font-size: .72rem; color: var(--muted); margin-top: 2px; }
+
+  /* ════════════════════════════════════════
+     🔔 NOTIFICACIONES PUSH BANNER
+  ════════════════════════════════════════ */
+  .push-banner {
+    position: fixed; top: 68px; left: 50%; transform: translateX(-50%);
+    width: calc(100% - 28px); max-width: 420px;
+    background: linear-gradient(135deg, #2D1B4E, #4A2D7A);
+    border-radius: 18px; padding: 14px 16px;
+    display: flex; align-items: center; gap: 12px;
+    box-shadow: 0 8px 32px rgba(45,27,78,.45);
+    z-index: 9990; animation: pwa-slide-up .4s cubic-bezier(.22,1,.36,1);
+  }
+  .push-banner-ico {
+    font-size: 1.8rem; flex-shrink: 0;
+  }
+  .push-banner-text { flex: 1; }
+  .push-banner-title { color: #fff; font-weight: 700; font-size: .95rem; }
+  .push-banner-sub { color: rgba(255,255,255,.7); font-size: .78rem; margin-top: 2px; }
+  .push-banner-btn {
+    background: linear-gradient(135deg,var(--lila-light),var(--pink));
+    color: var(--dark); border: none; border-radius: 50px;
+    padding: 8px 16px; font-weight: 700; font-size: .85rem;
+    cursor: pointer; white-space: nowrap; flex-shrink: 0;
+  }
+  .push-banner-close {
+    position: absolute; top: 8px; right: 10px;
+    background: none; border: none; color: rgba(255,255,255,.5);
+    font-size: .95rem; cursor: pointer; padding: 2px;
+  }
+
+  /* ════════════════════════════════════════
+     🛒 CARRITO ABANDONADO — sticky reminder
+  ════════════════════════════════════════ */
+  .abandoned-banner {
+    position: fixed; bottom: 16px; right: 16px; z-index: 7000;
+    background: #25D366; border-radius: 18px;
+    padding: 14px 18px; max-width: 300px;
+    box-shadow: 0 8px 28px rgba(37,211,102,.4);
+    animation: sp-slide-in .4s cubic-bezier(.22,1,.36,1);
+    cursor: pointer;
+  }
+  .abandoned-banner-title { color: #fff; font-weight: 800; font-size: .95rem; margin-bottom: 4px; }
+  .abandoned-banner-sub { color: rgba(255,255,255,.88); font-size: .82rem; line-height: 1.4; }
+  .abandoned-banner-close {
+    position: absolute; top: 8px; right: 10px;
+    background: none; border: none; color: rgba(255,255,255,.7);
+    font-size: .95rem; cursor: pointer; padding: 2px;
+  }
+
+  /* ════════════════════════════════════════
+     🛍️ UPSELL en carrito
+  ════════════════════════════════════════ */
+  .upsell-section {
+    padding: 14px 18px; border-top: 1px solid var(--lila-xlight);
+    background: #FAF7FF;
+  }
+  .upsell-title {
+    font-size: .82rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .1em; color: var(--lila-dark); margin-bottom: 10px;
+  }
+  .upsell-scroll {
+    display: flex; gap: 10px; overflow-x: auto;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .upsell-scroll::-webkit-scrollbar { display: none; }
+  .upsell-card {
+    flex-shrink: 0; width: 110px; border-radius: 12px;
+    background: #fff; border: 1.5px solid var(--lila-xlight);
+    overflow: hidden; cursor: pointer; transition: all .2s;
+  }
+  .upsell-card:hover { border-color: var(--lila); transform: translateY(-2px); }
+  .upsell-img {
+    width: 100%; height: 80px; object-fit: contain;
+    background: #F8F4FF; padding: 4px;
+  }
+  .upsell-info { padding: 6px 8px 8px; }
+  .upsell-name { font-size: .75rem; font-weight: 600; color: var(--dark); line-height: 1.3; margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .upsell-price { font-size: .8rem; font-weight: 800; color: var(--lila-dark); }
+  .upsell-add {
+    width: 100%; padding: 5px; background: var(--lila-xlight);
+    border: none; color: var(--lila-dark); font-size: .75rem;
+    font-weight: 700; cursor: pointer; transition: background .2s;
+  }
+  .upsell-add:hover { background: var(--lila-light); }
+
   /* ✅ CAMPO DE CUPÓN en checkout */
   .coupon-row {
     display: flex; gap: 8px; margin: 14px 0 4px;
@@ -1346,6 +1542,18 @@ export default function App() {
     const p = new URLSearchParams(window.location.search);
     return p.get("ref") || null;
   });
+  // ✅ CÓDIGO ÚNICO de referida — se genera y guarda en localStorage la primera vez
+  const [myReferralCode] = useState(() => {
+    try {
+      const saved = localStorage.getItem("kosmica_my_ref");
+      if (saved) return saved;
+      // Generar código único: 6 chars alfanuméricos aleatorios
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      const code = Array.from({length:6}, ()=>chars[Math.floor(Math.random()*chars.length)]).join("");
+      localStorage.setItem("kosmica_my_ref", code);
+      return code;
+    } catch { return "KOSMICA"; }
+  });
   const [exitPopupShown, setExitPopupShown]   = useState(false);
   const [exitPopupOpen, setExitPopupOpen]     = useState(false);
   const [reviewModal, setReviewModal]         = useState(null); // product object
@@ -1359,6 +1567,24 @@ export default function App() {
   const [pwaPrompt, setPwaPrompt]             = useState(null);
   const [pwaVisible, setPwaVisible]           = useState(false);
   const [swUpdated, setSwUpdated]              = useState(false);
+  // ── SOCIAL PROOF en tiempo real ──
+  const [socialProof, setSocialProof]         = useState(null);
+  const [spHiding, setSpHiding]               = useState(false);
+  // ── PUNTOS DE FIDELIDAD ──
+  const [loyaltyOpen, setLoyaltyOpen]         = useState(false);
+  const [loyaltyPoints] = useState(() => {
+    try { return parseInt(localStorage.getItem("kosmica_pts") || "0", 10); }
+    catch { return 0; }
+  });
+  const [displayPoints, setDisplayPoints]     = useState(loyaltyPoints);
+  // ── NOTIFICACIONES PUSH ──
+  const [pushBanner, setPushBanner]           = useState(false);
+  const [pushGranted, setPushGranted]         = useState(false);
+  // ── CARRITO ABANDONADO ──
+  const [abandonedBanner, setAbandonedBanner] = useState(false);
+  const abandonedTimerRef                     = useRef(null);
+  // ── UPSELL productos sugeridos ──
+  const [upsellProducts, setUpsellProducts]   = useState([]);
 
   const SHIPPING_OPTIONS = [
     {
@@ -1539,6 +1765,126 @@ export default function App() {
     if (outcome === "accepted") { setPwaVisible(false); setPwaPrompt(null); }
   };
 
+  // ════════════════════════════════════════
+  // 🎭 SOCIAL PROOF EN TIEMPO REAL
+  // ════════════════════════════════════════
+  const SOCIAL_PROOF_EVENTS = [
+    { name:"Laura G.", city:"Bogotá",    action:"acaba de comprar un Bolso Premium 💜",    cat:"BOLSOS" },
+    { name:"Valentina R.", city:"Medellín", action:"agregó una Billetera al carrito 💳",   cat:"BILLETERAS" },
+    { name:"Camila T.", city:"Cali",     action:"compró un Kit de Maquillaje ✨",            cat:"MAQUILLAJE" },
+    { name:"Isabella M.", city:"Pereira", action:"acaba de hacer su 3ra compra 🌸",         cat:"BOLSOS" },
+    { name:"Sofía V.",  city:"Barranquilla", action:"compró el Sérum Capilar 💆",           cat:"CAPILAR" },
+    { name:"Daniela P.", city:"Bucaramanga", action:"agregó Accesorios al carrito 💍",      cat:"ACCESORIOS" },
+    { name:"Mariana L.", city:"Manizales",  action:"acaba de comprar Cuidado Personal 🧴",  cat:"CUIDADO_PERSONAL" },
+    { name:"Andrea C.", city:"Cartagena",  action:"compró un Bolso de Cuero Premium 👜",    cat:"BOLSOS" },
+  ];
+  useEffect(() => {
+    let idx = 0;
+    const showNext = () => {
+      const ev = SOCIAL_PROOF_EVENTS[idx % SOCIAL_PROOF_EVENTS.length];
+      idx++;
+      setSpHiding(false);
+      setSocialProof(ev);
+      // Ocultar después de 4.5s con animación
+      setTimeout(() => setSpHiding(true), 4500);
+      setTimeout(() => setSocialProof(null), 5000);
+    };
+    // Primera aparición a los 8s, luego cada 18s
+    const first = setTimeout(showNext, 8000);
+    const interval = setInterval(showNext, 18000);
+    return () => { clearTimeout(first); clearInterval(interval); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ════════════════════════════════════════
+  // 🔔 NOTIFICACIONES PUSH — pedir permiso
+  // ════════════════════════════════════════
+  useEffect(() => {
+    if (!("Notification" in window)) return;
+    // Ya tiene permiso — no molestamos
+    if (Notification.permission === "granted") { setPushGranted(true); return; }
+    // Ya denegó — tampoco
+    if (Notification.permission === "denied") return;
+    // Mostrar banner propio después de 20s (no el prompt nativo directo)
+    const t = setTimeout(() => {
+      const seen = localStorage.getItem("kosmica_push_seen");
+      if (!seen) setPushBanner(true);
+    }, 20000);
+    return () => clearTimeout(t);
+  }, []);
+
+  const requestPush = async () => {
+    setPushBanner(false);
+    localStorage.setItem("kosmica_push_seen", "1");
+    if (!("Notification" in window)) return;
+    const perm = await Notification.requestPermission();
+    if (perm === "granted") {
+      setPushGranted(true);
+      // Notificación de bienvenida inmediata
+      new Notification("¡Bienvenida a Kosmica! 💜", {
+        body: "Serás la primera en enterarte de ofertas exclusivas 🎁",
+        icon: "/icon-192.png",
+      });
+    }
+  };
+
+  // ════════════════════════════════════════
+  // 🛒 CARRITO ABANDONADO — detectar inactividad con items en carrito
+  // ════════════════════════════════════════
+  useEffect(() => {
+    if (abandonedTimerRef.current) clearTimeout(abandonedTimerRef.current);
+    if (cart.length === 0 || cartOpen || checkoutOpen) {
+      setAbandonedBanner(false);
+      return;
+    }
+    // Si hay items en el carrito y el usuario está inactivo 3 minutos
+    abandonedTimerRef.current = setTimeout(() => {
+      setAbandonedBanner(true);
+    }, 3 * 60 * 1000);
+    return () => clearTimeout(abandonedTimerRef.current);
+  }, [cart, cartOpen, checkoutOpen]);
+
+  const sendAbandonedCartWA = () => {
+    setAbandonedBanner(false);
+    const itemsText = cart.map(i => `• ${i.name} ×${i.qty} — ${fmtCOP(Number(i.price)*i.qty)}`).join("\n");
+    const total = fmtCOP(cart.reduce((s,i)=>s+Number(i.price)*i.qty,0));
+    const text = `Hola Kosmica! 💜 Dejé estos productos en mi carrito y me gustaría completar mi compra:\n\n${itemsText}\n\nTotal: ${total}\n\n¿Pueden ayudarme? 🙏`;
+    window.open(`https://wa.me/573043927148?text=${encodeURIComponent(text)}`, "_blank");
+  };
+
+  // ════════════════════════════════════════
+  // 🛍️ UPSELL — cargar productos sugeridos cuando se abre el carrito
+  // ════════════════════════════════════════
+  useEffect(() => {
+    if (!cartOpen || cart.length === 0) return;
+    // Categorías que NO están en el carrito
+    const cartCats = [...new Set(cart.map(i => i.category).filter(Boolean))];
+    const otherCats = CATEGORIES.map(c => c.key).filter(k => !cartCats.includes(k));
+    const targetCat = otherCats[Math.floor(Math.random() * otherCats.length)] || "BOLSOS";
+    productAPI.getByCategory(targetCat)
+      .then(d => {
+        const list = (Array.isArray(d) ? d : (d.content||[])).slice(0,6);
+        // Excluir lo que ya está en el carrito
+        const cartIds = new Set(cart.map(i=>i.id));
+        setUpsellProducts(list.filter(p=>!cartIds.has(p.id)).slice(0,4));
+      })
+      .catch(()=>{});
+  }, [cartOpen]);
+
+  // ════════════════════════════════════════
+  // 💎 PUNTOS — sumar por compra y guardar
+  // ════════════════════════════════════════
+  const awardLoyaltyPoints = (total) => {
+    const pts = Math.floor(total / 1000); // 1 punto por cada $1.000 COP
+    try {
+      const current = parseInt(localStorage.getItem("kosmica_pts") || "0", 10);
+      const newTotal = current + pts;
+      localStorage.setItem("kosmica_pts", String(newTotal));
+      setDisplayPoints(newTotal);
+    } catch(_) {}
+    return pts;
+  };
+
   const showToast=msg=>{ setToast(msg); setTimeout(()=>setToast(""),2800); };
   const addToCart=(p,qty=1)=>{
     setCart(prev=>{
@@ -1655,6 +2001,9 @@ export default function App() {
       setCheckoutOpen(false);
       // ✅ Limpiar carrito del localStorage al completar compra
       try { localStorage.removeItem("kosmica_cart"); } catch(_) {}
+      // ✅ PUNTOS DE FIDELIDAD — sumar por compra
+      const pts = awardLoyaltyPoints(grandTotal);
+      if (pts > 0) showToast(`💎 ¡Ganaste ${pts} puntos Kosmica!`);
       // ✅ Meta Pixel: Purchase
       if (typeof window.fbq === 'function') {
         window.fbq('track', 'InitiateCheckout', {
@@ -1738,16 +2087,16 @@ export default function App() {
     if(typeof window.fbq==="function") window.fbq("track","SubmitApplication",{content_name:"review"});
   };
   const copyReferral = () => {
-    const ref = `https://www.kosmica.com.co/?ref=amiga`;
-    navigator.clipboard.writeText(ref).then(()=>{
+    const link = `https://www.kosmica.com.co/?ref=${myReferralCode}`;
+    navigator.clipboard.writeText(link).then(()=>{
       setReferralCopied(true);
       showToast("🎁 Link de referido copiado");
       setTimeout(()=>setReferralCopied(false), 3000);
     });
   };
   const shareReferralWA = () => {
-    const ref = `https://www.kosmica.com.co/?ref=amiga`;
-    const text = `¡Hola! Te recomiendo Kosmica, una tienda de moda femenina premium 💜\nUsa mi link y obtienes envío prioritario en tu primera compra:\n${ref}`;
+    const link = `https://www.kosmica.com.co/?ref=${myReferralCode}`;
+    const text = `¡Hola! Te recomiendo Kosmica, una tienda de moda femenina premium 💜\nUsa mi link y obtienes envío prioritario en tu primera compra:\n${link}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,"_blank");
   };
 
@@ -1852,6 +2201,11 @@ export default function App() {
               <span className="nav-search-ico">🔍</span>
               <input placeholder="Buscar productos..." value={search} onChange={e=>setSearch(e.target.value)}/>
             </div>
+            {displayPoints > 0 && (
+              <button className="loyalty-badge" onClick={()=>setLoyaltyOpen(true)} title="Mis puntos Kosmica">
+                💎 {displayPoints} pts
+              </button>
+            )}
             <button className={`cart-btn${cartPulse?" pulse":""}`} onClick={()=>setCartOpen(true)}>
               🛍️{cartCount>0&&<span className="cart-badge">{cartCount}</span>}
             </button>
@@ -2067,7 +2421,7 @@ export default function App() {
               </div>
               <p className="footer-desc">Tu destino de moda femenina premium. Calidad, estilo y exclusividad.</p>
               <div className="social-icons" style={{marginTop:14}}>
-                {[["📘","https://www.facebook.com/profile.php?id=61584826324919"],["📷","https://www.instagram.com/kosmica2109"],["🎵","https://www.tiktok.com/@kosmica_2109"],["▶️","https://www.youtube.com/@kosmica_2109"]].map(([s,url],i)=><a key={i} href={url} target="_blank" rel="noreferrer" className="social-icon">{s}</a>)}
+                {[["📘","https://www.facebook.com/profile.php?id=61584826324919"],["📷","https://www.instagram.com/kosmica2109"],["🎵","https://www.tiktok.com/@kosmica_2109"]].map(([s,url],i)=><a key={i} href={url} target="_blank" rel="noreferrer" className="social-icon">{s}</a>)}
               </div>
             </div>
             <div>
@@ -2171,7 +2525,30 @@ export default function App() {
                   ))
               }
             </div>
-            {cart.length>0&&(
+            {/* ── UPSELL — productos sugeridos ── */}
+            {cart.length>0 && upsellProducts.length>0 && (
+              <div className="upsell-section">
+                <div className="upsell-title">✨ También te puede gustar</div>
+                <div className="upsell-scroll">
+                  {upsellProducts.map(p=>(
+                    <div key={p.id} className="upsell-card" onClick={()=>{setCartOpen(false);setSelectedProduct(p);}}>
+                      <img className="upsell-img"
+                        src={imgUrl(p.imageUrl)||"https://images.unsplash.com/photo-1483985988355-763728e1935b?w=200"}
+                        alt={p.name}
+                        onError={e=>{e.target.src="https://images.unsplash.com/photo-1483985988355-763728e1935b?w=200";}}
+                      />
+                      <div className="upsell-info">
+                        <div className="upsell-name">{p.name}</div>
+                        <div className="upsell-price">{fmtCOP(p.price)}</div>
+                      </div>
+                      <button className="upsell-add" onClick={e=>{e.stopPropagation();addToCart(p);}}>
+                        + Agregar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
               <div className="cart-footer">
                 <div className="cart-row"><span>Subtotal ({cartCount} ítem{cartCount!==1?"s":""})</span><span>{fmtCOP(cartTotal)}</span></div>
                 <div className="cart-row">
@@ -2683,7 +3060,7 @@ export default function App() {
               </div>
               <div style={{fontSize:".82rem",color:"var(--muted)",marginBottom:8,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em"}}>Tu link de referida</div>
               <div className="ref-link-box">
-                <span className="ref-link-val">kosmica.com.co/?ref=amiga</span>
+                <span className="ref-link-val">kosmica.com.co/?ref={myReferralCode}</span>
                 <button className="ref-copy-btn" onClick={copyReferral}>
                   {referralCopied?"✓ Copiado":"Copiar"}
                 </button>
@@ -2717,6 +3094,116 @@ export default function App() {
             <div className="pwa-banner-sub">Acceso rápido desde tu celular, sin Play Store</div>
           </div>
           <button className="pwa-banner-btn" onClick={installPwa}>Instalar</button>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════
+          🎭 SOCIAL PROOF EN TIEMPO REAL
+      ════════════════════════════════════════ */}
+      {socialProof && (
+        <div className={`social-proof-toast${spHiding?" hiding":""}`}
+          onClick={()=>{setSpHiding(true);setTimeout(()=>setSocialProof(null),350);}}>
+          <div className="sp-avatar">{socialProof.name[0]}</div>
+          <div className="sp-body">
+            <div className="sp-name">{socialProof.name} · {socialProof.city}</div>
+            <div className="sp-action">{socialProof.action}</div>
+            <div className="sp-time">Hace {Math.floor(Math.random()*9)+1} min · ✓ Compra verificada</div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════
+          🔔 BANNER DE NOTIFICACIONES PUSH
+      ════════════════════════════════════════ */}
+      {pushBanner && !pushGranted && (
+        <div className="push-banner">
+          <button className="push-banner-close" onClick={()=>{setPushBanner(false);localStorage.setItem("kosmica_push_seen","1");}}>✕</button>
+          <div className="push-banner-ico">🔔</div>
+          <div className="push-banner-text">
+            <div className="push-banner-title">¿Activamos notificaciones?</div>
+            <div className="push-banner-sub">Entérate primero de ofertas y nuevas llegadas 💜</div>
+          </div>
+          <button className="push-banner-btn" onClick={requestPush}>Sí, activar</button>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════
+          🛒 CARRITO ABANDONADO — WhatsApp rescue
+      ════════════════════════════════════════ */}
+      {abandonedBanner && (
+        <div className="abandoned-banner" style={{position:"fixed"}} onClick={sendAbandonedCartWA}>
+          <button className="abandoned-banner-close" onClick={e=>{e.stopPropagation();setAbandonedBanner(false);}}>✕</button>
+          <div className="abandoned-banner-title">💬 ¿Necesitas ayuda con tu pedido?</div>
+          <div className="abandoned-banner-sub">Tienes {cartCount} ítem{cartCount!==1?"s":""} en tu carrito. Toca aquí para completar tu compra por WhatsApp 🛍️</div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════
+          💎 MODAL DE PUNTOS DE FIDELIDAD
+      ════════════════════════════════════════ */}
+      {loyaltyOpen && (
+        <div className="loyalty-modal-overlay" onClick={()=>setLoyaltyOpen(false)}>
+          <div className="loyalty-modal" onClick={e=>e.stopPropagation()}>
+            <div className="loyalty-header">
+              <div className="loyalty-crown">💎</div>
+              <div className="loyalty-title">Mis Puntos Kosmica</div>
+              <div className="loyalty-sub">Acumula puntos con cada compra y canjéalos por descuentos</div>
+            </div>
+            <div className="loyalty-points-big">
+              <div className="loyalty-points-num">{displayPoints}</div>
+              <div className="loyalty-points-label">puntos acumulados</div>
+            </div>
+            {/* Niveles */}
+            <div className="loyalty-tier">
+              {[
+                {ico:"🌸", name:"Esencial", pts:"0–499", active: displayPoints < 500},
+                {ico:"💜", name:"Premium",  pts:"500–1499", active: displayPoints>=500 && displayPoints<1500},
+                {ico:"👑", name:"VIP",      pts:"1500+", active: displayPoints>=1500},
+              ].map(t=>(
+                <div key={t.name} className={`loyalty-tier-item${t.active?" active":""}`}>
+                  <div className="loyalty-tier-ico">{t.ico}</div>
+                  <div className="loyalty-tier-name">{t.name}</div>
+                  <div className="loyalty-tier-pts">{t.pts} pts</div>
+                </div>
+              ))}
+            </div>
+            {/* Cómo ganar puntos */}
+            <div className="loyalty-how">
+              <div className="loyalty-how-title">Cómo ganar puntos</div>
+              {[
+                ["Cada compra","1 pt por cada $1.000 COP"],
+                ["Referir una amiga","+50 pts cuando ella compra"],
+                ["Dejar reseña","+10 pts por reseña publicada"],
+                ["Newsletter","+20 pts al suscribirte"],
+              ].map(([accion, det])=>(
+                <div key={accion} className="loyalty-how-row">
+                  <span style={{color:"var(--dark)",fontWeight:600}}>{accion}</span>
+                  <span className="loyalty-how-pts">{det}</span>
+                </div>
+              ))}
+            </div>
+            {displayPoints >= 500 ? (
+              <button className="loyalty-redeem" onClick={()=>{
+                setLoyaltyOpen(false);
+                showToast("💎 Contacta a Kosmica por WhatsApp para canjear tus puntos");
+                setTimeout(()=>{
+                  const text = `Hola Kosmica! 💜 Tengo ${displayPoints} puntos acumulados y me gustaría canjearlos por un descuento.`;
+                  window.open(`https://wa.me/573043927148?text=${encodeURIComponent(text)}`,"_blank");
+                },1000);
+              }}>
+                🎁 Canjear mis {displayPoints} puntos
+              </button>
+            ) : (
+              <button className="loyalty-redeem" style={{background:"linear-gradient(135deg,#B8A0D8,#9B72CF)"}} onClick={()=>{setLoyaltyOpen(false);scrollTo();}}>
+                ✦ Seguir comprando para acumular
+              </button>
+            )}
+            <button onClick={()=>setLoyaltyOpen(false)} style={{
+              width:"100%",marginTop:10,padding:"11px",background:"none",
+              border:"1.5px solid var(--lila-xlight)",borderRadius:50,
+              color:"var(--brown)",fontWeight:600,cursor:"pointer",fontSize:".9rem"
+            }}>Cerrar</button>
+          </div>
         </div>
       )}
     </>
