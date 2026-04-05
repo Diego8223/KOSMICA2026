@@ -30,15 +30,12 @@ public class OrderRequest {
 
     private String shippingMethod;
 
-    @Builder.Default
     private BigDecimal shippingCost = BigDecimal.ZERO;
 
-    // ✅ CUPÓN — código aplicado y monto descontado
     private String couponCode;
 
     private BigDecimal couponDiscount;
 
-    // ✅ REFERIDO — código del link de quien refirió (?ref=nombre)
     private String referralCode;
 
     @Valid
