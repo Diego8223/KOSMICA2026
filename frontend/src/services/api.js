@@ -91,6 +91,18 @@ export const orderAPI = {
   updateStatus:  (id, status) => api.patch(`/orders/${id}/status`, { status }).then(r => r.data),
 };
 
+// ── Referidos "Invita y Gana" ─────────────────────────────
+export const referralAPI = {
+  /** Registrarse y obtener código (crea si no existe) */
+  register:     (name, email)        => api.post('/referrals/register', { name, email }).then(r => r.data),
+  /** Consultar código activo de un usuario ya registrado */
+  getMyCode:    (email)              => api.get(`/referrals/my-code/${encodeURIComponent(email)}`).then(r => r.data),
+  /** Validar si un código puede ser usado por el receptor */
+  validate:     (code, redeemerEmail)=> api.get(`/referrals/validate/${code}?redeemerEmail=${encodeURIComponent(redeemerEmail)}`).then(r => r.data),
+  /** Historial de uso del código de un usuario */
+  history:      (email)              => api.get(`/referrals/history/${encodeURIComponent(email)}`).then(r => r.data),
+};
+
 export default api;
 
 // ── Cloudinary: optimización automática de imágenes ──────

@@ -28,6 +28,7 @@ public class OrderService {
     private final OrderRepository   orderRepo;
     private final ProductRepository productRepo;
     private final EmailService      emailService;
+    private final ReferralService   referralService;
 
     @Transactional
     public Order createOrder(OrderRequest req) {
@@ -52,10 +53,25 @@ public class OrderService {
             order.setCouponDiscount(req.getCouponDiscount());
         }
 
-        // ✅ REFERIDO — guardar de quién vino esta compra
+        // ✅ REFERIDO — validar, guardar y redimir código "Invita y Gana"
         if (req.getReferralCode() != null && !req.getReferralCode().isBlank()) {
-            order.setReferralCode(req.getReferralCode());
-            log.info("🎁 Compra referida por: {}", req.getReferralCode());
+            String refCode = req.getReferralCode().toUpperCase().trim();
+            // Doble validación: el receptor no puede ser el dueño del código
+            var validation = referralService.validateCode(refCode, req.getEmail());
+            if (Boolean.TRUE.equals(validation.get("valid"))) {
+                order.setReferralCode(refCode);
+                log.info("🎁 Compra referida por código: {}", refCode);
+                // La redención real se hace después de guardar el pedido (ver abajo)
+            } else {
+                log.warn("⚠️  Código de referido inválido '{}': {}", refCode, validation.get("message"));
+                // No bloqueamos la compra, solo ignoramos el código inválido
+                req.setReferralCode(null);
+                if (req.getCouponDiscount() != null) {
+                    // Si el descuento venía del referido, lo anulamos
+                    order.setCouponDiscount(BigDecimal.ZERO);
+                    req.setCouponDiscount(BigDecimal.ZERO);
+                }
+            }
         }
 
         List<OrderItem> items = new ArrayList<>();
@@ -101,6 +117,26 @@ public class OrderService {
             saved.getOrderNumber(),
             saved.getCouponCode() != null ? saved.getCouponCode() : "ninguno",
             saved.getReferralCode() != null ? saved.getReferralCode() : "directo");
+
+        // ✅ REDIMIR código de referido ahora que el pedido está guardado
+        if (saved.getReferralCode() != null) {
+            try {
+                boolean redeemed = referralService.redeemCode(
+                    saved.getReferralCode(),
+                    saved.getCustomerEmail(),
+                    saved.getCustomerName(),
+                    saved.getOrderNumber()
+                );
+                if (redeemed) {
+                    log.info("🎉 Código {} redimido exitosamente en pedido {}",
+                        saved.getReferralCode(), saved.getOrderNumber());
+                }
+            } catch (Exception e) {
+                // No cancelamos el pedido si falla la redención — ya fue guardado
+                log.error("Error redimiendo código de referido {}: {}",
+                    saved.getReferralCode(), e.getMessage());
+            }
+        }
 
         try { emailService.sendOrderConfirmation(saved); }
         catch (Exception e) { log.warn("Email no enviado: {}", e.getMessage()); }

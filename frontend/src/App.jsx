@@ -3,13 +3,14 @@
 //  ✅ Optimizado: lazy loading, useMemo, Schema.org, CountdownTimer
 // ============================================================
 import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense, memo } from "react";
-import { productAPI, orderAPI, imgUrl } from "./services/api";
+import { productAPI, orderAPI, referralAPI, imgUrl } from "./services/api";
 
 // ✅ LAZY LOADING — reduce bundle inicial ~160KB (mejora LCP en móvil)
 const ProductDetailModal = lazy(() => import("./components/ProductDetailModal"));
 const AdminPanel         = lazy(() => import("./components/AdminPanel"));
 const OrderTracking      = lazy(() => import("./components/OrderTracking"));
 const AIChatBot          = lazy(() => import("./components/AIChatBot"));
+const ReferralModal      = lazy(() => import("./components/ReferralModal"));
 
 const CSS = `
   /* ✅ FUENTE: cargada en index.html con display=swap — no bloquea render */
@@ -1543,16 +1544,18 @@ export default function App() {
     return p.get("ref") || null;
   });
   // ✅ CÓDIGO ÚNICO de referida — se genera y guarda en localStorage la primera vez
+  // ✅ REFERIDO — el código real viene del backend (ReferralModal)
+  // myReferralCode se mantiene solo para compatibilidad con social proof
   const [myReferralCode] = useState(() => {
     try {
-      const saved = localStorage.getItem("kosmica_my_ref");
-      if (saved) return saved;
-      // Generar código único: 6 chars alfanuméricos aleatorios
-      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-      const code = Array.from({length:6}, ()=>chars[Math.floor(Math.random()*chars.length)]).join("");
-      localStorage.setItem("kosmica_my_ref", code);
-      return code;
-    } catch { return "KOSMICA"; }
+      // Si hay usuario registrado en el nuevo sistema, usamos ese código
+      const saved = localStorage.getItem("kosmica_referral_user");
+      if (saved) {
+        const user = JSON.parse(saved);
+        return user?.code || ""; // se llenará cuando abran el modal
+      }
+      return "";
+    } catch { return ""; }
   });
   const [exitPopupShown, setExitPopupShown]   = useState(false);
   const [exitPopupOpen, setExitPopupOpen]     = useState(false);
@@ -2066,9 +2069,12 @@ export default function App() {
         shippingCost:selectedShippingMethod.cost,
         items:cart.map(i=>({productId:i.id,quantity:i.qty})),
         // ✅ CUPÓN Y REFERIDO — se guardan en la orden para el admin
-        couponCode: appliedCoupon ? appliedCoupon.code : null,
+        // Si el código aplicado es de referido (LUX-), va en referralCode
+        // Si es cupón normal, va solo en couponCode
+        couponCode:     appliedCoupon && !appliedCoupon.code.startsWith("LUX-") ? appliedCoupon.code : null,
         couponDiscount: couponDiscount,
-        referralCode: referralCode,
+        referralCode:   appliedCoupon?.code.startsWith("LUX-") ? appliedCoupon.code
+                        : (referralCode || null),   // si vino por URL ?ref=
       });
       setCart([]);
       setAppliedCoupon(null);
@@ -2116,20 +2122,52 @@ export default function App() {
   };
 
   // ✅ VALIDAR Y APLICAR CUPÓN en el checkout
+  // Acepta cupones fijos Y códigos de referido del backend (LUX-XXXXXX)
   const VALID_COUPONS = {
     "BIENVENIDA10": { pct: 10, label: "10% bienvenida" },
     "KOSMICA15":    { pct: 15, label: "15% especial" },
   };
-  const applyCoupon = () => {
+  const applyCoupon = async () => {
     const code = couponInput.trim().toUpperCase();
     if (!code) return;
     if (appliedCoupon) { setCouponError("Ya hay un cupón aplicado."); return; }
+
+    // ── Cupones fijos normales ──
     const found = VALID_COUPONS[code];
-    if (!found) { setCouponError("Cupón inválido o ya expirado."); return; }
-    setAppliedCoupon({ code, ...found });
-    setCouponError("");
-    setCouponInput("");
-    showToast(`🎉 Cupón ${code} aplicado — ${found.pct}% de descuento`);
+    if (found) {
+      setAppliedCoupon({ code, ...found });
+      setCouponError("");
+      setCouponInput("");
+      showToast(`🎉 Cupón ${code} aplicado — ${found.pct}% de descuento`);
+      return;
+    }
+
+    // ── Código de referido del backend (formato LUX-XXXXXX) ──
+    if (code.startsWith("LUX-")) {
+      const redeemerEmail = form.email?.trim().toLowerCase();
+      if (!redeemerEmail) {
+        setCouponError("Ingresa tu email primero para validar el código de referido");
+        return;
+      }
+      try {
+        setCouponError("Validando código...");
+        const result = await referralAPI.validate(code, redeemerEmail);
+        if (result.valid) {
+          // Descuento del 10% para códigos de referido
+          setAppliedCoupon({ code, pct: 10, label: "10% referido — " + (result.ownerName || "") });
+          setCouponError("");
+          setCouponInput("");
+          showToast(`🎁 Código de referido válido — 10% de descuento aplicado`);
+        } else {
+          setCouponError(result.message || "Código de referido inválido");
+        }
+      } catch {
+        setCouponError("Error validando código. Intenta de nuevo.");
+      }
+      return;
+    }
+
+    setCouponError("Cupón inválido o ya expirado.");
   };
   const removeCoupon = () => { setAppliedCoupon(null); setCouponInput(""); setCouponError(""); };
 
@@ -2171,7 +2209,7 @@ export default function App() {
   };
   const shareReferralWA = () => {
     const link = `https://www.kosmica.com.co/?ref=${myReferralCode}`;
-    const text = `¡Hola! Te recomiendo Kosmica, una tienda de moda femenina premium 💜\nUsa mi link y obtienes un 10% de descuento en tu primera compra:\n${link}`;
+    const text = `¡Hola! Te recomiendo Kosmica, una tienda de moda femenina premium 💜\nUsa mi link y obtienes envío prioritario en tu primera compra:\n${link}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,"_blank");
   };
 
@@ -2672,14 +2710,14 @@ export default function App() {
                       {selectedShippingMethod ? fmtCOP(selectedShippingMethod.cost) : "Elige un método abajo 👇"}
                     </span>
                   </div>
-                  {/* ✅ CAMPO CUPÓN */}
+                  {/* ✅ CAMPO CUPÓN / CÓDIGO DE REFERIDO */}
                   {!appliedCoupon ? (
                     <>
                       <div className="coupon-row">
                         <input
                           className="coupon-input"
                           type="text"
-                          placeholder="Código de descuento"
+                          placeholder="Cupón o código de referido (LUX-...)"
                           value={couponInput}
                           onChange={e=>{setCouponInput(e.target.value); setCouponError("");}}
                           onKeyDown={e=>e.key==="Enter"&&(e.preventDefault(),applyCoupon())}
@@ -3108,55 +3146,15 @@ export default function App() {
 
       {/* ════════════════════════════════════════
           🎁 MODAL DE PROGRAMA DE REFERIDOS
+          Sistema completo con registro obligatorio,
+          código único del backend, uso único
       ════════════════════════════════════════ */}
-      {referralOpen&&(
-        <div className="ref-overlay" onClick={()=>setReferralOpen(false)}>
-          <div className="ref-box" onClick={e=>e.stopPropagation()}>
-            <div className="ref-hero">
-              <button className="ref-close" onClick={()=>setReferralOpen(false)}>✕</button>
-              <div className="ref-emoji">🎁</div>
-              <div className="ref-title">Invita y gana</div>
-              <div className="ref-sub">Comparte Kosmica con tus amigas y todas ganan</div>
-            </div>
-            <div className="ref-body">
-              <div className="ref-steps">
-                <div className="ref-step">
-                  <div className="ref-step-num">1</div>
-                  <div className="ref-step-text">Comparte tu link exclusivo con una amiga</div>
-                </div>
-                <div className="ref-step">
-                  <div className="ref-step-num">2</div>
-                  <div className="ref-step-text">Ella hace su primera compra en Kosmica</div>
-                </div>
-                <div className="ref-step">
-                  <div className="ref-step-num">3</div>
-                  <div className="ref-step-text">Tú recibes un cupón de descuento exclusivo 💜</div>
-                </div>
-              </div>
-              <div style={{fontSize:".82rem",color:"var(--muted)",marginBottom:8,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em"}}>Código de descuento 10% para tu amiga</div>
-              <div className="ref-link-box" style={{marginBottom:10}}>
-                <span className="ref-link-val" style={{fontSize:"1.1rem",fontWeight:900,letterSpacing:2,color:"var(--lila-dark)"}}>{myReferralCode.toUpperCase()}</span>
-                <button className="ref-copy-btn" onClick={()=>{
-                  navigator.clipboard.writeText(myReferralCode.toUpperCase())
-                    .then(()=>showToast("💜 Código copiado"));
-                }}>
-                  Copiar código
-                </button>
-              </div>
-              <div style={{fontSize:".82rem",color:"var(--muted)",marginBottom:8,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em"}}>Tu link de referida</div>
-              <div className="ref-link-box">
-                <span className="ref-link-val">kosmica.com.co/?ref={myReferralCode}</span>
-                <button className="ref-copy-btn" onClick={copyReferral}>
-                  {referralCopied?"✓ Copiado":"Copiar link"}
-                </button>
-              </div>
-              <button className="ref-wa-btn" onClick={shareReferralWA}>
-                💬 Compartir por WhatsApp
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Suspense fallback={null}>
+        <ReferralModal
+          open={referralOpen}
+          onClose={() => setReferralOpen(false)}
+        />
+      </Suspense>
 
       {/* ✅ SW UPDATE BAR — avisa cuando hay nueva versión */}
       {swUpdated && (
