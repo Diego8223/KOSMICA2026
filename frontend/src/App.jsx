@@ -3,7 +3,7 @@
 //  ✅ Optimizado: lazy loading, useMemo, Schema.org, CountdownTimer
 // ============================================================
 import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense, memo } from "react";
-import { productAPI, orderAPI, imgUrl, preloadImages } from "./services/api";
+import { productAPI, orderAPI, imgUrl } from "./services/api";
 
 // ✅ LAZY LOADING — reduce bundle inicial ~160KB (mejora LCP en móvil)
 const ProductDetailModal = lazy(() => import("./components/ProductDetailModal"));
@@ -1394,12 +1394,6 @@ export default function App() {
 
   useEffect(()=>{ fetchProducts(); },[fetchProducts]);
 
-  // ✅ Precargar imágenes de los primeros productos (hero visible)
-  useEffect(()=>{
-    if (!products.length) return;
-    const urls = products.slice(0,6).map(p => p.imageUrl || p.imageUrls?.[0]).filter(Boolean);
-    preloadImages(urls, 400);
-  },[products]);
   useEffect(()=>{
     const fn=()=>setScrolled(window.scrollY>50);
     window.addEventListener("scroll",fn);
