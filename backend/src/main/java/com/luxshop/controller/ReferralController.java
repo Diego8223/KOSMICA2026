@@ -40,6 +40,7 @@ public class ReferralController {
 
         String email = body.get("email");
         String name  = body.get("name");
+        String phone = body.get("phone");
 
         if (email == null || email.isBlank()) {
             return ResponseEntity.badRequest()
@@ -49,9 +50,13 @@ public class ReferralController {
             return ResponseEntity.badRequest()
                 .body(Map.of("success", false, "message", "Nombre requerido"));
         }
+        if (phone == null || phone.isBlank()) {
+            return ResponseEntity.badRequest()
+                .body(Map.of("success", false, "message", "Teléfono/WhatsApp requerido"));
+        }
 
         try {
-            ReferralCode ref = referralService.getOrCreateCode(email, name);
+            ReferralCode ref = referralService.getOrCreateCode(email, name, phone);
             return ResponseEntity.ok(Map.of(
                 "success",   true,
                 "code",      ref.getCode(),

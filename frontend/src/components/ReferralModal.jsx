@@ -37,7 +37,8 @@ export default function ReferralModal({ open, onClose }) {
   // steps: "loading" | "register" | "mycode"
   
   const [savedUser, setSavedUser] = useState(null);
-  const [form, setForm]           = useState({ name: "", email: "" });
+  const [form, setForm]           = useState({ name: "", email: "", phone: "" });
+  const [dataConsent, setDataConsent] = useState(false);
   const [formError, setFormError] = useState("");
   const [loading, setLoading]     = useState(false);
   const [copied, setCopied]       = useState(false);
@@ -78,10 +79,10 @@ export default function ReferralModal({ open, onClose }) {
     }
   }
 
-  async function registerUser(name, email, silent = false) {
+  async function registerUser(name, email, silent = false, phone = "") {
     setLoading(true);
     try {
-      const data = await referralAPI.register(name, email);
+      const data = await referralAPI.register(name, email, phone);
       if (data.success) {
         const user = { name, email };
         saveUser(user);
@@ -105,12 +106,28 @@ export default function ReferralModal({ open, onClose }) {
     e.preventDefault();
     const name  = form.name.trim();
     const email = form.email.trim().toLowerCase();
+    const phone = form.phone.trim();
     if (!name)  { setFormError("Por favor ingresa tu nombre"); return; }
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setFormError("Por favor ingresa un email válido"); return;
     }
+    if (!phone || phone.length < 7) {
+      setFormError("Por favor ingresa tu número de teléfono/WhatsApp"); return;
+    }
+    if (!dataConsent) {
+      setFormError("Debes aceptar el tratamiento de datos personales para continuar"); return;
+    }
     setFormError("");
-    registerUser(name, email);
+    registerUser(name, email, false, phone);
+  }
+
+  const [copiedCode, setCopiedCode] = useState(false);
+
+  function handleCopyCode() {
+    navigator.clipboard.writeText(codeData?.code || "").then(() => {
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 3000);
+    });
   }
 
   function handleCopy() {
@@ -132,7 +149,8 @@ export default function ReferralModal({ open, onClose }) {
     localStorage.removeItem(STORAGE_KEY);
     setSavedUser(null);
     setCodeData(null);
-    setForm({ name: "", email: "" });
+    setForm({ name: "", email: "", phone: "" });
+    setDataConsent(false);
     setStep("register");
   }
 
@@ -211,6 +229,29 @@ export default function ReferralModal({ open, onClose }) {
                     className="ref-input"
                     required
                   />
+                  <input
+                    type="tel"
+                    placeholder="Tu WhatsApp / teléfono (ej: 3001234567)"
+                    value={form.phone}
+                    onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                    className="ref-input"
+                    required
+                  />
+                  <label className="ref-consent-label">
+                    <input
+                      type="checkbox"
+                      checked={dataConsent}
+                      onChange={e => setDataConsent(e.target.checked)}
+                      className="ref-consent-check"
+                    />
+                    <span>
+                      Acepto el{" "}
+                      <a href="/politica-de-privacidad" target="_blank" rel="noopener noreferrer" className="ref-consent-link">
+                        tratamiento de mis datos personales
+                      </a>{" "}
+                      conforme a la Ley 1581 de 2012.
+                    </span>
+                  </label>
                   {formError && (
                     <div className="ref-error">⚠️ {formError}</div>
                   )}
@@ -267,6 +308,9 @@ export default function ReferralModal({ open, onClose }) {
                 <div className="ref-code-display">
                   <span className="ref-code-value">{codeData.code}</span>
                 </div>
+                <button className="ref-copy-code-btn" onClick={handleCopyCode}>
+                  {copiedCode ? "✓ ¡Código copiado!" : "📋 Copiar código"}
+                </button>
 
                 {/* El link */}
                 <div className="ref-label">Tu link de referida</div>
@@ -452,4 +496,24 @@ const MODAL_CSS = `
   background: #F9FAFB; border-radius: 10px; padding: 12px;
   text-align: center;
 }
+.ref-consent-label {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: .82rem; color: #555; line-height: 1.45;
+  cursor: pointer; padding: 4px 0;
+}
+.ref-consent-check {
+  width: 16px; height: 16px; flex-shrink: 0;
+  accent-color: #7C3AED; margin-top: 1px; cursor: pointer;
+}
+.ref-consent-link {
+  color: #7C3AED; text-decoration: underline;
+}
+.ref-copy-code-btn {
+  width: 100%; background: #5B21B6; color: #fff;
+  border: none; border-radius: 12px; padding: 13px;
+  font-size: .95rem; font-weight: 700; cursor: pointer;
+  margin-bottom: 10px; transition: background .2s;
+  letter-spacing: .03em;
+}
+.ref-copy-code-btn:hover { background: #4C1D95; }
 `;

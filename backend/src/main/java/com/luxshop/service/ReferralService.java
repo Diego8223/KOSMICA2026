@@ -39,34 +39,45 @@ public class ReferralService {
 
     /**
      * Devuelve el código activo del usuario o genera uno nuevo.
-     * Requiere que el usuario esté registrado (email + nombre).
+     * Requiere que el usuario esté registrado (email + nombre + teléfono).
+     * Siempre actualiza teléfono y registra consentimiento si es nuevo registro.
      *
      * @param ownerEmail email del usuario registrado
      * @param ownerName  nombre del usuario
+     * @param ownerPhone teléfono/WhatsApp del usuario
      * @return el ReferralCode del usuario
      */
     @Transactional
-    public ReferralCode getOrCreateCode(String ownerEmail, String ownerName) {
+    public ReferralCode getOrCreateCode(String ownerEmail, String ownerName, String ownerPhone) {
         ownerEmail = ownerEmail.toLowerCase().trim();
 
-        // ¿Ya tiene código activo? lo devolvemos
+        // ¿Ya tiene código activo? actualizamos teléfono si cambió y lo devolvemos
         Optional<ReferralCode> existing = referralRepo.findByOwnerEmailAndUsedFalse(ownerEmail);
         if (existing.isPresent()) {
-            log.info("♻️  Código existente para {}: {}", ownerEmail, existing.get().getCode());
-            return existing.get();
+            ReferralCode ref = existing.get();
+            // Actualizar teléfono si viene nuevo
+            if (ownerPhone != null && !ownerPhone.isBlank()) {
+                ref.setOwnerPhone(ownerPhone.trim());
+                referralRepo.save(ref);
+            }
+            log.info("♻️  Código existente para {}: {}", ownerEmail, ref.getCode());
+            return ref;
         }
 
-        // ¿Ya usó su código anterior? le creamos uno nuevo
+        // Nuevo usuario — generar código y registrar consentimiento
         String code = generateUniqueCode();
         ReferralCode ref = ReferralCode.builder()
             .code(code)
             .ownerEmail(ownerEmail)
             .ownerName(ownerName != null ? ownerName.trim() : "Usuario")
+            .ownerPhone(ownerPhone != null ? ownerPhone.trim() : "")
+            .dataConsent(true)
+            .dataConsentAt(LocalDateTime.now())
             .used(false)
             .build();
 
         ReferralCode saved = referralRepo.save(ref);
-        log.info("🎁  Nuevo código generado para {}: {}", ownerEmail, code);
+        log.info("🎁  Nuevo código generado para {}: {} | tel: {}", ownerEmail, code, ownerPhone);
         return saved;
     }
 

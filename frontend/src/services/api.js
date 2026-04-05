@@ -94,7 +94,7 @@ export const orderAPI = {
 // ── Referidos "Invita y Gana" ─────────────────────────────
 export const referralAPI = {
   /** Registrarse y obtener código (crea si no existe) */
-  register:     (name, email)        => api.post('/referrals/register', { name, email }).then(r => r.data),
+  register:     (name, email, phone = "")  => api.post('/referrals/register', { name, email, phone }).then(r => r.data),
   /** Consultar código activo de un usuario ya registrado */
   getMyCode:    (email)              => api.get(`/referrals/my-code/${encodeURIComponent(email)}`).then(r => r.data),
   /** Validar si un código puede ser usado por el receptor */

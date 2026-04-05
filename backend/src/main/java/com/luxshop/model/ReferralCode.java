@@ -39,6 +39,19 @@ public class ReferralCode {
     @Column(name = "owner_name", length = 100)
     private String ownerName;
 
+    /** Teléfono/WhatsApp del dueño del código */
+    @Column(name = "owner_phone", length = 20)
+    private String ownerPhone;
+
+    /** Aceptó tratamiento de datos personales (Ley 1581/2012) */
+    @Builder.Default
+    @Column(name = "data_consent", nullable = false)
+    private Boolean dataConsent = false;
+
+    /** Fecha y hora exacta en que aceptó el tratamiento de datos */
+    @Column(name = "data_consent_at")
+    private LocalDateTime dataConsentAt;
+
     /** ¿Ha sido redimido ya? */
     @Builder.Default
     @Column(nullable = false)
