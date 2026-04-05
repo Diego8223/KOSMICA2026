@@ -2171,7 +2171,7 @@ export default function App() {
   };
   const shareReferralWA = () => {
     const link = `https://www.kosmica.com.co/?ref=${myReferralCode}`;
-    const text = `¡Hola! Te recomiendo Kosmica, una tienda de moda femenina premium 💜\nUsa mi link y obtienes envío prioritario en tu primera compra:\n${link}`;
+    const text = `¡Hola! Te recomiendo Kosmica, una tienda de moda femenina premium 💜\nUsa mi link y obtienes un 10% de descuento en tu primera compra:\n${link}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,"_blank");
   };
 
@@ -3133,11 +3133,21 @@ export default function App() {
                   <div className="ref-step-text">Tú recibes un cupón de descuento exclusivo 💜</div>
                 </div>
               </div>
+              <div style={{fontSize:".82rem",color:"var(--muted)",marginBottom:8,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em"}}>Código de descuento 10% para tu amiga</div>
+              <div className="ref-link-box" style={{marginBottom:10}}>
+                <span className="ref-link-val" style={{fontSize:"1.1rem",fontWeight:900,letterSpacing:2,color:"var(--lila-dark)"}}>{myReferralCode.toUpperCase()}</span>
+                <button className="ref-copy-btn" onClick={()=>{
+                  navigator.clipboard.writeText(myReferralCode.toUpperCase())
+                    .then(()=>showToast("💜 Código copiado"));
+                }}>
+                  Copiar código
+                </button>
+              </div>
               <div style={{fontSize:".82rem",color:"var(--muted)",marginBottom:8,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em"}}>Tu link de referida</div>
               <div className="ref-link-box">
                 <span className="ref-link-val">kosmica.com.co/?ref={myReferralCode}</span>
                 <button className="ref-copy-btn" onClick={copyReferral}>
-                  {referralCopied?"✓ Copiado":"Copiar"}
+                  {referralCopied?"✓ Copiado":"Copiar link"}
                 </button>
               </div>
               <button className="ref-wa-btn" onClick={shareReferralWA}>

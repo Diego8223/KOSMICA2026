@@ -94,7 +94,7 @@ public class Order {
     @PrePersist
     protected void onCreate() {
         createdAt = updatedAt = LocalDateTime.now();
-        orderNumber = "KOS-" + System.currentTimeMillis();
+        orderNumber = "KOSMICA-" + System.currentTimeMillis();
     }
 
     @PreUpdate
