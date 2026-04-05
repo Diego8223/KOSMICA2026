@@ -1310,8 +1310,18 @@ export default function App() {
   const [loading,setLoading]                 = useState(true);
   const [error,setError]                     = useState(null);
   const [cartPulse, setCartPulse] = useState(false);
-  const [cart,setCart]                       = useState([]);
-  const [wishlist,setWishlist]               = useState([]);
+  const [cart,setCart] = useState(() => {
+    try {
+      const saved = localStorage.getItem("kosmica_cart");
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [wishlist,setWishlist] = useState(() => {
+    try {
+      const saved = localStorage.getItem("kosmica_wishlist");
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
   const [cartOpen,setCartOpen]               = useState(false);
   const [checkoutOpen,setCheckoutOpen]       = useState(false);
   const [orderSuccess,setOrderSuccess]       = useState(null);
@@ -1393,6 +1403,18 @@ export default function App() {
   },[activeCategory]);
 
   useEffect(()=>{ fetchProducts(); },[fetchProducts]);
+
+  // ✅ PERSISTENCIA — guardar carrito y wishlist en localStorage
+  // Se ejecuta cada vez que cambian, así nunca se pierden al refrescar
+  useEffect(()=>{
+    try { localStorage.setItem("kosmica_cart", JSON.stringify(cart)); }
+    catch(e) { console.warn("No se pudo guardar el carrito:", e); }
+  }, [cart]);
+
+  useEffect(()=>{
+    try { localStorage.setItem("kosmica_wishlist", JSON.stringify(wishlist)); }
+    catch(e) { console.warn("No se pudo guardar wishlist:", e); }
+  }, [wishlist]);
 
   useEffect(()=>{
     const fn=()=>setScrolled(window.scrollY>50);
@@ -1631,6 +1653,8 @@ export default function App() {
       setAppliedCoupon(null);
       setSelectedShippingMethod(null);
       setCheckoutOpen(false);
+      // ✅ Limpiar carrito del localStorage al completar compra
+      try { localStorage.removeItem("kosmica_cart"); } catch(_) {}
       // ✅ Meta Pixel: Purchase
       if (typeof window.fbq === 'function') {
         window.fbq('track', 'InitiateCheckout', {
