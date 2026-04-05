@@ -1793,7 +1793,7 @@ export default function App() {
     const first = setTimeout(showNext, 8000);
     const interval = setInterval(showNext, 18000);
     return () => { clearTimeout(first); clearInterval(interval); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line
   }, []);
 
   // ════════════════════════════════════════
