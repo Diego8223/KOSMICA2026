@@ -3,7 +3,7 @@
 //  ✅ Optimizado: lazy loading, useMemo, Schema.org, CountdownTimer
 // ============================================================
 import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense, memo } from "react";
-import { productAPI, orderAPI, imgUrl } from "./services/api";
+import { productAPI, orderAPI, imgUrl, preloadImages } from "./services/api";
 
 // ✅ LAZY LOADING — reduce bundle inicial ~160KB (mejora LCP en móvil)
 const ProductDetailModal = lazy(() => import("./components/ProductDetailModal"));
@@ -540,6 +540,18 @@ const CSS = `
     white-space: nowrap; flex-shrink: 0; transition: transform .15s;
   }
   .pwa-banner-btn:active { transform: scale(.95); }
+  .sw-update-bar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 10000;
+    background: linear-gradient(90deg, #5E35B1, #9B72CF);
+    color: #fff; display: flex; align-items: center; justify-content: center;
+    gap: 14px; padding: 11px 16px; font-size: .92rem; font-weight: 600;
+    box-shadow: 0 2px 12px rgba(94,53,177,.4);
+    animation: pwa-slide-up .35s ease;
+  }
+  .sw-update-btn {
+    background: #fff; color: #7B5EA7; border: none; border-radius: 50px;
+    padding: 6px 18px; font-weight: 700; font-size: .85rem; cursor: pointer;
+  }
   .pwa-banner-close {
     position: absolute; top: 8px; right: 10px; background: none; border: none;
     color: rgba(255,255,255,.6); font-size: 1rem; cursor: pointer; padding: 4px;
@@ -1336,6 +1348,7 @@ export default function App() {
   // ✅ PWA — botón de instalación propio
   const [pwaPrompt, setPwaPrompt]             = useState(null);
   const [pwaVisible, setPwaVisible]           = useState(false);
+  const [swUpdated, setSwUpdated]              = useState(false);
 
   const SHIPPING_OPTIONS = [
     {
@@ -1380,6 +1393,13 @@ export default function App() {
   },[activeCategory]);
 
   useEffect(()=>{ fetchProducts(); },[fetchProducts]);
+
+  // ✅ Precargar imágenes de los primeros productos (hero visible)
+  useEffect(()=>{
+    if (!products.length) return;
+    const urls = products.slice(0,6).map(p => p.imageUrl || p.imageUrls?.[0]).filter(Boolean);
+    preloadImages(urls, 400);
+  },[products]);
   useEffect(()=>{
     const fn=()=>setScrolled(window.scrollY>50);
     window.addEventListener("scroll",fn);
@@ -1470,7 +1490,30 @@ export default function App() {
     };
     window.addEventListener("beforeinstallprompt", handler);
     window.addEventListener("appinstalled", () => setPwaVisible(false));
-    return () => window.removeEventListener("beforeinstallprompt", handler);
+
+    // ✅ Escuchar aviso del SW cuando hay nueva versión desplegada
+    const swMsg = (e) => {
+      if (e.data?.type === "SW_UPDATED") setSwUpdated(true);
+    };
+    navigator.serviceWorker?.addEventListener("message", swMsg);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handler);
+      navigator.serviceWorker?.removeEventListener("message", swMsg);
+    };
+  }, []);
+
+  // ✅ PWA — recarga automática cuando el SW detecta nueva versión
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const handleMessage = (e) => {
+      if (e.data?.type === "SW_UPDATED") {
+        // Pequeño delay para que el SW termine de activarse
+        setTimeout(() => window.location.reload(), 800);
+      }
+    };
+    navigator.serviceWorker.addEventListener("message", handleMessage);
+    return () => navigator.serviceWorker.removeEventListener("message", handleMessage);
   }, []);
 
   const installPwa = async () => {
@@ -2632,6 +2675,17 @@ export default function App() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ✅ SW UPDATE BAR — avisa cuando hay nueva versión */}
+      {swUpdated && (
+        <div className="sw-update-bar">
+          <span>💜 Nueva versión disponible</span>
+          <button className="sw-update-btn"
+            onClick={() => { window.location.reload(); }}>
+            Actualizar ahora
+          </button>
         </div>
       )}
 

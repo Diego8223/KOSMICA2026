@@ -94,7 +94,23 @@ export const orderAPI = {
 export default api;
 
 // ── Cloudinary: optimización automática de imágenes ──────
+// w_   → ancho exacto que necesita la UI (evita descargar imágenes gigantes)
+// q_auto → Cloudinary elige la calidad óptima automáticamente
+// f_auto → entrega WebP en Chrome/Android, AVIF donde se soporta, JPEG como fallback
+// dpr_auto → adapta resolución a pantallas Retina sin código extra
 export function imgUrl(url, width = 400) {
-  if (!url || !url.includes('cloudinary.com')) return url;
-  return url.replace('/upload/', `/upload/w_${width},q_auto,f_auto/`);
+  if (!url) return url;
+  if (!url.includes('cloudinary.com')) return url;
+  // Evitar doble transformación si ya tiene parámetros
+  if (url.includes('/upload/w_')) return url;
+  return url.replace('/upload/', `/upload/w_${width},q_auto,f_auto,dpr_auto/`);
 }
+
+// Variante para tarjetas pequeñas (lista de productos)
+export function imgThumb(url) { return imgUrl(url, 400); }
+
+// Variante para modal/detalle de producto (imagen grande)
+export function imgFull(url)  { return imgUrl(url, 900); }
+
+// Variante para miniaturas del carrito
+export function imgCart(url)  { return imgUrl(url, 120); }
