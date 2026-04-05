@@ -1775,12 +1775,7 @@ export default function App() {
     CAPILAR: "✨", CUIDADO_PERSONAL: "🧴", ACCESORIOS: "💍",
   };
 
-  // Fallback si no hay compras recientes (primeros días del lanzamiento)
-  const SOCIAL_PROOF_FALLBACK = [
-    { name:"Valentina R.", city:"Medellín", action:"acaba de comprar en Kosmica 💜" },
-    { name:"Camila T.",    city:"Bogotá",   action:"acaba de hacer su primera compra ✨" },
-    { name:"Isabella M.",  city:"Cali",     action:"acaba de unirse a Kosmica 🌸" },
-  ];
+  // Sin fallback — solo se muestran compras reales
 
   const spQueueRef = useRef([]);
   const spIdxRef   = useRef(0);
@@ -1825,11 +1820,11 @@ export default function App() {
             };
           });
         } else {
-          // Sin compras aún — usar fallback
-          spQueueRef.current = SOCIAL_PROOF_FALLBACK;
+          // Sin compras reales — no mostrar nada
+          spQueueRef.current = [];
         }
       } catch {
-        spQueueRef.current = SOCIAL_PROOF_FALLBACK;
+        spQueueRef.current = [];
       }
     };
 
@@ -1869,15 +1864,42 @@ export default function App() {
   const requestPush = async () => {
     setPushBanner(false);
     localStorage.setItem("kosmica_push_seen", "1");
-    if (!("Notification" in window)) return;
+    if (!("Notification" in window) || !("serviceWorker" in navigator)) return;
     const perm = await Notification.requestPermission();
-    if (perm === "granted") {
-      setPushGranted(true);
-      // Notificación de bienvenida inmediata
+    if (perm !== "granted") return;
+    setPushGranted(true);
+    try {
+      const API = process.env.REACT_APP_API_URL || "https://kosmica-backend.onrender.com";
+      const VAPID_PUBLIC_KEY = process.env.REACT_APP_VAPID_PUBLIC_KEY;
+      if (!VAPID_PUBLIC_KEY) {
+        new Notification("¡Bienvenida a Kosmica! 💜", {
+          body: "Serás la primera en enterarte de ofertas exclusivas 🎁",
+          icon: "/icon-192.png",
+        });
+        return;
+      }
+      const urlBase64ToUint8Array = (base64String) => {
+        const padding = "=".repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+        const rawData = window.atob(base64);
+        return new Uint8Array([...rawData].map(c => c.charCodeAt(0)));
+      };
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+      await fetch(`${API}/api/push/subscribe`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(subscription),
+      });
       new Notification("¡Bienvenida a Kosmica! 💜", {
-        body: "Serás la primera en enterarte de ofertas exclusivas 🎁",
+        body: "Te avisaremos de ofertas y nuevos productos 🎁",
         icon: "/icon-192.png",
       });
+    } catch (err) {
+      console.error("Error registrando push:", err);
     }
   };
 
