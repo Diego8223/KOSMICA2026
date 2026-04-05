@@ -9,17 +9,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDate;
 import java.util.List;
 
-/**
- * ✅ SITEMAP DINÁMICO — Google indexa todas las páginas de Kosmica
- *
- * INSTRUCCIONES DE USO:
- * 1. Copiar este archivo a:
- *    backend/src/main/java/com/luxshop/controller/SitemapController.java
- * 2. Agregar en CorsConfig.java que /sitemap.xml sea público (sin autenticación)
- * 3. Reiniciar el backend → acceder a https://www.kosmica.com.co/sitemap.xml
- * 4. Subir la URL del sitemap en Google Search Console:
- *    search.google.com/search-console → Sitemaps → Agregar sitemap
- */
 @RestController
 public class SitemapController {
 
@@ -53,7 +42,7 @@ public class SitemapController {
 
         // ── Productos individuales ──
         try {
-            List<Product> products = productService.getAllProducts();
+            List<Product> products = productService.getAll();
             for (Product p : products) {
                 if (p.getId() != null) {
                     sb.append(url(BASE_URL + "/?producto=" + p.getId(), "0.9", "weekly", today));
