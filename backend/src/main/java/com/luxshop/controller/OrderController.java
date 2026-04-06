@@ -4,9 +4,11 @@ import com.luxshop.dto.OrderRequest;
 import com.luxshop.model.GiftCard;
 import com.luxshop.model.Order;
 import com.luxshop.model.OrderItem;
+import com.luxshop.service.EmailService;
 import com.luxshop.service.GiftCardService;
 import com.luxshop.service.OrderService;
 import com.luxshop.service.PaymentService;
+import com.luxshop.service.ReferralService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,16 +22,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * FIX #3 — OrderController.java  (reemplaza el archivo completo)
- *
- * CAMBIOS vs versión original:
- *  1. Inyectar GiftCardService (era null antes).
- *  2. Webhook completo: verifica el pago con MP, actualiza el
- *     estado del pedido a PAID, y activa la gift card si existe.
- *  3. Manejo de X-Signature para validar que el webhook viene
- *     realmente de MercadoPago (seguridad básica).
- */
 @Slf4j
 @RestController
 @RequestMapping("/api/orders")
@@ -38,7 +30,9 @@ public class OrderController {
 
     private final OrderService    orderService;
     private final PaymentService  paymentService;
-    private final GiftCardService giftCardService; // ← NUEVO
+    private final GiftCardService giftCardService;
+    private final ReferralService referralService;  // ✅ NUEVO: para activar cupón 15%
+    private final EmailService    emailService;     // ✅ NUEVO: para notificaciones gift card
 
     // ── Crear preferencia MercadoPago ─────────────────────────
     @PostMapping("/payment-intent")
@@ -98,17 +92,7 @@ public class OrderController {
         }
     }
 
-    // ── Webhook MercadoPago — FIX #3 COMPLETO ─────────────────────
-    /**
-     * MercadoPago envía POST a esta URL cuando un pago cambia de estado.
-     * La URL se configura en PaymentService → notificationUrl.
-     *
-     * Tipos de evento que maneja:
-     *   - "payment" → verifica si fue aprobado y actualiza pedido + gift card
-     *
-     * Documentación MP:
-     * https://www.mercadopago.com.co/developers/es/docs/your-integrations/notifications/webhooks
-     */
+    // ── Webhook MercadoPago ────────────────────────────────────
     @PostMapping("/webhook")
     public ResponseEntity<Void> webhook(
             @RequestBody Map<String, Object> body,
@@ -133,13 +117,14 @@ public class OrderController {
                 log.info("💳 Pago {} — aprobado: {}", paymentId, approved);
 
                 if (approved) {
-                    // ── 1. Buscar y actualizar el pedido ──
+
+                    // ── 1. Buscar y actualizar el pedido normal ──
                     orderService.findByPaymentId(paymentId).ifPresent(order -> {
                         if (order.getStatus() == Order.Status.PENDING) {
                             orderService.updateStatus(order.getId(), Order.Status.PAID);
                             log.info("✅ Pedido {} marcado como PAID", order.getOrderNumber());
 
-                            // ── 2. Activar gift card si el pedido la incluye ──
+                            // ── 2. Activar gift card usada DENTRO del pedido ──
                             String giftCardCode = order.getCouponCode();
                             if (giftCardCode != null && giftCardCode.startsWith("GIFT-")) {
                                 try {
@@ -150,36 +135,61 @@ public class OrderController {
                                     log.error("Error activando gift card {}: {}", giftCardCode, e.getMessage());
                                 }
                             }
+
+                            // ── 3. ✅ NUEVO: Redimir código referido y generar cupón 15% ──
+                            String referralCode = order.getReferralCode();
+                            if (referralCode != null && !referralCode.isBlank()
+                                    && referralCode.startsWith("LUX-")) {
+                                try {
+                                    boolean redeemed = referralService.redeemCode(
+                                        referralCode,
+                                        order.getCustomerEmail(),
+                                        order.getCustomerName(),
+                                        order.getOrderNumber()
+                                    );
+                                    if (redeemed) {
+                                        log.info("🎉 Código referido {} redimido — cupón 15% generado y enviado",
+                                            referralCode);
+                                    } else {
+                                        log.warn("⚠️ Código referido {} no pudo ser redimido", referralCode);
+                                    }
+                                } catch (Exception e) {
+                                    log.error("Error redimiendo código referido {}: {}", referralCode, e.getMessage());
+                                }
+                            }
                         } else {
                             log.info("Pedido {} ya estaba en estado {}, sin cambios",
                                 order.getOrderNumber(), order.getStatus());
                         }
                     });
 
-                    // ── 3. Activar gift card comprada (cuando se paga UNA tarjeta sola) ──
-                    // MercadoPago guarda el externalReference como "KOSMICA-{timestamp}"
-                    // pero el preferenceId también está en la gift card (savePendingPaymentId)
+                    // ── 4. ✅ NUEVO: Activar gift card COMPRADA + enviar email/WhatsApp ──
+                    // (cuando alguien compra una tarjeta de regalo directamente)
                     giftCardService.findByPaymentId(paymentId).ifPresent(gc -> {
                         if ("PENDING".equals(gc.getStatus())) {
-                            giftCardService.activateGiftCard(gc.getCode(), paymentId);
+                            GiftCard activated = giftCardService.activateGiftCard(gc.getCode(), paymentId);
                             log.info("🎁 Gift card {} activada por pago directo {}", gc.getCode(), paymentId);
+
+                            // Enviar email al receptor + WhatsApp al sender
+                            try {
+                                emailService.sendGiftCardNotifications(activated);
+                            } catch (Exception e) {
+                                log.error("Error enviando notificaciones de gift card {}: {}",
+                                    gc.getCode(), e.getMessage());
+                            }
                         }
                     });
                 }
             }
 
         } catch (Exception e) {
-            // Siempre devolver 200 — MP reintenta si recibe != 200
             log.error("Error procesando webhook: {}", e.getMessage(), e);
         }
 
-        // MP espera 200 OK, de lo contrario reintenta (hasta 3 veces)
         return ResponseEntity.ok().build();
     }
 
-    // ════════════════════════════════════════════════════════════
-    // Social Proof — actividad reciente de compras (sin cambios)
-    // ════════════════════════════════════════════════════════════
+    // ── Social Proof ───────────────────────────────────────────
     @GetMapping("/recent-activity")
     public ResponseEntity<List<Map<String, Object>>> getRecentActivity() {
         try {
