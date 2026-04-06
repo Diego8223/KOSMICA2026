@@ -38,6 +38,9 @@ public class OrderRequest {
 
     private String referralCode;
 
+    private String     giftCardCode;
+    private BigDecimal giftCardDiscount;
+
     @Valid
     @NotEmpty(message = "El carrito está vacío")
     private List<ItemDto> items;

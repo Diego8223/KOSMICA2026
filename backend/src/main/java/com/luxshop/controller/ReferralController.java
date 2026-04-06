@@ -133,4 +133,27 @@ public class ReferralController {
             @PathVariable String email) {
         return ResponseEntity.ok(referralService.getHistory(email));
     }
+
+    // ── 5. VALIDAR cupón de recompensa (REF15-XXXXXX) ────────────────
+    /**
+     * Valida que un cupón de recompensa es válido para el dueño del código.
+     * El referidor debe proporcionar su email para confirmar la titularidad.
+     *
+     * GET /api/referrals/reward/validate/REF15-A3F9K2?ownerEmail=vale@gmail.com
+     */
+    @GetMapping("/reward/validate/{couponCode}")
+    public ResponseEntity<Map<String, Object>> validateRewardCoupon(
+            @PathVariable String couponCode,
+            @RequestParam String ownerEmail) {
+
+        if (ownerEmail == null || ownerEmail.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "valid",   false,
+                "message", "Ingresa tu email para validar el cupón"
+            ));
+        }
+
+        Map<String, Object> result = referralService.validateRewardCoupon(couponCode, ownerEmail);
+        return ResponseEntity.ok(result);
+    }
 }

@@ -73,6 +73,18 @@ public class ReferralCode {
     @Column(name = "redeemed_at")
     private LocalDateTime redeemedAt;
 
+    /**
+     * Cupón de recompensa generado para el DUEÑO del código (15% de descuento).
+     * Se genera automáticamente al momento de la redención.
+     * Formato: REF15-XXXXXX
+     */
+    @Column(name = "reward_coupon_code", length = 20)
+    private String rewardCouponCode;
+
+    /** Cuándo se generó el cupón de recompensa */
+    @Column(name = "reward_coupon_generated_at")
+    private LocalDateTime rewardCouponGeneratedAt;
+
     /** Cuándo se creó */
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

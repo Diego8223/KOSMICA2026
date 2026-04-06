@@ -11,6 +11,7 @@ const AdminPanel         = lazy(() => import("./components/AdminPanel"));
 const OrderTracking      = lazy(() => import("./components/OrderTracking"));
 const AIChatBot          = lazy(() => import("./components/AIChatBot"));
 const ReferralModal      = lazy(() => import("./components/ReferralModal"));
+const GiftCardModal      = lazy(() => import("./components/GiftCardModal"));
 
 const CSS = `
   /* ✅ FUENTE: cargada en index.html con display=swap — no bloquea render */
@@ -1533,7 +1534,7 @@ export default function App() {
   // ── VIRAL FEATURES ──
   const [newsletterOpen, setNewsletterOpen]   = useState(false);
   const [newsletterEmail, setNewsletterEmail] = useState("");
-  const [couponVisible, setCouponVisible]     = useState(false);
+  // couponVisible eliminado — ya no se usa bono bienvenida
   // ✅ CUPÓN DE DESCUENTO — estado del campo y validación
   const [couponInput, setCouponInput]         = useState("");
   const [appliedCoupon, setAppliedCoupon]     = useState(null); // {code, pct}
@@ -1563,6 +1564,7 @@ export default function App() {
   const [reviewStars, setReviewStars]         = useState(0);
   const [reviewText, setReviewText]           = useState("");
   const [referralOpen, setReferralOpen]       = useState(false);
+  const [giftCardOpen, setGiftCardOpen]       = useState(false);
   const [referralCopied, setReferralCopied]   = useState(false);
   const [sharePopup, setSharePopup]           = useState(null); // {product, x, y}
   const [sharePos, setSharePos]               = useState({top:0,left:0});
@@ -1990,7 +1992,11 @@ export default function App() {
   const cartTotal=cart.reduce((s,i)=>s+Number(i.price)*i.qty,0);
   const cartCount=cart.reduce((s,i)=>s+i.qty,0);
   // ✅ DESCUENTO DEL CUPÓN aplicado al subtotal
-  const couponDiscount = appliedCoupon ? Math.round(cartTotal * appliedCoupon.pct / 100) : 0;
+  const couponDiscount = appliedCoupon
+    ? appliedCoupon.type === "giftcard"
+      ? Math.min(appliedCoupon.fixedAmount, cartTotal)
+      : Math.round(cartTotal * (appliedCoupon.pct || 0) / 100)
+    : 0;
   const cartTotalWithDiscount = cartTotal - couponDiscount;
   const [carriers, setCarriers]             = useState([]);
   const [carriersLoading, setCarriersLoading] = useState(false);
@@ -2071,10 +2077,12 @@ export default function App() {
         // ✅ CUPÓN Y REFERIDO — se guardan en la orden para el admin
         // Si el código aplicado es de referido (LUX-), va en referralCode
         // Si es cupón normal, va solo en couponCode
-        couponCode:     appliedCoupon && !appliedCoupon.code.startsWith("LUX-") ? appliedCoupon.code : null,
-        couponDiscount: couponDiscount,
-        referralCode:   appliedCoupon?.code.startsWith("LUX-") ? appliedCoupon.code
-                        : (referralCode || null),   // si vino por URL ?ref=
+        couponCode:       appliedCoupon && !appliedCoupon.code.startsWith("LUX-") && appliedCoupon.type !== "giftcard" ? appliedCoupon.code : null,
+        couponDiscount:   couponDiscount,
+        referralCode:     appliedCoupon?.code.startsWith("LUX-") ? appliedCoupon.code
+                          : (referralCode || null),
+        giftCardCode:     appliedCoupon?.type === "giftcard" ? appliedCoupon.code : null,
+        giftCardDiscount: appliedCoupon?.type === "giftcard" ? couponDiscount : 0,
       });
       setCart([]);
       setAppliedCoupon(null);
@@ -2105,26 +2113,17 @@ export default function App() {
   const submitNewsletter = async (e) => {
     e.preventDefault();
     if(!newsletterEmail.trim()) return;
-    localStorage.setItem("kosmica_nl_seen","1");
-    localStorage.setItem("kosmica_nl_email", newsletterEmail);
-    setCouponVisible(true);
     // Trackear con Meta Pixel y TikTok
     if(typeof window.fbq==="function") window.fbq("track","Lead",{content_name:"newsletter"});
     if(typeof window.ttq==="object") window.ttq.track("Subscribe");
-    // ✅ Enviar código por correo y WhatsApp desde el backend
-    try {
-      await fetch("/api/coupons/welcome", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: newsletterEmail, code: "BIENVENIDA10" })
-      });
-    } catch(_) { /* silencioso — el cupón se muestra igual en pantalla */ }
+    showToast("💜 ¡Gracias por suscribirte!");
+    setNewsletterOpen(false);
+    localStorage.setItem("kosmica_nl_seen","1");
   };
 
   // ✅ VALIDAR Y APLICAR CUPÓN en el checkout
   // Acepta cupones fijos Y códigos de referido del backend (LUX-XXXXXX)
   const VALID_COUPONS = {
-    "BIENVENIDA10": { pct: 10, label: "10% bienvenida" },
     "KOSMICA15":    { pct: 15, label: "15% especial" },
   };
   const applyCoupon = async () => {
@@ -2167,13 +2166,59 @@ export default function App() {
       return;
     }
 
+    // ── Tarjeta de regalo Kosmica (formato GIFT-XXXXXX) ──
+    if (code.startsWith("GIFT-")) {
+      try {
+        setCouponError("Validando tarjeta...");
+        const res = await fetch(`/api/gift-cards/validate/${code}`);
+        const result = await res.json();
+        if (result.valid) {
+          setAppliedCoupon({
+            code,
+            type: "giftcard",
+            fixedAmount: Number(result.balance),
+            label: `Tarjeta de regalo — saldo $${Number(result.balance).toLocaleString("es-CO")}`,
+          });
+          setCouponError("");
+          setCouponInput("");
+          showToast(`🎁 Tarjeta válida — $${Number(result.balance).toLocaleString("es-CO")} disponibles`);
+        } else {
+          setCouponError(result.message || "Tarjeta inválida");
+        }
+      } catch {
+        setCouponError("Error validando tarjeta. Intenta de nuevo.");
+      }
+      return;
+    }
+
+    // ── Cupón de recompensa de referido (formato REF15-XXXXXX) ──
+    if (code.startsWith("REF15-")) {
+      const ownerEmail = form.email?.trim().toLowerCase();
+      if (!ownerEmail) {
+        setCouponError("Ingresa tu email primero para validar tu cupón de recompensa");
+        return;
+      }
+      try {
+        setCouponError("Validando cupón de recompensa...");
+        const res = await fetch(`/api/referrals/reward/validate/${code}?ownerEmail=${encodeURIComponent(ownerEmail)}`);
+        const result = await res.json();
+        if (result.valid) {
+          setAppliedCoupon({ code, pct: result.pct || 15, label: result.label || "15% recompensa referido 💜" });
+          setCouponError("");
+          setCouponInput("");
+          showToast(`🎉 ¡Cupón de recompensa aplicado — ${result.pct || 15}% de descuento!`);
+        } else {
+          setCouponError(result.message || "Cupón de recompensa inválido");
+        }
+      } catch {
+        setCouponError("Error validando cupón. Intenta de nuevo.");
+      }
+      return;
+    }
+
     setCouponError("Cupón inválido o ya expirado.");
   };
   const removeCoupon = () => { setAppliedCoupon(null); setCouponInput(""); setCouponError(""); };
-
-  const copyNlCoupon = () => {
-    navigator.clipboard.writeText("BIENVENIDA10").then(()=>showToast("💜 Cupón BIENVENIDA10 copiado"));
-  };
   const openSharePopup = (e, product) => {
     e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
@@ -2277,6 +2322,15 @@ export default function App() {
             <span className="ref-banner-text">
               <span className="ref-banner-title">Invita y gana</span>
               <span className="ref-banner-sub">Tu amiga compra, tú ganas descuento</span>
+            </span>
+            <span style={{color:"var(--lila-dark)",fontSize:"1.1rem"}}>›</span>
+          </button>
+          <button className="ref-banner" onClick={() => setGiftCardOpen(true)}
+            style={{background:"linear-gradient(135deg,#5B21B620,#7C3AED15)",borderColor:"#C4B5FD"}}>
+            <span className="ref-banner-ico">🎁</span>
+            <span className="ref-banner-text">
+              <span className="ref-banner-title">Tarjeta de Regalo</span>
+              <span className="ref-banner-sub">El regalo perfecto para toda ocasión</span>
             </span>
             <span style={{color:"var(--lila-dark)",fontSize:"1.1rem"}}>›</span>
           </button>
@@ -3024,43 +3078,24 @@ export default function App() {
             <div className="nl-hero">
               <button className="nl-close" onClick={()=>{ setNewsletterOpen(false); localStorage.setItem("kosmica_nl_seen","1"); }}>✕</button>
               <div className="nl-emoji">💜</div>
-              <div className="nl-title">10% de descuento en tu primera compra</div>
-              <div className="nl-sub">Suscríbete y recibe ofertas exclusivas antes que nadie</div>
+              <div className="nl-title">Únete a la comunidad Kosmica</div>
+              <div className="nl-sub">Suscríbete y recibe novedades y ofertas exclusivas 💜</div>
             </div>
             <div className="nl-body">
-              {!couponVisible ? (
-                <>
-                  <form onSubmit={submitNewsletter}>
-                    <div className="nl-input-row">
-                      <input
-                        className="nl-input"
-                        type="email"
-                        placeholder="tu@correo.com"
-                        value={newsletterEmail}
-                        onChange={e=>setNewsletterEmail(e.target.value)}
-                        required
-                      />
-                      <button className="nl-btn" type="submit">¡Quiero!</button>
-                    </div>
-                  </form>
-                  <p className="nl-disclaimer">Sin spam. Solo lo mejor de Kosmica 💜</p>
-                </>
-              ) : (
-                <>
-                  <p style={{textAlign:"center",marginBottom:14,color:"var(--brown)",fontSize:".95rem"}}>
-                    🎉 ¡Listo! Aquí está tu cupón exclusivo:
-                  </p>
-                  <div className="nl-coupon">
-                    <div className="nl-coupon-label">Tu código de descuento</div>
-                    <div className="nl-coupon-code">BIENVENIDA10</div>
-                    <button className="nl-coupon-copy" onClick={copyNlCoupon}>📋 Copiar código</button>
-                  </div>
-                  <button className="nl-btn" style={{width:"100%",padding:"13px",borderRadius:"50px",fontSize:"1rem"}}
-                    onClick={()=>{ setNewsletterOpen(false); scrollTo(); }}>
-                    Ir a comprar →
-                  </button>
-                </>
-              )}
+              <form onSubmit={submitNewsletter}>
+                <div className="nl-input-row">
+                  <input
+                    className="nl-input"
+                    type="email"
+                    placeholder="tu@correo.com"
+                    value={newsletterEmail}
+                    onChange={e=>setNewsletterEmail(e.target.value)}
+                    required
+                  />
+                  <button className="nl-btn" type="submit">¡Quiero!</button>
+                </div>
+              </form>
+              <p className="nl-disclaimer">Sin spam. Solo lo mejor de Kosmica 💜</p>
             </div>
           </div>
         </div>
@@ -3153,6 +3188,13 @@ export default function App() {
         <ReferralModal
           open={referralOpen}
           onClose={() => setReferralOpen(false)}
+        />
+      </Suspense>
+
+      <Suspense fallback={null}>
+        <GiftCardModal
+          open={giftCardOpen}
+          onClose={() => setGiftCardOpen(false)}
         />
       </Suspense>
 

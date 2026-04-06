@@ -24,4 +24,7 @@ public interface ReferralCodeRepository extends JpaRepository<ReferralCode, Long
 
     /** ¿Ya tiene un código (activo o no)? */
     boolean existsByOwnerEmail(String ownerEmail);
+
+    /** Buscar por cupón de recompensa generado (REF15-XXXXXX) */
+    Optional<ReferralCode> findByRewardCouponCode(String rewardCouponCode);
 }

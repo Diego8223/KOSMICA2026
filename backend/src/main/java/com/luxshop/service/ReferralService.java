@@ -29,6 +29,7 @@ import java.util.Optional;
 public class ReferralService {
 
     private final ReferralCodeRepository referralRepo;
+    private final EmailService           emailService;
 
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final String CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sin 0,O,1,I para evitar confusión
@@ -175,9 +176,28 @@ public class ReferralService {
         ref.setRedeemedInOrder(orderNumber);
         ref.setRedeemedAt(LocalDateTime.now());
 
+        // ── GENERAR CUPÓN DE RECOMPENSA 15% para el dueño del código ──
+        String rewardCoupon = generateRewardCoupon();
+        ref.setRewardCouponCode(rewardCoupon);
+        ref.setRewardCouponGeneratedAt(LocalDateTime.now());
+
         referralRepo.save(ref);
-        log.info("✅  Código {} redimido por {} en pedido {}",
-            code, redeemerEmail, orderNumber);
+        log.info("✅  Código {} redimido por {} en pedido {} | Recompensa: {}",
+            code, redeemerEmail, orderNumber, rewardCoupon);
+
+        // ── NOTIFICAR AL DUEÑO del código (email + WhatsApp) ──
+        try {
+            emailService.sendReferralReward(
+                ref.getOwnerEmail(),
+                ref.getOwnerName(),
+                ref.getOwnerPhone(),
+                redeemerName,
+                rewardCoupon
+            );
+        } catch (Exception e) {
+            log.error("Error enviando recompensa a {}: {}", ref.getOwnerEmail(), e.getMessage());
+        }
+
         return true;
     }
 
@@ -204,6 +224,69 @@ public class ReferralService {
             if (attempts > 20) throw new RuntimeException("No se pudo generar código único");
         } while (referralRepo.findByCode(code).isPresent());
         return code;
+    }
+
+    /**
+     * Genera un código de recompensa único (REF15-XXXXXX).
+     * Verifica que no exista ningún registro con ese cupón ya asignado.
+     */
+    private String generateRewardCoupon() {
+        String code;
+        int attempts = 0;
+        do {
+            code = "REF15-" + randomSegment(6);
+            attempts++;
+            if (attempts > 20) throw new RuntimeException("No se pudo generar cupón de recompensa");
+        } while (referralRepo.findByRewardCouponCode(code).isPresent());
+        return code;
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    //  VALIDAR cupón de recompensa (REF15-XXXXXX) en el checkout
+    // ─────────────────────────────────────────────────────────────────
+
+    /**
+     * Valida que un cupón REF15-XXXXXX pertenece al usuario y no fue usado.
+     *
+     * @param couponCode  código a validar (ej: REF15-A3F9K2)
+     * @param ownerEmail  email de quien intenta usarlo
+     * @return mapa con {valid, pct, label, message}
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> validateRewardCoupon(String couponCode, String ownerEmail) {
+        if (couponCode == null || couponCode.isBlank()) {
+            return Map.of("valid", false, "message", "Código vacío");
+        }
+
+        couponCode  = couponCode.toUpperCase().trim();
+        ownerEmail  = ownerEmail.toLowerCase().trim();
+
+        Optional<ReferralCode> opt = referralRepo.findByRewardCouponCode(couponCode);
+
+        if (opt.isEmpty()) {
+            return Map.of("valid", false, "message", "Cupón de recompensa no existe");
+        }
+
+        ReferralCode ref = opt.get();
+
+        // Verificar que pertenece al dueño que lo solicita
+        if (!ref.getOwnerEmail().equalsIgnoreCase(ownerEmail)) {
+            return Map.of("valid", false,
+                "message", "Este cupón no pertenece a tu cuenta");
+        }
+
+        // Verificar que el código base ya fue redimido (sin esto no debería existir, pero por seguridad)
+        if (!Boolean.TRUE.equals(ref.getUsed())) {
+            return Map.of("valid", false,
+                "message", "El cupón de recompensa aún no está disponible");
+        }
+
+        return Map.of(
+            "valid",   true,
+            "pct",     15,
+            "label",   "15% recompensa referido — gracias por invitar 💜",
+            "message", "¡Cupón válido! 15% de descuento aplicado 🎉"
+        );
     }
 
     private String randomSegment(int length) {

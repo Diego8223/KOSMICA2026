@@ -135,6 +135,95 @@ public class EmailService {
         sendWhatsapp(phone, msg);
     }
 
+    // ── Recompensa de referido (15%) al dueño del código ─────
+    /**
+     * Notifica al referidor que su amiga compró y que ganó 15% de descuento.
+     * Envía email HTML + WhatsApp si están configurados.
+     *
+     * @param ownerEmail   email del referidor (dueño del código LUX-)
+     * @param ownerName    nombre del referidor
+     * @param ownerPhone   teléfono/WhatsApp del referidor
+     * @param redeemerName nombre de quien usó el código (la amiga)
+     * @param rewardCoupon código de recompensa generado (REF15-XXXXXX)
+     */
+    public void sendReferralReward(String ownerEmail, String ownerName,
+                                   String ownerPhone, String redeemerName,
+                                   String rewardCoupon) {
+        // ── Email HTML ──
+        if (isEmailConfigured()) {
+            String subject = "🎉 ¡" + (redeemerName != null ? redeemerName : "Tu amiga")
+                + " compró con tu código! Aquí está tu 15% — " + storeName;
+            String html = buildReferralRewardHtml(ownerName, redeemerName, rewardCoupon);
+            sendEmail(ownerEmail, ownerName, subject, html);
+        } else {
+            log.warn("SendGrid no configurado — email de recompensa omitido para {}", ownerEmail);
+        }
+
+        // ── WhatsApp ──
+        if (isWhatsappConfigured() && ownerPhone != null && !ownerPhone.isBlank()) {
+            String msg = "🎉 ¡Hola *" + ownerName + "*! Tienes una recompensa en *Kosmica* 💜\n\n"
+                + "Tu amiga *" + (redeemerName != null ? redeemerName : "alguien") + "* acaba de hacer\n"
+                + "su primera compra con tu código de referido.\n\n"
+                + "🎁 *¡Ganaste un 15% de descuento para tu próxima compra!*\n\n"
+                + "Tu cupón exclusivo:\n"
+                + "🏷️ *" + rewardCoupon + "*\n\n"
+                + "📌 Cómo usarlo:\n"
+                + "1. Ingresa al carrito en https://www.kosmica.com.co\n"
+                + "2. En el campo de cupón escribe: *" + rewardCoupon + "*\n"
+                + "3. Ingresa tu email *" + ownerEmail + "* para validarlo\n"
+                + "4. ¡Listo! 15% de descuento aplicado 🛍️\n\n"
+                + "💜 ¡Gracias por recomendar Kosmica!";
+            sendWhatsapp(ownerPhone, msg);
+        } else {
+            log.warn("WhatsApp no configurado o sin teléfono — notificación de recompensa omitida para {}", ownerEmail);
+        }
+    }
+
+    private String buildReferralRewardHtml(String ownerName, String redeemerName, String rewardCoupon) {
+        String friend = redeemerName != null ? redeemerName : "tu amiga";
+        return "<!DOCTYPE html><html><head><meta charset='UTF-8'/>"
+            + "<style>body{font-family:Arial,sans-serif;background:#f5f0ff;margin:0;padding:20px}"
+            + ".card{background:#fff;border-radius:16px;max-width:520px;margin:0 auto;padding:32px;box-shadow:0 4px 20px #7c3aed22}"
+            + ".logo{text-align:center;font-size:1.8rem;font-weight:800;color:#7C3AED;margin-bottom:8px}"
+            + ".hero{text-align:center;font-size:2.5rem;margin:16px 0 8px}"
+            + "h1{text-align:center;color:#1a1a1a;font-size:1.3rem;margin:0 0 16px}"
+            + "p{color:#444;font-size:.97rem;line-height:1.6;margin:8px 0}"
+            + ".coupon-box{background:linear-gradient(135deg,#7C3AED,#A855F7);border-radius:12px;padding:24px;text-align:center;margin:24px 0}"
+            + ".coupon-label{color:#e9d5ff;font-size:.8rem;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}"
+            + ".coupon-code{color:#fff;font-size:2rem;font-weight:900;letter-spacing:4px}"
+            + ".coupon-pct{color:#e9d5ff;font-size:.9rem;margin-top:8px}"
+            + ".steps{background:#faf5ff;border-radius:10px;padding:16px 20px;margin:16px 0}"
+            + ".steps ol{margin:8px 0;padding-left:20px;color:#444;font-size:.9rem;line-height:1.8}"
+            + ".btn{display:block;background:#7C3AED;color:#fff;text-decoration:none;text-align:center;padding:14px;border-radius:50px;font-weight:700;font-size:1rem;margin:20px 0 0}"
+            + ".footer{text-align:center;font-size:.78rem;color:#aaa;margin-top:20px}"
+            + "</style></head><body>"
+            + "<div class='card'>"
+            + "<div class='logo'>Kosmica 💜</div>"
+            + "<div class='hero'>🎉</div>"
+            + "<h1>¡" + friend + " compró con tu código!</h1>"
+            + "<p>Hola <strong>" + ownerName + "</strong>,</p>"
+            + "<p><strong>" + friend + "</strong> acaba de hacer su primera compra en Kosmica usando tu código de referido. "
+            + "¡Cumpliste tu promesa y ahora te toca disfrutar tu recompensa! 🛍️</p>"
+            + "<div class='coupon-box'>"
+            + "<div class='coupon-label'>Tu cupón exclusivo</div>"
+            + "<div class='coupon-code'>" + rewardCoupon + "</div>"
+            + "<div class='coupon-pct'>15% de descuento en tu próxima compra</div>"
+            + "</div>"
+            + "<div class='steps'>"
+            + "<strong>¿Cómo usar tu cupón?</strong>"
+            + "<ol>"
+            + "<li>Agrega productos al carrito en kosmica.com.co</li>"
+            + "<li>En el campo de cupón escribe: <strong>" + rewardCoupon + "</strong></li>"
+            + "<li>Ingresa tu email <strong>" + "para validar la titularidad" + "</strong></li>"
+            + "<li>¡Listo! 15% aplicado automáticamente ✅</li>"
+            + "</ol>"
+            + "</div>"
+            + "<a href='https://www.kosmica.com.co' class='btn'>¡Ir a comprar ahora! →</a>"
+            + "<p class='footer'>Cupón de un solo uso. No acumulable con otras promociones.<br/>"
+            + "¿Preguntas? Escríbenos a hola@kosmica.com.co 💜</p>"
+            + "</div></body></html>";
+    }
+
     // ── Mensajes WhatsApp ─────────────────────────────────────
     private String buildAdminWhatsappMsg(Order order) {
         StringBuilder sb = new StringBuilder();
