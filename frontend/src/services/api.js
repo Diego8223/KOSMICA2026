@@ -5,8 +5,12 @@
 import axios from 'axios';
 
 // En desarrollo: CRA proxy reenvía /api → localhost:8080
-// En producción: URL relativa → mismo dominio donde corre el backend
-const API_URL = process.env.REACT_APP_API_URL || "";
+// En producción: REACT_APP_API_URL viene de Render (ej: https://kosmica-backend.onrender.com)
+// Protección: si por algún motivo viene sin protocolo, lo agregamos
+let API_URL = process.env.REACT_APP_API_URL || "";
+if (API_URL && !API_URL.startsWith("http")) {
+  API_URL = "https://" + API_URL;
+}
 
 const api = axios.create({
   baseURL: `${API_URL}/api`,

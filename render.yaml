@@ -21,7 +21,7 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     envVars:
-      - key: DATABASE_URL
+      - key: SPRING_DATASOURCE_URL   # ✅ Debe coincidir con ${SPRING_DATASOURCE_URL} en application.properties
         fromDatabase:
           name: kosmica-db
           property: connectionString
@@ -52,7 +52,7 @@ services:
         fromService:
           name: kosmica-backend
           type: web
-          property: host
+          property: url   # ✅ "url" da https://kosmica-backend.onrender.com — "host" daba solo el hostname sin https
       - key: REACT_APP_ADMIN_PASSWORD
         value: Kosmica2025
     routes:
