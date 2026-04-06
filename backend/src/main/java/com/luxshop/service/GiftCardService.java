@@ -57,6 +57,18 @@ public class GiftCardService {
     }
 
     // ─────────────────────────────────────────────────────────────
+    //  GUARDAR preferenceId de MercadoPago mientras espera pago
+    // ─────────────────────────────────────────────────────────────
+    @Transactional
+    public void savePendingPaymentId(String code, String preferenceId) {
+        GiftCard gc = giftCardRepo.findByCode(code.toUpperCase())
+            .orElseThrow(() -> new RuntimeException("Tarjeta no encontrada: " + code));
+        gc.setPaymentId(preferenceId);
+        giftCardRepo.save(gc);
+        log.info("🔖 Tarjeta {} → preferenceId guardado: {}", code, preferenceId);
+    }
+
+    // ─────────────────────────────────────────────────────────────
     //  ACTIVAR tarjeta al confirmar pago en MercadoPago
     // ─────────────────────────────────────────────────────────────
     @Transactional
@@ -131,7 +143,6 @@ public class GiftCardService {
             return Map.of("success", false, "message", "Tarjeta inválida o sin saldo");
         }
 
-        // Calcular cuánto se descuenta realmente (no más que el saldo disponible)
         BigDecimal actualDiscount = amountToUse.min(gc.getBalance());
         BigDecimal newBalance = gc.getBalance().subtract(actualDiscount);
 
@@ -145,10 +156,10 @@ public class GiftCardService {
             code, actualDiscount, newBalance, orderNumber);
 
         return Map.of(
-            "success",        true,
+            "success",          true,
             "amountDiscounted", actualDiscount,
             "remainingBalance", newBalance,
-            "message",        "Descuento aplicado correctamente"
+            "message",          "Descuento aplicado correctamente"
         );
     }
 
@@ -183,6 +194,11 @@ public class GiftCardService {
 
     public Optional<GiftCard> getByCode(String code) {
         return giftCardRepo.findByCode(code.toUpperCase().trim());
+    }
+
+    // FIX: buscar por paymentId para el webhook de MercadoPago
+    public Optional<GiftCard> findByPaymentId(String paymentId) {
+        return giftCardRepo.findByPaymentId(paymentId);
     }
 
     // ─────────────────────────────────────────────────────────────

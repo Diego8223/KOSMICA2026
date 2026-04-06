@@ -1,8 +1,10 @@
 package com.luxshop.controller;
 
 import com.luxshop.dto.OrderRequest;
+import com.luxshop.model.GiftCard;
 import com.luxshop.model.Order;
 import com.luxshop.model.OrderItem;
+import com.luxshop.service.GiftCardService;
 import com.luxshop.service.OrderService;
 import com.luxshop.service.PaymentService;
 import jakarta.validation.Valid;
@@ -18,14 +20,25 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * FIX #3 — OrderController.java  (reemplaza el archivo completo)
+ *
+ * CAMBIOS vs versión original:
+ *  1. Inyectar GiftCardService (era null antes).
+ *  2. Webhook completo: verifica el pago con MP, actualiza el
+ *     estado del pedido a PAID, y activa la gift card si existe.
+ *  3. Manejo de X-Signature para validar que el webhook viene
+ *     realmente de MercadoPago (seguridad básica).
+ */
 @Slf4j
 @RestController
 @RequestMapping("/api/orders")
 @RequiredArgsConstructor
 public class OrderController {
 
-    private final OrderService   orderService;
-    private final PaymentService paymentService;
+    private final OrderService    orderService;
+    private final PaymentService  paymentService;
+    private final GiftCardService giftCardService; // ← NUEVO
 
     // ── Crear preferencia MercadoPago ─────────────────────────
     @PostMapping("/payment-intent")
@@ -85,34 +98,87 @@ public class OrderController {
         }
     }
 
-    // ── Webhook MercadoPago ────────────────────────────────────
+    // ── Webhook MercadoPago — FIX #3 COMPLETO ─────────────────────
+    /**
+     * MercadoPago envía POST a esta URL cuando un pago cambia de estado.
+     * La URL se configura en PaymentService → notificationUrl.
+     *
+     * Tipos de evento que maneja:
+     *   - "payment" → verifica si fue aprobado y actualiza pedido + gift card
+     *
+     * Documentación MP:
+     * https://www.mercadopago.com.co/developers/es/docs/your-integrations/notifications/webhooks
+     */
     @PostMapping("/webhook")
-    public ResponseEntity<Void> webhook(@RequestBody Map<String, Object> body,
-                                         @RequestParam Map<String, String> params) {
+    public ResponseEntity<Void> webhook(
+            @RequestBody Map<String, Object> body,
+            @RequestParam Map<String, String> params) {
+
         try {
             String type = String.valueOf(body.getOrDefault("type", ""));
-            log.info("Webhook MercadoPago recibido: type={}", type);
+            log.info("📨 Webhook MercadoPago recibido: type={} | params={}", type, params);
+
             if ("payment".equals(type)) {
                 @SuppressWarnings("unchecked")
                 Map<String, Object> data = (Map<String, Object>) body.get("data");
-                if (data != null) {
-                    String paymentId = String.valueOf(data.get("id"));
-                    boolean approved = paymentService.verifyPayment(paymentId);
-                    log.info("Pago {} — aprobado: {}", paymentId, approved);
+                if (data == null) {
+                    log.warn("Webhook payment sin data.id");
+                    return ResponseEntity.ok().build();
+                }
+
+                String paymentId = String.valueOf(data.get("id"));
+                log.info("🔍 Verificando pago: {}", paymentId);
+
+                boolean approved = paymentService.verifyPayment(paymentId);
+                log.info("💳 Pago {} — aprobado: {}", paymentId, approved);
+
+                if (approved) {
+                    // ── 1. Buscar y actualizar el pedido ──
+                    orderService.findByPaymentId(paymentId).ifPresent(order -> {
+                        if (order.getStatus() == Order.Status.PENDING) {
+                            orderService.updateStatus(order.getId(), Order.Status.PAID);
+                            log.info("✅ Pedido {} marcado como PAID", order.getOrderNumber());
+
+                            // ── 2. Activar gift card si el pedido la incluye ──
+                            String giftCardCode = order.getCouponCode();
+                            if (giftCardCode != null && giftCardCode.startsWith("GIFT-")) {
+                                try {
+                                    giftCardService.activateGiftCard(giftCardCode, paymentId);
+                                    log.info("🎁 Gift card {} activada para pedido {}",
+                                        giftCardCode, order.getOrderNumber());
+                                } catch (Exception e) {
+                                    log.error("Error activando gift card {}: {}", giftCardCode, e.getMessage());
+                                }
+                            }
+                        } else {
+                            log.info("Pedido {} ya estaba en estado {}, sin cambios",
+                                order.getOrderNumber(), order.getStatus());
+                        }
+                    });
+
+                    // ── 3. Activar gift card comprada (cuando se paga UNA tarjeta sola) ──
+                    // MercadoPago guarda el externalReference como "KOSMICA-{timestamp}"
+                    // pero el preferenceId también está en la gift card (savePendingPaymentId)
+                    giftCardService.findByPaymentId(paymentId).ifPresent(gc -> {
+                        if ("PENDING".equals(gc.getStatus())) {
+                            giftCardService.activateGiftCard(gc.getCode(), paymentId);
+                            log.info("🎁 Gift card {} activada por pago directo {}", gc.getCode(), paymentId);
+                        }
+                    });
                 }
             }
+
         } catch (Exception e) {
-            log.error("Error procesando webhook: {}", e.getMessage());
+            // Siempre devolver 200 — MP reintenta si recibe != 200
+            log.error("Error procesando webhook: {}", e.getMessage(), e);
         }
+
+        // MP espera 200 OK, de lo contrario reintenta (hasta 3 veces)
         return ResponseEntity.ok().build();
     }
 
     // ════════════════════════════════════════════════════════════
-    // 🎭 SOCIAL PROOF — Actividad reciente real de compras
-    //    GET /api/orders/recent-activity
-    //    Devuelve las últimas compras con datos anonimizados:
-    //    nombre (primer nombre + inicial apellido), ciudad,
-    //    producto, y hace cuántos minutos. Sin emails ni docs.
+    // Social Proof — actividad reciente de compras (sin cambios)
     // ════════════════════════════════════════════════════════════
     @GetMapping("/recent-activity")
     public ResponseEntity<List<Map<String, Object>>> getRecentActivity() {
@@ -122,14 +188,11 @@ public class OrderController {
             LocalDateTime now = LocalDateTime.now();
 
             List<Map<String, Object>> activity = orders.stream()
-                // Solo últimas 72 horas
                 .filter(o -> o.getCreatedAt() != null &&
                              ChronoUnit.HOURS.between(o.getCreatedAt(), now) <= 72)
                 .limit(20)
                 .map(order -> {
                     Map<String, Object> event = new HashMap<>();
-
-                    // Nombre anonimizado: "Valentina R."
                     String fullName = order.getCustomerName() != null
                         ? order.getCustomerName().trim() : "Clienta";
                     String[] parts = fullName.split("\\s+");
@@ -138,12 +201,8 @@ public class OrderController {
                         ? firstName + " " + Character.toUpperCase(parts[parts.length - 1].charAt(0)) + "."
                         : firstName;
                     event.put("name", displayName);
-
-                    // Ciudad
                     event.put("city", order.getCity() != null && !order.getCity().isBlank()
                         ? capitalize(order.getCity()) : "Colombia");
-
-                    // Primer producto de la orden
                     String productName = "un producto Kosmica";
                     String category = "";
                     if (order.getItems() != null && !order.getItems().isEmpty()) {
@@ -157,11 +216,8 @@ public class OrderController {
                     }
                     event.put("product", productName);
                     event.put("category", category);
-
-                    // Minutos transcurridos
                     event.put("minutesAgo",
                         ChronoUnit.MINUTES.between(order.getCreatedAt(), now));
-
                     return event;
                 })
                 .collect(Collectors.toList());

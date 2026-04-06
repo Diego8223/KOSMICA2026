@@ -56,18 +56,14 @@ public class OrderService {
         // ✅ REFERIDO — validar, guardar y redimir código "Invita y Gana"
         if (req.getReferralCode() != null && !req.getReferralCode().isBlank()) {
             String refCode = req.getReferralCode().toUpperCase().trim();
-            // Doble validación: el receptor no puede ser el dueño del código
             var validation = referralService.validateCode(refCode, req.getEmail());
             if (Boolean.TRUE.equals(validation.get("valid"))) {
                 order.setReferralCode(refCode);
                 log.info("🎁 Compra referida por código: {}", refCode);
-                // La redención real se hace después de guardar el pedido (ver abajo)
             } else {
                 log.warn("⚠️  Código de referido inválido '{}': {}", refCode, validation.get("message"));
-                // No bloqueamos la compra, solo ignoramos el código inválido
                 req.setReferralCode(null);
                 if (req.getCouponDiscount() != null) {
-                    // Si el descuento venía del referido, lo anulamos
                     order.setCouponDiscount(BigDecimal.ZERO);
                     req.setCouponDiscount(BigDecimal.ZERO);
                 }
@@ -97,15 +93,8 @@ public class OrderService {
             subtotal = subtotal.add(oi.getSubtotal());
         }
 
-        // Envío desde el request (ya calculado en frontend por el asesor)
-        BigDecimal shipping = req.getShippingCost() != null
-            ? req.getShippingCost()
-            : BigDecimal.ZERO;
-
-        // Descuento del cupón
-        BigDecimal discount = req.getCouponDiscount() != null
-            ? req.getCouponDiscount()
-            : BigDecimal.ZERO;
+        BigDecimal shipping = req.getShippingCost() != null ? req.getShippingCost() : BigDecimal.ZERO;
+        BigDecimal discount = req.getCouponDiscount() != null ? req.getCouponDiscount() : BigDecimal.ZERO;
 
         order.setItems(items);
         order.setSubtotal(subtotal);
@@ -132,7 +121,6 @@ public class OrderService {
                         saved.getReferralCode(), saved.getOrderNumber());
                 }
             } catch (Exception e) {
-                // No cancelamos el pedido si falla la redención — ya fue guardado
                 log.error("Error redimiendo código de referido {}: {}",
                     saved.getReferralCode(), e.getMessage());
             }
@@ -157,6 +145,11 @@ public class OrderService {
 
     public Optional<Order> findByNumber(String orderNumber) {
         return orderRepo.findByOrderNumber(orderNumber);
+    }
+
+    // FIX: buscar por paymentId para el webhook de MercadoPago
+    public Optional<Order> findByPaymentId(String paymentId) {
+        return orderRepo.findByPaymentId(paymentId);
     }
 
     public List<Order> getOrdersByEmail(String email) {

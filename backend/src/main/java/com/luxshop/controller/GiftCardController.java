@@ -2,6 +2,7 @@ package com.luxshop.controller;
 
 import com.luxshop.model.GiftCard;
 import com.luxshop.service.GiftCardService;
+import com.luxshop.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -12,15 +13,19 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Endpoints del sistema Tarjetas de Regalo Kosmica.
+ * FIX #2 — GiftCardController.java
  *
- *  POST /api/gift-cards/purchase           → Comprar tarjeta (crea + inicia pago)
- *  POST /api/gift-cards/activate           → Activar al confirmar pago MercadoPago
- *  GET  /api/gift-cards/validate/{code}    → Validar saldo antes de pagar
- *  POST /api/gift-cards/redeem             → Descontar saldo al confirmar pedido
- *  POST /api/gift-cards/reload             → Recargar saldo (admin)
- *  GET  /api/gift-cards/all                → Listar todas (admin)
- *  GET  /api/gift-cards/by-sender/{email}  → Mis tarjetas regaladas
+ * PROBLEMA: el endpoint /purchase activaba la tarjeta inmediatamente
+ * (giftCardService.activateGiftCard con "MANUAL") sin pasar por
+ * MercadoPago, permitiendo obtener una tarjeta activa sin pagar.
+ *
+ * SOLUCIÓN:
+ *   1. /purchase → crea la tarjeta en estado PENDING y genera
+ *      una preferencia real de MercadoPago, devuelve paymentUrl.
+ *   2. /activate → solo se llama desde el webhook cuando MP confirma.
+ *   3. El webhook en OrderController ya recibe el evento "payment"
+ *      y debe llamar a giftCardService.activateGiftCard(code, paymentId)
+ *      (ver FIX #3 – OrderController).
  */
 @Slf4j
 @RestController
@@ -29,8 +34,9 @@ import java.util.Map;
 public class GiftCardController {
 
     private final GiftCardService giftCardService;
+    private final PaymentService  paymentService;   // ← NUEVO: inyectar PaymentService
 
-    // ── 1. COMPRAR tarjeta ────────────────────────────────────────
+    // ── 1. COMPRAR tarjeta — crea PENDING + genera preferencia MP ──
     @PostMapping("/purchase")
     public ResponseEntity<Map<String, Object>> purchase(
             @RequestBody Map<String, Object> body) {
@@ -50,23 +56,42 @@ public class GiftCardController {
                     "success", false, "message", "Monto mínimo $10.000 y ocasión requerida"));
             }
 
+            // 1. Crear tarjeta en estado PENDING (NO activar aquí)
             GiftCard gc = giftCardService.createGiftCard(
                 occasion, occasionLabel, amount, message,
                 recipientName, recipientEmail,
                 senderName, senderEmail, senderPhone
             );
 
-            // TODO: integrar con MercadoPago para generar paymentUrl real
-            // Por ahora activa inmediatamente (para pruebas)
-            // En producción: crear preferencia MP y devolver init_point
-            giftCardService.activateGiftCard(gc.getCode(), "MANUAL");
+            // 2. Crear preferencia real en MercadoPago
+            List<Map<String, Object>> mpItems = List.of(Map.of(
+                "id",          gc.getCode(),
+                "name",        "Tarjeta de Regalo Kosmica — " + (occasionLabel != null ? occasionLabel : occasion),
+                "description", "Para: " + recipientName + (message != null && !message.isBlank() ? " | " + message : ""),
+                "quantity",    1,
+                "price",       amount
+            ));
+
+            Map<String, String> mpResult = paymentService.createPreference(
+                amount,
+                "Tarjeta de Regalo Kosmica",
+                mpItems
+            );
+
+            // Guardar el preferenceId en la tarjeta para rastreo en webhook
+            giftCardService.savePendingPaymentId(gc.getCode(), mpResult.get("preferenceId"));
+
+            log.info("🎁 Tarjeta {} creada PENDING | preferenceId: {}", gc.getCode(), mpResult.get("preferenceId"));
 
             return ResponseEntity.ok(Map.of(
-                "success",  true,
-                "code",     gc.getCode(),
-                "amount",   gc.getOriginalAmount(),
-                "message",  "¡Tarjeta de regalo creada exitosamente! 🎁"
+                "success",    true,
+                "code",       gc.getCode(),
+                "amount",     gc.getOriginalAmount(),
+                "paymentUrl", mpResult.get("initPoint"),     // ← Frontend abre esta URL
+                "preferenceId", mpResult.get("preferenceId"),
+                "message",    "Redirigiendo a MercadoPago para completar el pago..."
             ));
+
         } catch (Exception e) {
             log.error("Error creando tarjeta de regalo: {}", e.getMessage());
             return ResponseEntity.internalServerError().body(Map.of(
@@ -74,7 +99,7 @@ public class GiftCardController {
         }
     }
 
-    // ── 2. ACTIVAR después de pago MP ────────────────────────────
+    // ── 2. ACTIVAR después de pago confirmado (llamado desde webhook) ──
     @PostMapping("/activate")
     public ResponseEntity<Map<String, Object>> activate(
             @RequestBody Map<String, String> body) {

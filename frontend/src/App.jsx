@@ -2145,14 +2145,13 @@ export default function App() {
     if (code.startsWith("LUX-")) {
       const redeemerEmail = form.email?.trim().toLowerCase();
       if (!redeemerEmail) {
-        setCouponError("Ingresa tu email primero para validar el código de referido");
+        setCouponError("Ingresa tu email antes de aplicar el código de referido");
         return;
       }
       try {
         setCouponError("Validando código...");
         const result = await referralAPI.validate(code, redeemerEmail);
         if (result.valid) {
-          // Descuento del 10% para códigos de referido
           setAppliedCoupon({ code, pct: 10, label: "10% referido — " + (result.ownerName || "") });
           setCouponError("");
           setCouponInput("");
@@ -2167,11 +2166,11 @@ export default function App() {
     }
 
     // ── Tarjeta de regalo Kosmica (formato GIFT-XXXXXX) ──
+    // FIX: usar api (axios con baseURL absoluta) en lugar de fetch con ruta relativa
     if (code.startsWith("GIFT-")) {
       try {
         setCouponError("Validando tarjeta...");
-        const res = await fetch(`/api/gift-cards/validate/${code}`);
-        const result = await res.json();
+        const result = await api.get(`/gift-cards/validate/${code}`).then(r => r.data);
         if (result.valid) {
           setAppliedCoupon({
             code,
@@ -2185,23 +2184,25 @@ export default function App() {
         } else {
           setCouponError(result.message || "Tarjeta inválida");
         }
-      } catch {
-        setCouponError("Error validando tarjeta. Intenta de nuevo.");
+      } catch (e) {
+        setCouponError(e?.message || "Error validando tarjeta. Intenta de nuevo.");
       }
       return;
     }
 
     // ── Cupón de recompensa de referido (formato REF15-XXXXXX) ──
+    // FIX: usar api (axios con baseURL absoluta) en lugar de fetch con ruta relativa
     if (code.startsWith("REF15-")) {
       const ownerEmail = form.email?.trim().toLowerCase();
       if (!ownerEmail) {
-        setCouponError("Ingresa tu email primero para validar tu cupón de recompensa");
+        setCouponError("Ingresa tu email antes de aplicar el cupón de recompensa");
         return;
       }
       try {
         setCouponError("Validando cupón de recompensa...");
-        const res = await fetch(`/api/referrals/reward/validate/${code}?ownerEmail=${encodeURIComponent(ownerEmail)}`);
-        const result = await res.json();
+        const result = await api.get(
+          `/referrals/reward/validate/${code}?ownerEmail=${encodeURIComponent(ownerEmail)}`
+        ).then(r => r.data);
         if (result.valid) {
           setAppliedCoupon({ code, pct: result.pct || 15, label: result.label || "15% recompensa referido 💜" });
           setCouponError("");
@@ -2210,8 +2211,8 @@ export default function App() {
         } else {
           setCouponError(result.message || "Cupón de recompensa inválido");
         }
-      } catch {
-        setCouponError("Error validando cupón. Intenta de nuevo.");
+      } catch (e) {
+        setCouponError(e?.message || "Error validando cupón. Intenta de nuevo.");
       }
       return;
     }
