@@ -16,7 +16,7 @@
 // ============================================================
 
 import { useState } from "react";
-import { orderAPI } from "../services/api";
+import api, { orderAPI } from "../services/api";
 
 const OCCASIONS = [
   { id: "birthday",    emoji: "🎂", label: "Cumpleaños" },
@@ -108,23 +108,19 @@ export default function GiftCardModal({ open, onClose }) {
     if (!validatePay()) return;
     setLoading(true);
     try {
-      // Crear orden de tarjeta de regalo via backend
-      const res = await fetch("/api/gift-cards/purchase", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          occasion:       occasion,
-          occasionLabel:  selectedOccasion?.label,
-          amount:         finalAmount,
-          message:        message.trim(),
-          recipientName:  recipientName.trim(),
-          recipientEmail: recipientEmail.trim().toLowerCase(),
-          senderName:     senderName.trim(),
-          senderEmail:    senderEmail.trim().toLowerCase(),
-          senderPhone:    senderPhone.trim(),
-        }),
-      });
-      const data = await res.json();
+      // Crear orden de tarjeta de regalo via backend (usa axios con baseURL correcto)
+      const data = await api.post("/gift-cards/purchase", {
+        occasion:       occasion,
+        occasionLabel:  selectedOccasion?.label,
+        amount:         finalAmount,
+        message:        message.trim(),
+        recipientName:  recipientName.trim(),
+        recipientEmail: recipientEmail.trim().toLowerCase(),
+        senderName:     senderName.trim(),
+        senderEmail:    senderEmail.trim().toLowerCase(),
+        senderPhone:    senderPhone.trim(),
+      }).then(r => r.data);
+
       if (data.success) {
         setGiftCode(data.code);
         setStep("success");
@@ -135,8 +131,8 @@ export default function GiftCardModal({ open, onClose }) {
       } else {
         setError(data.message || "Error procesando la tarjeta. Intenta de nuevo.");
       }
-    } catch {
-      setError("Error de conexión. Intenta de nuevo.");
+    } catch (e) {
+      setError(e?.message || "Error de conexión. Intenta de nuevo.");
     } finally {
       setLoading(false);
     }
