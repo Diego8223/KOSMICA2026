@@ -4,6 +4,7 @@ import com.luxshop.model.GiftCard;
 import com.luxshop.repository.GiftCardRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,8 +25,12 @@ public class GiftCardService {
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final String CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
+    // ── VIGENCIA ──────────────────────────────────────────────
+    private static final int VALIDITY_YEARS   = 1;   // ✅ 1 año de vigencia
+    private static final int PENDING_HOURS    = 24;  // ✅ limpiar PENDING después de 24h
+
     // ─────────────────────────────────────────────────────────────
-    //  CREAR tarjeta de regalo (estado PENDING hasta confirmar pago)
+    //  CREAR tarjeta (estado PENDING hasta confirmar pago)
     // ─────────────────────────────────────────────────────────────
     @Transactional
     public GiftCard createGiftCard(
@@ -57,7 +62,7 @@ public class GiftCardService {
     }
 
     // ─────────────────────────────────────────────────────────────
-    //  GUARDAR preferenceId de MercadoPago mientras espera pago
+    //  GUARDAR preferenceId de MercadoPago
     // ─────────────────────────────────────────────────────────────
     @Transactional
     public void savePendingPaymentId(String code, String preferenceId) {
@@ -69,7 +74,7 @@ public class GiftCardService {
     }
 
     // ─────────────────────────────────────────────────────────────
-    //  ACTIVAR tarjeta al confirmar pago en MercadoPago
+    //  ACTIVAR tarjeta al confirmar pago
     // ─────────────────────────────────────────────────────────────
     @Transactional
     public GiftCard activateGiftCard(String code, String paymentId) {
@@ -79,9 +84,12 @@ public class GiftCardService {
         gc.setStatus("ACTIVE");
         gc.setPaymentId(paymentId);
         gc.setActivatedAt(LocalDateTime.now());
+        // ✅ La fecha de vencimiento se calcula en expires_at (columna generada en BD)
+        // pero también la guardamos en activatedAt para referencia
 
         GiftCard saved = giftCardRepo.save(gc);
-        log.info("✅ Tarjeta activada: {} | paymentId: {}", code, paymentId);
+        log.info("✅ Tarjeta activada: {} | paymentId: {} | vence: {}",
+            code, paymentId, saved.getActivatedAt().plusYears(VALIDITY_YEARS));
         return saved;
     }
 
@@ -108,8 +116,18 @@ public class GiftCardService {
             return Map.of("valid", false, "message", "Esta tarjeta ya no tiene saldo");
         }
         if ("EXPIRED".equals(gc.getStatus())) {
-            return Map.of("valid", false, "message", "Esta tarjeta está vencida");
+            return Map.of("valid", false, "message", "Esta tarjeta venció — era válida por 1 año");
         }
+
+        // ✅ Verificar vencimiento de 1 año
+        if (gc.getActivatedAt() != null &&
+                gc.getActivatedAt().plusYears(VALIDITY_YEARS).isBefore(LocalDateTime.now())) {
+            // Marcar como vencida automáticamente
+            gc.setStatus("EXPIRED");
+            giftCardRepo.save(gc);
+            return Map.of("valid", false, "message", "Esta tarjeta venció — era válida por 1 año");
+        }
+
         if (!gc.isActive()) {
             return Map.of("valid", false, "message", "Tarjeta inválida o sin saldo");
         }
@@ -136,8 +154,7 @@ public class GiftCardService {
             return Map.of("success", false, "message", "Código vacío");
         }
 
-        GiftCard gc = giftCardRepo.findByCode(code.toUpperCase().trim())
-            .orElse(null);
+        GiftCard gc = giftCardRepo.findByCode(code.toUpperCase().trim()).orElse(null);
 
         if (gc == null || !gc.isActive()) {
             return Map.of("success", false, "message", "Tarjeta inválida o sin saldo");
@@ -182,6 +199,39 @@ public class GiftCardService {
     }
 
     // ─────────────────────────────────────────────────────────────
+    //  ✅ NUEVO: Limpiar tarjetas PENDING abandonadas (cada 12 horas)
+    //  Si el cliente no pagó en 24h, se elimina la tarjeta PENDING
+    // ─────────────────────────────────────────────────────────────
+    @Scheduled(fixedRate = 12 * 60 * 60 * 1000) // cada 12 horas
+    @Transactional
+    public void cleanupPendingGiftCards() {
+        LocalDateTime cutoff = LocalDateTime.now().minusHours(PENDING_HOURS);
+        List<GiftCard> stale = giftCardRepo.findByStatusAndCreatedAtBefore("PENDING", cutoff);
+        if (!stale.isEmpty()) {
+            giftCardRepo.deleteAll(stale);
+            log.info("🧹 Eliminadas {} tarjetas PENDING abandonadas (más de {}h)",
+                stale.size(), PENDING_HOURS);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  ✅ NUEVO: Marcar vencidas (cada 24 horas)
+    // ─────────────────────────────────────────────────────────────
+    @Scheduled(fixedRate = 24 * 60 * 60 * 1000) // cada 24 horas
+    @Transactional
+    public void markExpiredGiftCards() {
+        LocalDateTime expiryDate = LocalDateTime.now().minusYears(VALIDITY_YEARS);
+        List<GiftCard> expired = giftCardRepo.findByStatusAndActivatedAtBefore("ACTIVE", expiryDate);
+        for (GiftCard gc : expired) {
+            gc.setStatus("EXPIRED");
+            giftCardRepo.save(gc);
+        }
+        if (!expired.isEmpty()) {
+            log.info("⏰ Marcadas {} tarjetas como EXPIRED (más de {} año)", expired.size(), VALIDITY_YEARS);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
     //  CONSULTAS
     // ─────────────────────────────────────────────────────────────
     public List<GiftCard> getAllGiftCards() {
@@ -196,7 +246,6 @@ public class GiftCardService {
         return giftCardRepo.findByCode(code.toUpperCase().trim());
     }
 
-    // FIX: buscar por paymentId para el webhook de MercadoPago
     public Optional<GiftCard> findByPaymentId(String paymentId) {
         return giftCardRepo.findByPaymentId(paymentId);
     }
