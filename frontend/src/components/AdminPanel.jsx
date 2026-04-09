@@ -3,7 +3,7 @@
 //  ✅ Mobile-first  ✅ Hamburger menu  ✅ Media fix (no useRef en map)
 // ============================================================
 import React, { useState, useEffect, useRef } from 'react';
-import { productAPI, orderAPI } from '../services/api';
+import { productAPI, orderAPI, pushAPI, giftCardAPI } from '../services/api';
 
 const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD || 'Kosmica2025';
 // Envia.com via backend proxy — v3 (auth y fan-out manejados en el backend)
@@ -499,52 +499,108 @@ function CouponsSection() {
   );
 }
 
-// ── GIFT CARDS ADMIN SECTION ───────────────────────────────
-function GiftCardsAdminSection({ orders }) {
-  const giftCardOrders = orders.filter(o => o.giftCardCode || (o.items||[]).some(i=>i.productName?.includes('Tarjeta')));
-  const fmtCOP = n => '$'+Number(n||0).toLocaleString('es-CO');
+// ── GIFT CARDS ADMIN SECTION — conectada al backend real ──
+function GiftCardsAdminSection() {
+  const [giftCards, setGiftCards] = React.useState([]);
+  const [loading, setLoading]     = React.useState(true);
+  const [reloadCode, setReloadCode]     = React.useState('');
+  const [reloadAmount, setReloadAmount] = React.useState('');
+  const [reloadMsg, setReloadMsg]       = React.useState('');
+  const fmtCOP  = n => '$'+Number(n||0).toLocaleString('es-CO');
   const fmtDate = str => { try { return new Date(str).toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'2-digit'}); } catch { return '—'; } };
-  const total = giftCardOrders.reduce((s,o)=>s+(o.total||0),0);
+
+  React.useEffect(() => {
+    giftCardAPI.getAll()
+      .then(data => setGiftCards(Array.isArray(data) ? data : []))
+      .catch(() => setGiftCards([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const totalValue = giftCards.reduce((s,g)=>s+Number(g.originalAmount||0),0);
+  const activeCount = giftCards.filter(g=>g.status==='ACTIVE').length;
+
+  const handleReload = async () => {
+    if (!reloadCode || !reloadAmount) return;
+    try {
+      await giftCardAPI.reload(reloadCode.toUpperCase(), Number(reloadAmount));
+      setReloadMsg('✅ Tarjeta recargada: ' + reloadCode.toUpperCase());
+      setReloadCode(''); setReloadAmount('');
+      const data = await giftCardAPI.getAll();
+      setGiftCards(Array.isArray(data) ? data : []);
+    } catch(e) { setReloadMsg('⚠️ Error: ' + e.message); }
+  };
+
+  const STATUS_STYLE = {
+    ACTIVE:   {bg:'#D1FAE5',color:'#065F46',label:'Activa'},
+    PENDING:  {bg:'#FEF3C7',color:'#92400E',label:'Pendiente'},
+    DEPLETED: {bg:'#F1F5F9',color:'#6B7280',label:'Usada'},
+    EXPIRED:  {bg:'#FFF1F2',color:'#BE123C',label:'Vencida'},
+  };
+
   return (
     <>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',gap:14,marginBottom:20}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(170px,1fr))',gap:14,marginBottom:20}}>
         {[
-          ['🎁','Tarjetas emitidas',giftCardOrders.length,'#F5F0FF','#6D28D9'],
-          ['💰','Valor total emitido',fmtCOP(total),'#FEF3C7','#92400E'],
+          ['🎁','Tarjetas emitidas',giftCards.length,'#F5F0FF','#6D28D9'],
+          ['✅','Activas',activeCount,'#D1FAE5','#065F46'],
+          ['💰','Valor total emitido',fmtCOP(totalValue),'#FEF3C7','#92400E'],
         ].map(([ico,lbl,val,bg,color])=>(
           <div key={lbl} style={{background:bg,borderRadius:16,padding:'18px',border:'1.5px solid '+bg}}>
-            <div style={{fontSize:'1.5rem',marginBottom:6}}>{ico}</div>
-            <div style={{fontSize:'1.5rem',fontWeight:900,color}}>{val}</div>
-            <div style={{fontSize:'.78rem',color,fontWeight:700,opacity:.8,marginTop:2}}>{lbl}</div>
+            <div style={{fontSize:'1.4rem',marginBottom:6}}>{ico}</div>
+            <div style={{fontSize:'1.5rem',fontWeight:900,color,lineHeight:1}}>{val}</div>
+            <div style={{fontSize:'.75rem',color,fontWeight:700,opacity:.8,marginTop:4}}>{lbl}</div>
           </div>
         ))}
       </div>
 
+      {/* Recargar tarjeta */}
+      <div className="adm-card" style={{marginBottom:16}}>
+        <div className="adm-card-title" style={{marginBottom:12}}>🔄 Recargar tarjeta de regalo</div>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          <input className="adm-input" placeholder="Código (GIFT-XXXXXX)"
+            value={reloadCode} onChange={e=>setReloadCode(e.target.value.toUpperCase())}
+            style={{flex:'1 1 160px',fontFamily:'monospace'}}/>
+          <input className="adm-input" type="number" placeholder="Monto COP"
+            value={reloadAmount} onChange={e=>setReloadAmount(e.target.value)}
+            style={{flex:'0 1 130px'}}/>
+          <button className="adm-btn-primary" onClick={handleReload}
+            style={{whiteSpace:'nowrap'}}>🔄 Recargar</button>
+        </div>
+        {reloadMsg && <p style={{marginTop:8,fontSize:'.82rem',color:reloadMsg.startsWith('✅')?'#065F46':'#BE123C',fontWeight:700}}>{reloadMsg}</p>}
+      </div>
+
       <div className="adm-card">
-        <div className="adm-card-title" style={{marginBottom:16}}>📋 Tarjetas emitidas</div>
-        {giftCardOrders.length === 0 ? (
+        <div className="adm-card-title" style={{marginBottom:16}}>📋 Todas las tarjetas</div>
+        {loading ? (
+          <div style={{textAlign:'center',padding:24,color:'#9CA3AF'}}>Cargando...</div>
+        ) : giftCards.length === 0 ? (
           <div style={{textAlign:'center',padding:'28px 0',color:'#9CA3AF'}}>
             <div style={{fontSize:'2.5rem',marginBottom:8}}>🎁</div>
-            <div style={{fontWeight:700}}>Aún no se han emitido tarjetas de regalo</div>
-            <div style={{fontSize:'.8rem',marginTop:4}}>Cuando los clientes compren tarjetas aparecerán aquí</div>
+            <div style={{fontWeight:700}}>Aún no se han emitido tarjetas</div>
           </div>
         ) : (
           <div style={{overflowX:'auto'}}>
             <table className="adm-tbl">
-              <thead><tr><th>Orden</th><th>Cliente</th><th>Valor</th><th>Código</th><th>Fecha</th><th>Estado</th></tr></thead>
+              <thead><tr>
+                <th>Código</th><th>De</th><th>Para</th><th>Valor orig.</th>
+                <th>Saldo</th><th>Ocasión</th><th>Estado</th><th>Fecha</th>
+              </tr></thead>
               <tbody>
-                {giftCardOrders.map(o=>(
-                  <tr key={o.id}>
-                    <td style={{fontWeight:700,fontFamily:'monospace',fontSize:'.82rem'}}>#{o.orderNumber||o.id}</td>
-                    <td>{o.customerName||'—'}</td>
-                    <td style={{fontWeight:800,color:'#7C3AED'}}>{fmtCOP(o.total)}</td>
-                    <td style={{fontFamily:'monospace',fontSize:'.8rem',color:'#4C1D95'}}>{o.giftCardCode||'—'}</td>
-                    <td style={{fontSize:'.78rem',color:'#9CA3AF'}}>{fmtDate(o.createdAt)}</td>
-                    <td><span style={{background:'#D1FAE5',color:'#065F46',padding:'2px 10px',borderRadius:50,fontWeight:800,fontSize:'.75rem'}}>
-                      {o.status==='DELIVERED'?'Entregada':'Pendiente'}
-                    </span></td>
-                  </tr>
-                ))}
+                {giftCards.map(g=>{
+                  const s = STATUS_STYLE[g.status] || STATUS_STYLE.PENDING;
+                  return (
+                    <tr key={g.id}>
+                      <td style={{fontFamily:'monospace',fontWeight:800,color:'#4C1D95',fontSize:'.8rem'}}>{g.code}</td>
+                      <td style={{fontSize:'.8rem'}}>{g.senderName||'—'}</td>
+                      <td style={{fontSize:'.8rem'}}>{g.recipientName||'—'}</td>
+                      <td style={{fontWeight:700}}>{fmtCOP(g.originalAmount)}</td>
+                      <td style={{fontWeight:800,color:Number(g.balance)>0?'#065F46':'#9CA3AF'}}>{fmtCOP(g.balance)}</td>
+                      <td style={{fontSize:'.78rem'}}>{g.occasionLabel||g.occasion||'—'}</td>
+                      <td><span style={{background:s.bg,color:s.color,padding:'2px 10px',borderRadius:50,fontWeight:800,fontSize:'.72rem'}}>{s.label}</span></td>
+                      <td style={{fontSize:'.75rem',color:'#9CA3AF'}}>{fmtDate(g.createdAt)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -712,6 +768,157 @@ function ReportsSection({ orders, products }) {
         }}>
           📥 Descargar pedidos CSV
         </button>
+      </div>
+    </>
+  );
+}
+
+
+// ── PUSH NOTIFICATIONS SECTION ────────────────────────────
+function PushNotificationsSection() {
+  const [title, setTitle]         = React.useState('');
+  const [body, setBody]           = React.useState('');
+  const [url, setUrl]             = React.useState('');
+  const [sending, setSending]     = React.useState(false);
+  const [result, setResult]       = React.useState(null);
+  const [subCount, setSubCount]   = React.useState(null);
+  const [templates]               = React.useState([
+    { label:'🎁 Nueva colección', title:'¡Nueva colección en Kosmica! 💜', body:'Entra a ver los nuevos productos que tenemos para ti ✨' },
+    { label:'🔥 Oferta especial', title:'¡Oferta exclusiva hoy! 🔥', body:'Descuentos especiales por tiempo limitado. ¡No te los pierdas!' },
+    { label:'🚀 Nuevo producto', title:'¡Nuevo producto llegó! 🛍️', body:'Mira el nuevo producto que llegó a Kosmica. ¡Sé la primera en tenerlo!' },
+    { label:'💎 Puntos dobles', title:'¡Puntos dobles hoy! 💎', body:'Compra hoy y gana el doble de puntos Kosmica. Oferta solo por hoy.' },
+  ]);
+
+  React.useEffect(() => {
+    pushAPI.countActive()
+      .then(d => setSubCount(d.active || 0))
+      .catch(() => setSubCount(0));
+  }, []);
+
+  const send = async () => {
+    if (!title.trim() || !body.trim()) { setResult({ok:false,msg:'Escribe título y mensaje'}); return; }
+    setSending(true); setResult(null);
+    try {
+      const data = await pushAPI.send(title, body, url || undefined);
+      setResult({ ok: true, msg: `✅ Enviado a ${data.sent} suscriptores` });
+      setTitle(''); setBody(''); setUrl('');
+    } catch(e) {
+      setResult({ ok: false, msg: '⚠️ ' + e.message });
+    } finally { setSending(false); }
+  };
+
+  return (
+    <>
+      {/* KPI suscriptores */}
+      <div style={{background:'linear-gradient(135deg,#7C3AED,#9B72CF)',borderRadius:18,padding:'22px 24px',
+        marginBottom:20,display:'flex',alignItems:'center',gap:16}}>
+        <div style={{fontSize:'2.5rem'}}>🔔</div>
+        <div>
+          <div style={{fontSize:'2rem',fontWeight:900,color:'#fff',lineHeight:1}}>
+            {subCount === null ? '...' : subCount}
+          </div>
+          <div style={{color:'rgba(255,255,255,.8)',fontSize:'.85rem',marginTop:2}}>
+            suscriptores activos con notificaciones habilitadas
+          </div>
+        </div>
+      </div>
+
+      {/* Templates rápidos */}
+      <div className="adm-card" style={{marginBottom:16}}>
+        <div className="adm-card-title" style={{marginBottom:12}}>⚡ Plantillas rápidas</div>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          {templates.map(t=>(
+            <button key={t.label} onClick={()=>{setTitle(t.title);setBody(t.body);}}
+              style={{background:'#F5F0FF',border:'1.5px solid #C4B5FD',color:'#6D28D9',
+                borderRadius:50,padding:'7px 14px',fontWeight:700,fontSize:'.8rem',cursor:'pointer',
+                transition:'all .15s'}}
+              onMouseOver={e=>e.target.style.background='#EDE9FE'}
+              onMouseOut={e=>e.target.style.background='#F5F0FF'}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Composer */}
+      <div className="adm-card">
+        <div className="adm-card-title" style={{marginBottom:16}}>✍️ Escribir notificación</div>
+
+        <div style={{marginBottom:12}}>
+          <div style={{fontSize:'.78rem',fontWeight:700,color:'#6D28D9',marginBottom:5}}>
+            Título * <span style={{color:'#9CA3AF',fontWeight:400}}>(máx. 60 caracteres)</span>
+          </div>
+          <input className="adm-input" placeholder="ej: ¡Nueva colección llegó! 💜"
+            value={title} onChange={e=>setTitle(e.target.value)} maxLength={60}/>
+          <div style={{textAlign:'right',fontSize:'.72rem',color:'#9CA3AF',marginTop:3}}>{title.length}/60</div>
+        </div>
+
+        <div style={{marginBottom:12}}>
+          <div style={{fontSize:'.78rem',fontWeight:700,color:'#6D28D9',marginBottom:5}}>
+            Mensaje * <span style={{color:'#9CA3AF',fontWeight:400}}>(máx. 120 caracteres)</span>
+          </div>
+          <textarea className="adm-input" placeholder="ej: Entra a ver los nuevos productos ✨"
+            value={body} onChange={e=>setBody(e.target.value)} maxLength={120}
+            style={{minHeight:72,resize:'vertical'}}/>
+          <div style={{textAlign:'right',fontSize:'.72rem',color:'#9CA3AF',marginTop:3}}>{body.length}/120</div>
+        </div>
+
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:'.78rem',fontWeight:700,color:'#6D28D9',marginBottom:5}}>
+            URL destino <span style={{color:'#9CA3AF',fontWeight:400}}>(opcional — deja vacío para la tienda)</span>
+          </div>
+          <input className="adm-input" placeholder="https://kosmica.com.co/..."
+            value={url} onChange={e=>setUrl(e.target.value)}/>
+        </div>
+
+        {/* Preview */}
+        {(title || body) && (
+          <div style={{background:'#1E1E2E',borderRadius:14,padding:'14px 16px',marginBottom:16,
+            border:'1px solid #3A3A5C'}}>
+            <div style={{fontSize:'.72rem',color:'#888',marginBottom:8,fontWeight:700,letterSpacing:1}}>
+              PREVIEW
+            </div>
+            <div style={{display:'flex',gap:12,alignItems:'flex-start'}}>
+              <div style={{width:36,height:36,borderRadius:8,background:'linear-gradient(135deg,#9B72CF,#7C3AED)',
+                display:'flex',alignItems:'center',justifyContent:'center',fontSize:'1.2rem',flexShrink:0}}>💜</div>
+              <div>
+                <div style={{color:'#fff',fontWeight:800,fontSize:'.88rem',marginBottom:2}}>{title||'Título'}</div>
+                <div style={{color:'#B0B0C0',fontSize:'.78rem',lineHeight:1.4}}>{body||'Mensaje...'}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {result && (
+          <div style={{background:result.ok?'#F0FDF4':'#FFF1F2',border:'1.5px solid '+(result.ok?'#BBF7D0':'#FECDD3'),
+            borderRadius:10,padding:'10px 14px',marginBottom:12,
+            color:result.ok?'#166534':'#BE123C',fontWeight:700,fontSize:'.85rem'}}>
+            {result.msg}
+          </div>
+        )}
+
+        <button className="adm-btn-primary" onClick={send} disabled={sending}
+          style={{width:'100%',justifyContent:'center',fontSize:'1rem',padding:'14px',
+            background:sending?'#C4B5FD':'linear-gradient(135deg,#7C3AED,#5B21B6)'}}>
+          {sending ? '⏳ Enviando...' : `🔔 Enviar a ${subCount ?? '...'} suscriptores`}
+        </button>
+
+        <p style={{fontSize:'.75rem',color:'#9CA3AF',textAlign:'center',marginTop:10,lineHeight:1.5}}>
+          Solo recibirán la notificación los clientes que activaron alertas en su dispositivo.
+          Las notificaciones son instantáneas y llegan aunque la app esté cerrada.
+        </p>
+      </div>
+
+      {/* Auto-send tip */}
+      <div className="adm-card" style={{background:'linear-gradient(135deg,#F5F0FF,#FDF8FF)'}}>
+        <div className="adm-card-title">💡 Consejo</div>
+        <p style={{fontSize:'.83rem',color:'#6B7280',lineHeight:1.6,marginBottom:0}}>
+          Cuando publiques un producto nuevo, ve a esta sección y envía una notificación.
+          Los clientes verán una alerta en su celular aunque no tengan la app abierta 📱<br/><br/>
+          Para que funcione en producción asegúrate de configurar las variables de entorno
+          <strong style={{color:'#7C3AED'}}> VAPID_PUBLIC_KEY</strong> y
+          <strong style={{color:'#7C3AED'}}> VAPID_PRIVATE_KEY</strong> en Render.
+        </p>
       </div>
     </>
   );
@@ -1075,9 +1282,26 @@ export default function AdminPanel({ onExit }) {
         stock: parseInt(form.stock)||0,
         gallery: JSON.stringify(gallery),
       };
-      if (editing==='new') await productAPI.create(payload);
+      const isNew = editing === 'new';
+      if (isNew) await productAPI.create(payload);
       else await productAPI.update(editing.id, payload);
-      showToast(editing==='new' ? '✓ Producto publicado' : '✓ Producto actualizado');
+      showToast(isNew ? '✓ Producto publicado' : '✓ Producto actualizado');
+
+      // ✅ AUTO-PUSH: notificar suscriptores cuando se publica producto nuevo
+      if (isNew) {
+        try {
+          const productName = payload.name || 'Nuevo producto';
+          const category    = payload.category || '';
+          await pushAPI.send(
+            `¡${productName} llegó a Kosmica! 🛍️`,
+            `Nuevo ${category ? category.toLowerCase() + ' ' : ''}disponible. ¡Sé la primera en tenerlo! 💜`,
+            ''
+          );
+        } catch(pushErr) {
+          console.warn('Push no enviado:', pushErr.message);
+        }
+      }
+
       cancelEdit(); loadProducts();
     } catch(e) { showToast(e.message,'error'); }
     finally { setSaving(false); }
@@ -1113,6 +1337,7 @@ export default function AdminPanel({ onExit }) {
     { id:'coupons',   ico:'🏷️',  lbl:'Cupones'        },
     { id:'giftcards', ico:'🎁', lbl:'Tarjetas Regalo' },
     { id:'reports',   ico:'📈', lbl:'Reportes'        },
+    { id:'push',      ico:'🔔', lbl:'Notificaciones'  },
     { id:'media',     ico:'📸', lbl:'Subir Medios'    },
   ];
 
@@ -1471,7 +1696,14 @@ export default function AdminPanel({ onExit }) {
           {section==='giftcards' && (<>
             <h1 className="adm-h1">🎁 Tarjetas de Regalo</h1>
             <p className="adm-sub">Visualiza y gestiona todas las tarjetas de regalo emitidas</p>
-            <GiftCardsAdminSection orders={orders} />
+            <GiftCardsAdminSection />
+          </>)}
+
+          {/* ── PUSH NOTIFICATIONS ── */}
+          {section==='push' && (<>
+            <h1 className="adm-h1">🔔 Notificaciones Push</h1>
+            <p className="adm-sub">Envía alertas a todos los clientes que activaron notificaciones</p>
+            <PushNotificationsSection />
           </>)}
 
           {/* ── REPORTES ── */}

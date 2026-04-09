@@ -86,7 +86,18 @@ const CSS = `
   }
 
   /* Botones nav derecha */
-  .nav-right { display: flex; align-items: center; gap: 8px; }
+  .nav-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  /* Móvil: ocultar búsqueda para que el carrito siempre sea visible */
+  @media (max-width: 479px) {
+    .nav-search-wrap { display: none; }
+    .nav-user-btn { max-width: 80px; overflow: hidden; }
+    .nav-user-name { display: none; }
+    .nav-user-pts { display: inline !important; }
+  }
+  @media (min-width: 480px) and (max-width: 639px) {
+    .nav-search-wrap { max-width: 110px; }
+    .nav-user-btn { max-width: 100px; }
+  }
   .cart-btn {
     position: relative; background: linear-gradient(135deg, var(--lila), var(--lila-dark));
     border: none; border-radius: 50%; width: 42px; height: 42px; flex-shrink: 0;
@@ -2124,22 +2135,15 @@ export default function App() {
       // ✅ Limpiar carrito del localStorage al completar compra
       try { localStorage.removeItem("kosmica_cart"); } catch(_) {}
       // ✅ PUNTOS DE FIDELIDAD — sumar por compra
-      const pts = awardLoyaltyPoints(grandTotal);
-      if (pts > 0) {
-        showToast(`💎 ¡Ganaste ${pts} puntos Kosmica!`);
-        // Update user points if logged in
+      // ✅ PUNTOS: guardar como PENDIENTES — solo se acreditan cuando MP confirma pago
+      //    Se aplican al volver con ?payment_status=approved en la URL
+      try {
+        const pendingPts = Math.floor(grandTotal / 1000);
+        localStorage.setItem("kosmica_pending_pts", String(pendingPts));
         if (currentUser) {
-          const updatedUser = { ...currentUser, points: (currentUser.points||0) + pts };
-          try {
-            const users = JSON.parse(localStorage.getItem("kosmica_users")||"[]");
-            const idx = users.findIndex(u=>u.email===updatedUser.email);
-            if (idx>=0) users[idx] = { ...users[idx], points: updatedUser.points };
-            localStorage.setItem("kosmica_users", JSON.stringify(users));
-          } catch(_) {}
-          localStorage.setItem("kosmica_current_user", JSON.stringify(updatedUser));
-          setCurrentUserState(updatedUser);
+          localStorage.setItem("kosmica_pending_pts_user", currentUser.email);
         }
-      }
+      } catch(_) {}
       // ✅ Meta Pixel: Purchase
       if (typeof window.fbq === 'function') {
         window.fbq('track', 'InitiateCheckout', {
@@ -2431,24 +2435,26 @@ export default function App() {
               </button>
             )}
             {currentUser ? (
-              <button onClick={()=>setAccountOpen(true)} style={{
+              <button className="nav-user-btn" onClick={()=>setAccountOpen(true)} style={{
                 background:"linear-gradient(135deg,#9B72CF,#7C3AED)",
-                border:"none",color:"#fff",borderRadius:50,padding:"7px 13px",
-                fontWeight:800,fontSize:".82rem",cursor:"pointer",
-                display:"flex",alignItems:"center",gap:5,
-                boxShadow:"0 2px 10px rgba(124,58,237,.25)",
+                border:"none",color:"#fff",borderRadius:50,padding:"6px 11px",
+                fontWeight:800,fontSize:".78rem",cursor:"pointer",flexShrink:0,
+                display:"flex",alignItems:"center",gap:4,
+                boxShadow:"0 2px 10px rgba(124,58,237,.25)",whiteSpace:"nowrap",
               }}>
-                <span style={{fontSize:".9rem"}}>{currentUser.name?.split(" ")[0]?.slice(0,8)||"Mi cuenta"}</span>
-                <span style={{background:"rgba(255,255,255,.25)",borderRadius:50,padding:"1px 7px",fontSize:".72rem",fontWeight:900}}>
+                <span className="nav-user-name">{currentUser.name?.split(" ")[0]?.slice(0,7)||"Cuenta"}</span>
+                <span className="nav-user-pts" style={{background:"rgba(255,255,255,.25)",borderRadius:50,padding:"1px 6px",fontSize:".7rem",fontWeight:900}}>
                   💎{currentUser.points||0}
                 </span>
               </button>
             ) : (
               <button onClick={()=>{setAuthTab("login");setAuthOpen(true);}} style={{
                 background:"#F5F0FF",border:"1.5px solid #C4B5FD",color:"#7C3AED",
-                borderRadius:50,padding:"7px 14px",fontWeight:800,fontSize:".82rem",cursor:"pointer",
+                borderRadius:50,padding:"6px 11px",fontWeight:800,fontSize:".78rem",
+                cursor:"pointer",flexShrink:0,whiteSpace:"nowrap",
               }}>
-                👤 Ingresar
+                👤 <span style={{display:"none"}}>Ingresar</span>
+                <span style={{fontSize:".82rem"}}>Ingresar</span>
               </button>
             )}
             <button className={`cart-btn${cartPulse?" pulse":""}`} onClick={()=>setCartOpen(true)}>
@@ -2875,13 +2881,25 @@ export default function App() {
                 {currentUser && (
                   <div style={{
                     background:"linear-gradient(135deg,#F0FDF4,#DCFCE7)", border:"1.5px solid #BBF7D0",
-                    borderRadius:13, padding:"11px 14px", marginBottom:14,
-                    display:"flex", alignItems:"center", gap:10,
+                    borderRadius:13, padding:"12px 16px", marginBottom:14,
                   }}>
-                    <span style={{fontSize:"1.2rem"}}>⚡</span>
-                    <div>
-                      <div style={{fontWeight:800,color:"#065F46",fontSize:".85rem"}}>Datos llenados automáticamente</div>
-                      <div style={{fontSize:".75rem",color:"#16A34A"}}>Guardados de tu perfil · puedes editarlos abajo</div>
+                    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                      <span style={{fontSize:"1.2rem"}}>⚡</span>
+                      <div>
+                        <div style={{fontWeight:800,color:"#065F46",fontSize:".85rem"}}>Datos llenados automáticamente</div>
+                        <div style={{fontSize:".75rem",color:"#16A34A"}}>Guardados de tu perfil · puedes editarlos abajo</div>
+                      </div>
+                    </div>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      <span style={{background:"#EDE9FE",color:"#6D28D9",padding:"3px 10px",borderRadius:50,fontSize:".75rem",fontWeight:700}}>
+                        👤 {currentUser.name?.split(" ")[0]}
+                      </span>
+                      <span style={{background:"#EDE9FE",color:"#6D28D9",padding:"3px 10px",borderRadius:50,fontSize:".75rem",fontWeight:700}}>
+                        📱 {currentUser.phone}
+                      </span>
+                      <span style={{background:"#EDE9FE",color:"#6D28D9",padding:"3px 10px",borderRadius:50,fontSize:".75rem",fontWeight:700}}>
+                        📍 {currentUser.city}
+                      </span>
                     </div>
                   </div>
                 )}

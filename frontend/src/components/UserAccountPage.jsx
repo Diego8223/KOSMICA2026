@@ -10,7 +10,7 @@
 // ============================================================
 import { useState, useEffect } from "react";
 import { getCurrentUser, setCurrentUser, saveUser, logoutUser } from "./UserAuthModal";
-import { orderAPI } from "../services/api";
+import { orderAPI, giftCardAPI } from "../services/api";
 
 const CSS = `
   .uacc-wrap {
@@ -223,8 +223,10 @@ export default function UserAccountPage({ onClose, onOpenGiftCard }) {
   const [form, setForm]       = useState({});
   const [orders, setOrders]   = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
-  const [gcCode, setGcCode]   = useState("");
-  const [gcError, setGcError] = useState("");
+  const [gcCode, setGcCode]       = useState("");
+  const [gcError, setGcError]     = useState("");
+  const [backendGCs, setBackendGCs] = useState([]);
+  const [loadingGCs, setLoadingGCs] = useState(false);
   const [toast, setToast]     = useState("");
 
   useEffect(() => {
@@ -235,6 +237,16 @@ export default function UserAccountPage({ onClose, onOpenGiftCard }) {
       address: user.address || "",
     });
   }, [user]);
+
+  useEffect(() => {
+    if (tab === "regalos" && user?.email) {
+      setLoadingGCs(true);
+      giftCardAPI.bySender(user.email)
+        .then(data => setBackendGCs(Array.isArray(data) ? data : []))
+        .catch(() => setBackendGCs([]))
+        .finally(() => setLoadingGCs(false));
+    }
+  }, [tab, user?.email]);
 
   useEffect(() => {
     if (tab === "pedidos" && user?.email) {
@@ -501,19 +513,25 @@ export default function UserAccountPage({ onClose, onOpenGiftCard }) {
               <div className="uacc-card">
                 <div className="uacc-card-title">🎁 Mis Tarjetas de Regalo</div>
 
-                {giftCards.length === 0 ? (
+                {loadingGCs ? (
+                  <div style={{textAlign:"center",padding:20,color:"#9CA3AF"}}>Cargando tarjetas...</div>
+                ) : backendGCs.length === 0 ? (
                   <div className="gc-empty">
                     <div className="gc-empty-ico">🎁</div>
-                    <div className="gc-empty-txt">No tienes tarjetas vinculadas</div>
-                    <div style={{fontSize:".78rem",marginTop:4}}>Vincula el código que te enviaron</div>
+                    <div className="gc-empty-txt">No has comprado tarjetas de regalo</div>
+                    <div style={{fontSize:".78rem",marginTop:4}}>Las tarjetas que compres aparecerán aquí</div>
                   </div>
                 ) : (
-                  giftCards.map(gc => (
+                  backendGCs.map(gc => (
                     <div key={gc.code} className="gc-card">
-                      <div className="gc-card-amount">{fmtCOP(gc.amount)}</div>
+                      <div className="gc-card-amount">{fmtCOP(gc.originalAmount)}</div>
                       <div className="gc-card-code">{gc.code}</div>
-                      <div className="gc-card-expiry">Vinculada el {fmtDate(gc.linkedAt)}</div>
-                      <div className="gc-card-status">{gc.used?"Usada":"Activa"}</div>
+                      <div className="gc-card-expiry">
+                        Para: {gc.recipientName} · Saldo: {fmtCOP(gc.balance)}
+                      </div>
+                      <div className="gc-card-status">
+                        {gc.status==="ACTIVE"?"Activa":gc.status==="DEPLETED"?"Usada":gc.status==="PENDING"?"Pendiente":"Vencida"}
+                      </div>
                     </div>
                   ))
                 )}

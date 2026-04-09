@@ -149,6 +149,22 @@ export const reviewAPI = {
     api.patch(`/products/${productId}/reviews/${reviewId}/moderate`, { approved }).then(r => r.data),
 };
 
+// ── Push Notifications ────────────────────────────────────
+export const pushAPI = {
+  subscribe:   (sub)              => api.post('/push/subscribe', sub).then(r => r.data),
+  send:        (title, body, url) => api.post('/push/send', { title, body, url }).then(r => r.data),
+  countActive: ()                 => api.get('/push/count').then(r => r.data),
+};
+
+// ── Gift Cards ────────────────────────────────────────────
+export const giftCardAPI = {
+  create:   (data)  => api.post('/gift-cards', data).then(r => r.data),
+  validate: (code)  => api.get(`/gift-cards/validate/${encodeURIComponent(code)}`).then(r => r.data),
+  getAll:   ()      => api.get('/gift-cards').then(r => r.data),
+  bySender: (email) => api.get(`/gift-cards/by-sender/${encodeURIComponent(email)}`).then(r => r.data),
+  reload:   (code, amount) => api.post(`/gift-cards/${code}/reload`, { amount }).then(r => r.data),
+};
+
 export default api;
 
 // ── Cloudinary: optimización automática de imágenes ──────
