@@ -1785,11 +1785,19 @@ export default function App() {
   const spQueueRef = useRef([]);
   const spIdxRef   = useRef(0);
 
+  // ✅ Control de frecuencia por sesión (máx 4 toasts, no molestar)
+  const SP_SESSION_KEY = "kosmica_sp_count";
+  const SP_MAX         = 4;
+  const getSpCount = () => parseInt(sessionStorage.getItem(SP_SESSION_KEY) || "0");
+  const incSpCount = () => sessionStorage.setItem(SP_SESSION_KEY, String(getSpCount() + 1));
+
   const showNextSP = useCallback(() => {
+    if (getSpCount() >= SP_MAX) return; // Cap de sesión alcanzado → silencio
     const queue = spQueueRef.current;
     if (!queue.length) return;
     const ev = queue[spIdxRef.current % queue.length];
     spIdxRef.current++;
+    incSpCount();
     setSpHiding(false);
     setSocialProof(ev);
     setTimeout(() => setSpHiding(true),  4500);
@@ -1833,13 +1841,13 @@ export default function App() {
       }
     };
 
-    // Cargar al montar y refrescar cada 5 minutos
+    // Cargar al montar y refrescar cada 10 minutos
     loadActivity();
-    const refresh = setInterval(loadActivity, 5 * 60 * 1000);
+    const refresh = setInterval(loadActivity, 10 * 60 * 1000);
 
-    // Mostrar toasts: primera vez a los 10s, luego cada 20s
-    const first    = setTimeout(showNextSP, 10000);
-    const interval = setInterval(showNextSP, 20000);
+    // ✅ Primera vez a los 35s (era 10s), luego cada 90s (era 20s — muy agresivo)
+    const first    = setTimeout(showNextSP, 35000);
+    const interval = setInterval(showNextSP, 90000);
 
     return () => {
       clearTimeout(first);

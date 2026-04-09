@@ -1,6 +1,7 @@
 // ============================================================
 //  src/services/api.js — Kosmica con MercadoPago
 //  ✅ v3: caché + retry automático + timeout generoso
+//  ✅ v4: + reviewAPI (sistema de reseñas de productos)
 // ============================================================
 import axios from 'axios';
 
@@ -107,6 +108,45 @@ export const referralAPI = {
   validate:     (code, redeemerEmail)=> api.get(`/referrals/validate/${code}?redeemerEmail=${encodeURIComponent(redeemerEmail)}`).then(r => r.data),
   /** Historial de uso del código de un usuario */
   history:      (email)              => api.get(`/referrals/history/${encodeURIComponent(email)}`).then(r => r.data),
+};
+
+// ── ✅ NUEVO: Reseñas de productos ────────────────────────
+export const reviewAPI = {
+  /**
+   * Obtener reseñas paginadas de un producto
+   * @param {number} productId
+   * @param {number} page  - página (default 0)
+   * @param {number} size  - tamaño (default 10)
+   */
+  getByProduct: (productId, page = 0, size = 10) =>
+    api.get(`/products/${productId}/reviews?page=${page}&size=${size}`).then(r => r.data),
+
+  /**
+   * Obtener estadísticas: promedio y distribución de estrellas
+   * @param {number} productId
+   */
+  getStats: (productId) =>
+    api.get(`/products/${productId}/reviews/stats`).then(r => r.data),
+
+  /**
+   * Crear una reseña para un producto
+   * @param {number} productId
+   * @param {{ userName, userEmail, rating, comment }} data
+   */
+  create: (productId, data) =>
+    api.post(`/products/${productId}/reviews`, data).then(r => r.data),
+
+  /**
+   * Eliminar reseña (admin)
+   */
+  delete: (productId, reviewId) =>
+    api.delete(`/products/${productId}/reviews/${reviewId}`),
+
+  /**
+   * Moderar reseña (admin)
+   */
+  moderate: (productId, reviewId, approved) =>
+    api.patch(`/products/${productId}/reviews/${reviewId}/moderate`, { approved }).then(r => r.data),
 };
 
 export default api;
