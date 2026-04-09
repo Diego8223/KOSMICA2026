@@ -3234,21 +3234,7 @@ export default function App() {
       {/* ════════════════════════════════════════
           🎭 SOCIAL PROOF EN TIEMPO REAL
       ════════════════════════════════════════ */}
-      {socialProof && (
-        <div className={`social-proof-toast${spHiding?" hiding":""}`}
-          onClick={()=>{setSpHiding(true);setTimeout(()=>setSocialProof(null),350);}}>
-          <div className="sp-avatar">{socialProof.name[0]}</div>
-          <div className="sp-body">
-            <div className="sp-name">{socialProof.name} · {socialProof.city}</div>
-            <div className="sp-action">{socialProof.action}</div>
-            <div className="sp-time">
-              {socialProof.timeLabel
-                ? `${socialProof.timeLabel} · ✓ Compra verificada`
-                : `Hace ${Math.floor(Math.random()*9)+1} min · ✓ Compra verificada`}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* social proof desactivado */}
 
       {/* ════════════════════════════════════════
           🔔 BANNER DE NOTIFICACIONES PUSH
