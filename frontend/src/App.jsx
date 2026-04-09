@@ -12,6 +12,8 @@ const OrderTracking      = lazy(() => import("./components/OrderTracking"));
 const AIChatBot          = lazy(() => import("./components/AIChatBot"));
 const ReferralModal      = lazy(() => import("./components/ReferralModal"));
 const GiftCardModal      = lazy(() => import("./components/GiftCardModal"));
+const UserAuthModal      = lazy(() => import("./components/UserAuthModal"));
+const UserAccountPage    = lazy(() => import("./components/UserAccountPage"));
 
 const CSS = `
   /* ✅ FUENTE: cargada en index.html con display=swap — no bloquea render */
@@ -1502,6 +1504,13 @@ const SpinFallback = () => <div className="lazy-spinner" />;
 
 export default function App() {
   const [adminMode,setAdminMode]             = useState(false);
+  const [currentUser, setCurrentUserState]   = useState(() => {
+    try { return JSON.parse(localStorage.getItem("kosmica_current_user")||"null"); }
+    catch { return null; }
+  });
+  const [authOpen, setAuthOpen]              = useState(false);
+  const [authTab, setAuthTab]                = useState("login");
+  const [accountOpen, setAccountOpen]        = useState(false);
   const [trackingMode,setTrackingMode]       = useState(false);
   const [activeCategory,setActiveCategory]   = useState("BOLSOS");
   const [products,setProducts]               = useState([]);
@@ -1522,6 +1531,22 @@ export default function App() {
   });
   const [cartOpen,setCartOpen]               = useState(false);
   const [checkoutOpen,setCheckoutOpen]       = useState(false);
+  // ✅ Auto-fill form from logged user profile
+  const openCheckoutWithAutofill = () => {
+    if (currentUser) {
+      setForm({
+        name: currentUser.name || "",
+        email: currentUser.email || "",
+        phone: currentUser.phone || "",
+        document: currentUser.document || "",
+        city: currentUser.city || "",
+        neighborhood: currentUser.neighborhood || "",
+        address: currentUser.address || "",
+        notes: "",
+      });
+    }
+    setCheckoutOpen(true);
+  };
   const [orderSuccess,setOrderSuccess]       = useState(null);
   const [search,setSearch]                   = useState("");
   const [scrolled,setScrolled]               = useState(false);
@@ -2100,7 +2125,21 @@ export default function App() {
       try { localStorage.removeItem("kosmica_cart"); } catch(_) {}
       // ✅ PUNTOS DE FIDELIDAD — sumar por compra
       const pts = awardLoyaltyPoints(grandTotal);
-      if (pts > 0) showToast(`💎 ¡Ganaste ${pts} puntos Kosmica!`);
+      if (pts > 0) {
+        showToast(`💎 ¡Ganaste ${pts} puntos Kosmica!`);
+        // Update user points if logged in
+        if (currentUser) {
+          const updatedUser = { ...currentUser, points: (currentUser.points||0) + pts };
+          try {
+            const users = JSON.parse(localStorage.getItem("kosmica_users")||"[]");
+            const idx = users.findIndex(u=>u.email===updatedUser.email);
+            if (idx>=0) users[idx] = { ...users[idx], points: updatedUser.points };
+            localStorage.setItem("kosmica_users", JSON.stringify(users));
+          } catch(_) {}
+          localStorage.setItem("kosmica_current_user", JSON.stringify(updatedUser));
+          setCurrentUserState(updatedUser);
+        }
+      }
       // ✅ Meta Pixel: Purchase
       if (typeof window.fbq === 'function') {
         window.fbq('track', 'InitiateCheckout', {
@@ -2313,6 +2352,15 @@ export default function App() {
           ))}
           <div className="drawer-divider"/>
           <div className="drawer-section-title">Mi cuenta</div>
+          {currentUser ? (
+            <button className="drawer-action-btn" onClick={()=>{setDrawerOpen(false);setAccountOpen(true);}}>
+              <span className="drawer-cat-ico">👤</span> {currentUser.name?.split(" ")[0] || "Mi perfil"} · 💎{currentUser.points||0} pts
+            </button>
+          ) : (
+            <button className="drawer-action-btn" onClick={()=>{setDrawerOpen(false);setAuthTab("register");setAuthOpen(true);}}>
+              <span className="drawer-cat-ico">✨</span> Crear cuenta / Ingresar
+            </button>
+          )}
           <button className="drawer-action-btn" onClick={()=>{setDrawerOpen(false);setTrackingMode(true);}}>
             <span className="drawer-cat-ico">📦</span> Rastrear mi pedido
           </button>
@@ -2380,6 +2428,27 @@ export default function App() {
             {displayPoints > 0 && (
               <button className="loyalty-badge" onClick={()=>setLoyaltyOpen(true)} title="Mis puntos Kosmica">
                 💎 {displayPoints} pts
+              </button>
+            )}
+            {currentUser ? (
+              <button onClick={()=>setAccountOpen(true)} style={{
+                background:"linear-gradient(135deg,#9B72CF,#7C3AED)",
+                border:"none",color:"#fff",borderRadius:50,padding:"7px 13px",
+                fontWeight:800,fontSize:".82rem",cursor:"pointer",
+                display:"flex",alignItems:"center",gap:5,
+                boxShadow:"0 2px 10px rgba(124,58,237,.25)",
+              }}>
+                <span style={{fontSize:".9rem"}}>{currentUser.name?.split(" ")[0]?.slice(0,8)||"Mi cuenta"}</span>
+                <span style={{background:"rgba(255,255,255,.25)",borderRadius:50,padding:"1px 7px",fontSize:".72rem",fontWeight:900}}>
+                  💎{currentUser.points||0}
+                </span>
+              </button>
+            ) : (
+              <button onClick={()=>{setAuthTab("login");setAuthOpen(true);}} style={{
+                background:"#F5F0FF",border:"1.5px solid #C4B5FD",color:"#7C3AED",
+                borderRadius:50,padding:"7px 14px",fontWeight:800,fontSize:".82rem",cursor:"pointer",
+              }}>
+                👤 Ingresar
               </button>
             )}
             <button className={`cart-btn${cartPulse?" pulse":""}`} onClick={()=>setCartOpen(true)}>
@@ -2646,7 +2715,7 @@ export default function App() {
             onRemoveFromCart={removeFromCart}
             wishlist={wishlist}
             onToggleWishlist={toggleWishlist}
-            onCheckout={()=>{setSelectedProduct(null);setCheckoutOpen(true);}}
+            onCheckout={()=>{setSelectedProduct(null);openCheckoutWithAutofill();}}
           />
         </Suspense>
       )}
@@ -2736,7 +2805,7 @@ export default function App() {
                   <span>Total</span>
                   <span style={{color:"var(--lila)",fontFamily:"'Playfair Display',serif",fontSize:"1.2rem"}}>{fmtCOP(grandTotal)}</span>
                 </div>
-                <button className="checkout-btn" onClick={()=>{setCartOpen(false);setCheckoutOpen(true);}}>
+                <button className="checkout-btn" onClick={()=>{setCartOpen(false);openCheckoutWithAutofill();}}>
                   Finalizar Compra →
                 </button>
                 <div style={{textAlign:"center",marginTop:10,fontSize:".78rem",color:"var(--muted)",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
@@ -2803,6 +2872,19 @@ export default function App() {
                     <span>Total</span><span style={{color:"var(--lila)"}}>{fmtCOP(grandTotal)}</span>
                   </div>
                 </div>
+                {currentUser && (
+                  <div style={{
+                    background:"linear-gradient(135deg,#F0FDF4,#DCFCE7)", border:"1.5px solid #BBF7D0",
+                    borderRadius:13, padding:"11px 14px", marginBottom:14,
+                    display:"flex", alignItems:"center", gap:10,
+                  }}>
+                    <span style={{fontSize:"1.2rem"}}>⚡</span>
+                    <div>
+                      <div style={{fontWeight:800,color:"#065F46",fontSize:".85rem"}}>Datos llenados automáticamente</div>
+                      <div style={{fontSize:".75rem",color:"#16A34A"}}>Guardados de tu perfil · puedes editarlos abajo</div>
+                    </div>
+                  </div>
+                )}
                 <p className="form-section">📋 Datos Personales</p>
                 <div className="form-group">
                   <label className="form-label">Nombre completo *</label>
@@ -3327,6 +3409,30 @@ export default function App() {
             }}>Cerrar</button>
           </div>
         </div>
+      )}
+      {/* ════ MODAL AUTH — Registro / Login ════ */}
+      <Suspense fallback={<SpinFallback/>}>
+        <UserAuthModal
+          open={authOpen}
+          initialTab={authTab}
+          onClose={()=>setAuthOpen(false)}
+          onSuccess={user=>{
+            setCurrentUserState(user);
+            showToast("💜 ¡Bienvenida, "+user.name.split(" ")[0]+"!");
+          }}
+        />
+      </Suspense>
+
+      {/* ════ MI CUENTA — Panel usuario ════ */}
+      {accountOpen && (
+        <Suspense fallback={<SpinFallback/>}>
+          <div style={{position:"fixed",inset:0,zIndex:8000,background:"#fff",overflowY:"auto"}}>
+            <UserAccountPage
+              onClose={()=>setAccountOpen(false)}
+              onOpenGiftCard={()=>{setAccountOpen(false);setGiftCardOpen(true);}}
+            />
+          </div>
+        </Suspense>
       )}
     </>
   );

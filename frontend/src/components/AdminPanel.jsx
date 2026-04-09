@@ -2,7 +2,7 @@
 //  src/components/AdminPanel.jsx — Kosmica Admin v4
 //  ✅ Mobile-first  ✅ Hamburger menu  ✅ Media fix (no useRef en map)
 // ============================================================
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { productAPI, orderAPI } from '../services/api';
 
 const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD || 'Kosmica2025';
@@ -362,6 +362,361 @@ const CSS = `
     .adm-tbl-wrap{ -webkit-overflow-scrolling:touch; }
   }
 `;
+
+// ── CLIENTES SECTION ───────────────────────────────────────
+function ClientesSection() {
+  let users = [];
+  try { users = JSON.parse(localStorage.getItem('kosmica_users') || '[]'); } catch(_) {}
+  const fmtDate = str => { try { return new Date(str).toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}); } catch { return '—'; } };
+  return (
+    <div className="adm-card">
+      {users.length === 0 ? (
+        <div style={{textAlign:'center',padding:'32px 0',color:'#9CA3AF'}}>
+          <div style={{fontSize:'2.5rem',marginBottom:8}}>👥</div>
+          <div style={{fontWeight:700,color:'#4B5563'}}>Aún no hay clientes registrados</div>
+          <div style={{fontSize:'.82rem',marginTop:4}}>Los clientes aparecerán aquí cuando se registren en la tienda</div>
+        </div>
+      ) : (
+        <>
+          <div style={{display:'flex',gap:12,marginBottom:18,flexWrap:'wrap'}}>
+            {[
+              ['👥','Total clientes',users.length,'#EDE9FE','#6D28D9'],
+              ['💎','Puntos totales',users.reduce((s,u)=>s+(u.points||0),0).toLocaleString('es-CO'),'#FEF3C7','#92400E'],
+              ['🎁','Con tarjetas',users.filter(u=>(u.giftCards||[]).length>0).length,'#D1FAE5','#065F46'],
+            ].map(([ico,lbl,val,bg,color])=>(
+              <div key={lbl} style={{background:bg,borderRadius:13,padding:'12px 18px',flex:'1 1 120px',minWidth:120}}>
+                <div style={{fontSize:'1.3rem',marginBottom:4}}>{ico}</div>
+                <div style={{fontSize:'1.4rem',fontWeight:900,color}}>{val}</div>
+                <div style={{fontSize:'.75rem',color,fontWeight:700,opacity:.8}}>{lbl}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{overflowX:'auto'}}>
+            <table className="adm-tbl">
+              <thead><tr>
+                <th>Nombre</th><th>Email</th><th>Teléfono</th><th>Ciudad</th>
+                <th>Puntos</th><th>Tarjetas</th><th>Registro</th>
+              </tr></thead>
+              <tbody>
+                {users.map((u,i)=>(
+                  <tr key={i}>
+                    <td style={{fontWeight:700}}>{u.name}</td>
+                    <td style={{fontSize:'.82rem'}}>{u.email}</td>
+                    <td>{u.phone||'—'}</td>
+                    <td>{u.city||'—'}</td>
+                    <td><span style={{background:'#EDE9FE',color:'#6D28D9',padding:'2px 10px',borderRadius:50,fontWeight:800,fontSize:'.75rem'}}>💎 {u.points||0}</span></td>
+                    <td style={{textAlign:'center'}}>{(u.giftCards||[]).length||'—'}</td>
+                    <td style={{fontSize:'.78rem',color:'#9CA3AF'}}>{fmtDate(u.createdAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── COUPONS SECTION ────────────────────────────────────────
+function CouponsSection() {
+  const load = () => { try { return JSON.parse(localStorage.getItem('kosmica_admin_coupons')||'[]'); } catch { return []; } };
+  const [coupons, setCoupons] = React.useState(load);
+  const [form, setForm] = React.useState({code:'',pct:'',minOrder:'',maxUses:'',expires:''});
+  const [err, setErr] = React.useState('');
+  const save = (list) => { localStorage.setItem('kosmica_admin_coupons', JSON.stringify(list)); setCoupons(list); };
+  const add = () => {
+    if (!form.code || !form.pct) { setErr('Código y porcentaje son obligatorios'); return; }
+    if (coupons.find(c=>c.code===form.code.toUpperCase())) { setErr('Ese código ya existe'); return; }
+    const c = { code:form.code.toUpperCase(), pct:Number(form.pct), minOrder:Number(form.minOrder)||0,
+      maxUses:Number(form.maxUses)||999, uses:0, expires:form.expires||null, active:true,
+      createdAt:new Date().toISOString() };
+    save([...coupons, c]);
+    setForm({code:'',pct:'',minOrder:'',maxUses:'',expires:''}); setErr('');
+  };
+  const toggle = (code) => save(coupons.map(c=>c.code===code?{...c,active:!c.active}:c));
+  const remove = (code) => { if(window.confirm('¿Eliminar cupón '+code+'?')) save(coupons.filter(c=>c.code!==code)); };
+  const fmtDate = str => { try { return new Date(str).toLocaleDateString('es-CO'); } catch { return '—'; } };
+  return (
+    <>
+      <div className="adm-card" style={{marginBottom:18}}>
+        <div className="adm-card-title" style={{marginBottom:16}}>➕ Crear cupón nuevo</div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:10,marginBottom:14}}>
+          {[['Código (ej: PROMO20)','code','text'],['Descuento %','pct','number'],
+            ['Pedido mínimo COP','minOrder','number'],['Máx. usos','maxUses','number'],
+            ['Vence (fecha)','expires','date']].map(([label,field,type])=>(
+            <div key={field}>
+              <div style={{fontSize:'.75rem',fontWeight:700,color:'#6D28D9',marginBottom:4}}>{label}</div>
+              <input className="adm-input" type={type} placeholder={label} value={form[field]}
+                style={{textTransform:field==='code'?'uppercase':'none'}}
+                onChange={e=>setForm(p=>({...p,[field]:e.target.value}))}/>
+            </div>
+          ))}
+        </div>
+        {err && <p style={{color:'#BE123C',fontSize:'.82rem',marginBottom:10}}>⚠️ {err}</p>}
+        <button className="adm-btn-primary" onClick={add}>✦ Crear cupón</button>
+      </div>
+
+      <div className="adm-card">
+        <div className="adm-card-title" style={{marginBottom:16}}>🏷️ Cupones activos</div>
+        {coupons.length === 0 ? (
+          <div style={{textAlign:'center',padding:'24px 0',color:'#9CA3AF',fontSize:'.88rem'}}>
+            No hay cupones creados. Crea el primero arriba 👆
+          </div>
+        ) : (
+          <div style={{overflowX:'auto'}}>
+            <table className="adm-tbl">
+              <thead><tr><th>Código</th><th>%</th><th>Mín. pedido</th><th>Usos</th><th>Vence</th><th>Estado</th><th>Acciones</th></tr></thead>
+              <tbody>
+                {coupons.map(c=>(
+                  <tr key={c.code}>
+                    <td style={{fontWeight:800,fontFamily:'monospace',color:'#4C1D95'}}>{c.code}</td>
+                    <td style={{fontWeight:800,color:'#16A34A'}}>{c.pct}%</td>
+                    <td>${Number(c.minOrder||0).toLocaleString('es-CO')}</td>
+                    <td>{c.uses||0}/{c.maxUses||'∞'}</td>
+                    <td style={{fontSize:'.78rem'}}>{c.expires?fmtDate(c.expires):'Sin límite'}</td>
+                    <td>
+                      <span style={{background:c.active?'#D1FAE5':'#F1F5F9',color:c.active?'#065F46':'#6B7280',
+                        padding:'2px 10px',borderRadius:50,fontWeight:800,fontSize:'.75rem'}}>
+                        {c.active?'Activo':'Pausado'}
+                      </span>
+                    </td>
+                    <td style={{display:'flex',gap:6}}>
+                      <button className="adm-btn-sm" onClick={()=>toggle(c.code)} style={{
+                        background:c.active?'#FEF3C7':'#D1FAE5',color:c.active?'#92400E':'#065F46',border:'none'}}>
+                        {c.active?'⏸ Pausar':'▶ Activar'}
+                      </button>
+                      <button className="adm-btn-sm adm-btn-del" onClick={()=>remove(c.code)}>🗑️</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ── GIFT CARDS ADMIN SECTION ───────────────────────────────
+function GiftCardsAdminSection({ orders }) {
+  const giftCardOrders = orders.filter(o => o.giftCardCode || (o.items||[]).some(i=>i.productName?.includes('Tarjeta')));
+  const fmtCOP = n => '$'+Number(n||0).toLocaleString('es-CO');
+  const fmtDate = str => { try { return new Date(str).toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'2-digit'}); } catch { return '—'; } };
+  const total = giftCardOrders.reduce((s,o)=>s+(o.total||0),0);
+  return (
+    <>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',gap:14,marginBottom:20}}>
+        {[
+          ['🎁','Tarjetas emitidas',giftCardOrders.length,'#F5F0FF','#6D28D9'],
+          ['💰','Valor total emitido',fmtCOP(total),'#FEF3C7','#92400E'],
+        ].map(([ico,lbl,val,bg,color])=>(
+          <div key={lbl} style={{background:bg,borderRadius:16,padding:'18px',border:'1.5px solid '+bg}}>
+            <div style={{fontSize:'1.5rem',marginBottom:6}}>{ico}</div>
+            <div style={{fontSize:'1.5rem',fontWeight:900,color}}>{val}</div>
+            <div style={{fontSize:'.78rem',color,fontWeight:700,opacity:.8,marginTop:2}}>{lbl}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="adm-card">
+        <div className="adm-card-title" style={{marginBottom:16}}>📋 Tarjetas emitidas</div>
+        {giftCardOrders.length === 0 ? (
+          <div style={{textAlign:'center',padding:'28px 0',color:'#9CA3AF'}}>
+            <div style={{fontSize:'2.5rem',marginBottom:8}}>🎁</div>
+            <div style={{fontWeight:700}}>Aún no se han emitido tarjetas de regalo</div>
+            <div style={{fontSize:'.8rem',marginTop:4}}>Cuando los clientes compren tarjetas aparecerán aquí</div>
+          </div>
+        ) : (
+          <div style={{overflowX:'auto'}}>
+            <table className="adm-tbl">
+              <thead><tr><th>Orden</th><th>Cliente</th><th>Valor</th><th>Código</th><th>Fecha</th><th>Estado</th></tr></thead>
+              <tbody>
+                {giftCardOrders.map(o=>(
+                  <tr key={o.id}>
+                    <td style={{fontWeight:700,fontFamily:'monospace',fontSize:'.82rem'}}>#{o.orderNumber||o.id}</td>
+                    <td>{o.customerName||'—'}</td>
+                    <td style={{fontWeight:800,color:'#7C3AED'}}>{fmtCOP(o.total)}</td>
+                    <td style={{fontFamily:'monospace',fontSize:'.8rem',color:'#4C1D95'}}>{o.giftCardCode||'—'}</td>
+                    <td style={{fontSize:'.78rem',color:'#9CA3AF'}}>{fmtDate(o.createdAt)}</td>
+                    <td><span style={{background:'#D1FAE5',color:'#065F46',padding:'2px 10px',borderRadius:50,fontWeight:800,fontSize:'.75rem'}}>
+                      {o.status==='DELIVERED'?'Entregada':'Pendiente'}
+                    </span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ── REPORTS SECTION ────────────────────────────────────────
+function ReportsSection({ orders, products }) {
+  const fmtCOP = n => '$'+Number(n||0).toLocaleString('es-CO');
+  const now = new Date();
+  const thisMonth = orders.filter(o => {
+    const d = new Date(o.createdAt||0);
+    return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+  });
+  const lastMonth = orders.filter(o => {
+    const d = new Date(o.createdAt||0);
+    const lm = new Date(now.getFullYear(), now.getMonth()-1, 1);
+    return d.getMonth()===lm.getMonth() && d.getFullYear()===lm.getFullYear();
+  });
+  const totalRev = orders.reduce((s,o)=>s+(o.total||0),0);
+  const monthRev = thisMonth.reduce((s,o)=>s+(o.total||0),0);
+  const lastRev  = lastMonth.reduce((s,o)=>s+(o.total||0),0);
+  const growth   = lastRev > 0 ? Math.round(((monthRev-lastRev)/lastRev)*100) : 100;
+  const delivered = orders.filter(o=>o.status==='DELIVERED').length;
+  const pending   = orders.filter(o=>o.status==='PENDING').length;
+
+  // Revenue by month (last 6)
+  const months6 = Array.from({length:6},(_,i)=>{
+    const d = new Date(now.getFullYear(), now.getMonth()-5+i, 1);
+    return { label: d.toLocaleString('es-CO',{month:'short'}), key:`${d.getFullYear()}-${d.getMonth()}` };
+  });
+  const revByMonth = months6.map(m => {
+    const val = orders.filter(o=>{const d=new Date(o.createdAt||0); return `${d.getFullYear()}-${d.getMonth()}`===m.key;})
+      .reduce((s,o)=>s+(o.total||0),0);
+    return { ...m, val };
+  });
+  const maxRev = Math.max(...revByMonth.map(m=>m.val), 1);
+
+  // Top products by order count
+  const prodCount = {};
+  orders.forEach(o=>(o.items||[]).forEach(i=>{
+    const k = i.productName||'Producto';
+    prodCount[k] = (prodCount[k]||0)+i.quantity;
+  }));
+  const topProds = Object.entries(prodCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  // Status distribution
+  const statusDist = [
+    {label:'Pendiente',key:'PENDING',color:'#F59E0B'},
+    {label:'Confirmado',key:'CONFIRMED',color:'#3B82F6'},
+    {label:'Enviado',key:'SHIPPED',color:'#8B5CF6'},
+    {label:'Entregado',key:'DELIVERED',color:'#10B981'},
+    {label:'Cancelado',key:'CANCELLED',color:'#EF4444'},
+  ].map(s=>({...s, count:orders.filter(o=>o.status===s.key).length}))
+   .filter(s=>s.count>0);
+  const totalStatus = statusDist.reduce((s,x)=>s+x.count,0)||1;
+
+  // Reg users
+  let users = []; try { users = JSON.parse(localStorage.getItem('kosmica_users')||'[]'); } catch(_) {}
+
+  const CARD = ({ico,label,val,sub,color='#6D28D9',bg='#F5F0FF'}) => (
+    <div style={{background:bg,borderRadius:16,padding:'18px 20px',border:'1.5px solid '+bg,
+      boxShadow:'0 2px 12px rgba(155,114,207,.08)'}}>
+      <div style={{fontSize:'1.4rem',marginBottom:8}}>{ico}</div>
+      <div style={{fontSize:'1.6rem',fontWeight:900,color,lineHeight:1}}>{val}</div>
+      <div style={{fontSize:'.78rem',fontWeight:700,color,opacity:.75,marginTop:4}}>{label}</div>
+      {sub && <div style={{fontSize:'.72rem',color:'#9CA3AF',marginTop:3}}>{sub}</div>}
+    </div>
+  );
+
+  return (
+    <>
+      {/* KPIs */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))',gap:14,marginBottom:24}}>
+        <CARD ico="💰" label="Ingresos totales" val={fmtCOP(totalRev)} bg="#F0FDF4" color="#065F46"/>
+        <CARD ico="📅" label="Este mes" val={fmtCOP(monthRev)} sub={`${growth>=0?'+':''}${growth}% vs mes anterior`} bg="#EFF6FF" color="#1E40AF"/>
+        <CARD ico="📦" label="Total pedidos" val={orders.length} bg="#F5F0FF" color="#6D28D9"/>
+        <CARD ico="✅" label="Entregados" val={delivered} bg="#F0FDF4" color="#065F46"/>
+        <CARD ico="⏳" label="Pendientes" val={pending} bg="#FFFBEB" color="#92400E"/>
+        <CARD ico="👥" label="Clientes reg." val={users.length} bg="#FFF1F2" color="#BE123C"/>
+      </div>
+
+      {/* Gráfico de ingresos */}
+      <div className="adm-card" style={{marginBottom:18}}>
+        <div className="adm-card-title" style={{marginBottom:20}}>📊 Ingresos últimos 6 meses</div>
+        <div style={{display:'flex',alignItems:'flex-end',gap:10,height:160,padding:'0 8px'}}>
+          {revByMonth.map(m=>(
+            <div key={m.key} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:6}}>
+              <div style={{fontSize:'.7rem',color:'#7C3AED',fontWeight:800,textAlign:'center',height:20}}>
+                {m.val>0?'$'+Math.round(m.val/1000)+'K':''}
+              </div>
+              <div style={{
+                width:'100%',borderRadius:'8px 8px 0 0',transition:'height .5s',
+                background:'linear-gradient(180deg,#9B72CF,#7C3AED)',
+                height: Math.max((m.val/maxRev)*120,4),
+                opacity: m.val===0?0.2:1,
+                boxShadow:m.val>0?'0 4px 12px rgba(124,58,237,.25)':'none',
+              }}/>
+              <div style={{fontSize:'.72rem',color:'#9CA3AF',fontWeight:700,textTransform:'capitalize'}}>{m.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:18}}>
+        {/* Estado de pedidos */}
+        <div className="adm-card">
+          <div className="adm-card-title" style={{marginBottom:14}}>🍩 Estado de pedidos</div>
+          {statusDist.length===0 ? (
+            <div style={{color:'#9CA3AF',fontSize:'.82rem',textAlign:'center',padding:'16px 0'}}>Sin datos</div>
+          ) : statusDist.map(s=>(
+            <div key={s.key} style={{marginBottom:10}}>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:4,fontSize:'.8rem'}}>
+                <span style={{fontWeight:700,color:'#374151'}}>{s.label}</span>
+                <span style={{fontWeight:800,color:s.color}}>{s.count} ({Math.round(s.count/totalStatus*100)}%)</span>
+              </div>
+              <div style={{height:8,background:'#F3F4F6',borderRadius:50,overflow:'hidden'}}>
+                <div style={{height:'100%',borderRadius:50,background:s.color,
+                  width:`${Math.round(s.count/totalStatus*100)}%`,transition:'width .5s'}}/>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Productos más vendidos */}
+        <div className="adm-card">
+          <div className="adm-card-title" style={{marginBottom:14}}>🏆 Top productos</div>
+          {topProds.length===0 ? (
+            <div style={{color:'#9CA3AF',fontSize:'.82rem',textAlign:'center',padding:'16px 0'}}>Sin datos de ventas</div>
+          ) : topProds.map(([name,qty],i)=>(
+            <div key={name} style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+              <div style={{width:22,height:22,borderRadius:50,background:['#9B72CF','#C084FC','#DDD6FE','#EDE9FE','#F5F0FF'][i],
+                display:'flex',alignItems:'center',justifyContent:'center',
+                fontSize:'.72rem',fontWeight:900,color:i<2?'#fff':'#6D28D9',flexShrink:0}}>
+                {i+1}
+              </div>
+              <div style={{flex:1,fontSize:'.8rem',color:'#374151',fontWeight:600,
+                overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{name}</div>
+              <div style={{fontWeight:800,color:'#7C3AED',fontSize:'.82rem'}}>{qty} uds</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Export */}
+      <div className="adm-card" style={{background:'linear-gradient(135deg,#F5F0FF,#FDF8FF)'}}>
+        <div className="adm-card-title">📥 Exportar datos</div>
+        <p style={{fontSize:'.82rem',color:'#6B7280',marginBottom:14}}>
+          Descarga un CSV con todos tus pedidos para análisis externo
+        </p>
+        <button className="adm-btn-primary" onClick={()=>{
+          const headers = ['#Orden','Cliente','Email','Total','Estado','Ciudad','Fecha'];
+          const rows = orders.map(o=>[
+            o.orderNumber||o.id, o.customerName||'', o.customerEmail||'',
+            o.total||0, o.status||'', o.city||'', o.createdAt?.split('T')[0]||''
+          ]);
+          const csv = [headers, ...rows].map(r=>r.join(',')).join('\n');
+          const a = document.createElement('a');
+          a.href = 'data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+          a.download = `kosmica-pedidos-${new Date().toISOString().split('T')[0]}.csv`;
+          a.click();
+        }}>
+          📥 Descargar pedidos CSV
+        </button>
+      </div>
+    </>
+  );
+}
+
 
 export default function AdminPanel({ onExit }) {
   const [authed,  setAuthed]  = useState(false);
@@ -751,10 +1106,14 @@ export default function AdminPanel({ onExit }) {
   );
 
   const NAV = [
-    { id:'dashboard', ico:'📊', lbl:'Dashboard'   },
-    { id:'products',  ico:'🛍️',  lbl:'Productos'   },
-    { id:'orders',    ico:'📦', lbl:'Pedidos'      },
-    { id:'media',     ico:'📸', lbl:'Subir Medios' },
+    { id:'dashboard', ico:'📊', lbl:'Dashboard'      },
+    { id:'products',  ico:'🛍️',  lbl:'Productos'      },
+    { id:'orders',    ico:'📦', lbl:'Pedidos'         },
+    { id:'users',     ico:'👥', lbl:'Clientes'        },
+    { id:'coupons',   ico:'🏷️',  lbl:'Cupones'        },
+    { id:'giftcards', ico:'🎁', lbl:'Tarjetas Regalo' },
+    { id:'reports',   ico:'📈', lbl:'Reportes'        },
+    { id:'media',     ico:'📸', lbl:'Subir Medios'    },
   ];
 
   /* ── LOGIN ── */
@@ -1091,6 +1450,35 @@ export default function AdminPanel({ onExit }) {
                   </div>
               }
             </div>
+          </>)}
+
+
+          {/* ── CLIENTES ── */}
+          {section==='users' && (<>
+            <h1 className="adm-h1">👥 Clientes Registrados</h1>
+            <p className="adm-sub">Todos los usuarios con cuenta en la tienda</p>
+            <ClientesSection />
+          </>)}
+
+          {/* ── CUPONES ── */}
+          {section==='coupons' && (<>
+            <h1 className="adm-h1">🏷️ Gestión de Cupones</h1>
+            <p className="adm-sub">Crea y administra cupones de descuento para tus clientes</p>
+            <CouponsSection />
+          </>)}
+
+          {/* ── TARJETAS REGALO ── */}
+          {section==='giftcards' && (<>
+            <h1 className="adm-h1">🎁 Tarjetas de Regalo</h1>
+            <p className="adm-sub">Visualiza y gestiona todas las tarjetas de regalo emitidas</p>
+            <GiftCardsAdminSection orders={orders} />
+          </>)}
+
+          {/* ── REPORTES ── */}
+          {section==='reports' && (<>
+            <h1 className="adm-h1">📈 Reportes & Analytics</h1>
+            <p className="adm-sub">Métricas clave de tu tienda Kosmica en tiempo real</p>
+            <ReportsSection orders={orders} products={products} />
           </>)}
 
           {/* MEDIOS — FIX: sin useRef en map */}
