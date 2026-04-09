@@ -2541,9 +2541,7 @@ export default function App() {
                               >{inCart?"✓ En el carrito":"🛒 Agregar al carrito"}</button>;
                             })()
                         }
-                        <button className="card-review-btn" onClick={()=>{setReviewModal(p);setReviewStars(0);setReviewText("");}}>
-                          ⭐ Dejar reseña
-                        </button>
+
                       </div>
                     </div>
                   );
