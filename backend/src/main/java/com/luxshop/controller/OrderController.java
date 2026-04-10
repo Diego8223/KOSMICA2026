@@ -36,12 +36,12 @@ public class OrderController {
 
     // ── Pago directo con Nequi ─────────────────────────────────────
     @PostMapping("/nequi-payment")
-    public ResponseEntity<Map<String, Object>> createNequiPayment(
+    public ResponseEntity<Map<String, String>> createNequiPayment(
             @RequestBody Map<String, Object> body) {
         try {
             BigDecimal amount = new BigDecimal(body.get("amount").toString());
             String phone = body.get("phone").toString();
-            Map<String, Object> result = paymentService.createNequiPayment(amount, phone);
+            Map<String, String> result = paymentService.createNequiPayment(amount, phone);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("Error creando pago Nequi: {}", e.getMessage());
