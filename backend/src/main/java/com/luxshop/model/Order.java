@@ -80,6 +80,14 @@ public class Order {
     @Column(name = "coupon_discount", precision = 10, scale = 2)
     private BigDecimal couponDiscount = BigDecimal.ZERO;
 
+    // ✅ TARJETA DE REGALO
+    @Column(name = "gift_card_code")
+    private String giftCardCode;
+
+    @Builder.Default
+    @Column(name = "gift_card_discount", precision = 10, scale = 2)
+    private BigDecimal giftCardDiscount = BigDecimal.ZERO;
+
     // ✅ REFERIDO — de quién viene esta compra (valor del ?ref= en la URL)
     // Ejemplo: si la URL fue kosmica.com.co/?ref=valentina, aquí se guarda "valentina"
     @Column(name = "referral_code")

@@ -1855,23 +1855,32 @@ export default function App() {
     badge: null, rating: 0, reviewCount: 0, __placeholder: true,
   }));
 
-  // ✅ Acreditar puntos pendientes cuando MP redirige de vuelta con ?pago=exitoso
+  // ✅ Al volver de MercadoPago/Wompi con ?pago=exitoso:
+  //    1. Mostrar pantalla de éxito con número de pedido
+  //    2. Acreditar puntos pendientes
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const pago = params.get("pago");
     if (pago === "exitoso") {
       try {
-        const pending = parseInt(localStorage.getItem("kosmica_pending_pts") || "0", 10);
-        const orderTotal = parseInt(localStorage.getItem("kosmica_pending_order_total") || "0", 10);
+        // Mostrar pantalla de éxito
+        const pendingOrder = localStorage.getItem("kosmica_pending_order") || "";
+        if (pendingOrder) {
+          setOrderSuccess({ orderNumber: pendingOrder });
+          localStorage.removeItem("kosmica_pending_order");
+        }
+        // Acreditar puntos
+        const pending   = parseInt(localStorage.getItem("kosmica_pending_pts") || "0", 10);
+        const orderTotal= parseInt(localStorage.getItem("kosmica_pending_order_total") || "0", 10);
         if (pending > 0) {
           awardLoyaltyPoints(orderTotal || pending * 36);
           localStorage.removeItem("kosmica_pending_pts");
           localStorage.removeItem("kosmica_pending_order_total");
           localStorage.removeItem("kosmica_pending_pts_user");
-          showToast(`💎 ¡Ganaste ${pending} puntos Kosmica!`);
+          setTimeout(() => showToast("💎 ¡Ganaste " + pending + " puntos Kosmica!"), 1500);
         }
       } catch(_) {}
-      // Limpiar la URL sin recargar
+      // Limpiar URL
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   // eslint-disable-next-line
@@ -2127,16 +2136,19 @@ export default function App() {
     // Ya denegó — tampoco
     if (Notification.permission === "denied") return;
     // Mostrar banner propio después de 20s (no el prompt nativo directo)
+    // Mostrar banner si aún no ha concedido permiso Y no lo ha visto más de 3 veces
     const t = setTimeout(() => {
-      const seen = localStorage.getItem("kosmica_push_seen");
-      if (!seen) setPushBanner(true);
-    }, 20000);
+      const seenCount = parseInt(localStorage.getItem("kosmica_push_count") || "0", 10);
+      if (seenCount < 3) setPushBanner(true);
+    }, 15000);
     return () => clearTimeout(t);
   }, []);
 
   const requestPush = async () => {
     setPushBanner(false);
-    localStorage.setItem("kosmica_push_seen", "1");
+    // Marcar como visto (máx 3 veces antes de dejar de preguntar)
+    const count = parseInt(localStorage.getItem("kosmica_push_count") || "0", 10);
+    localStorage.setItem("kosmica_push_count", String(count + 1));
     if (!("Notification" in window) || !("serviceWorker" in navigator)) return;
     const perm = await Notification.requestPermission();
     if (perm !== "granted") return;
@@ -2380,32 +2392,26 @@ export default function App() {
         giftCardCode:     appliedCoupon?.type === "giftcard" ? appliedCoupon.code : null,
         giftCardDiscount: appliedCoupon?.type === "giftcard" ? couponDiscount : 0,
       });
-      setCart([]);
-      setAppliedCoupon(null);
-      setSelectedShippingMethod(null);
-      setCheckoutOpen(false);
-      // ✅ Limpiar carrito del localStorage al completar compra
-      try { localStorage.removeItem("kosmica_cart"); } catch(_) {}
-      // ✅ PUNTOS DE FIDELIDAD — sumar por compra
-      // ✅ PUNTOS: guardar como PENDIENTES — solo se acreditan cuando MP confirma pago
-      //    Se aplican al volver con ?payment_status=approved en la URL
+      // ✅ PUNTOS: guardar como pendientes — se acreditan cuando MP redirige con ?pago=exitoso
       try {
-        const pendingPts = Math.floor(grandTotal / 36);
-        localStorage.setItem("kosmica_pending_pts", String(pendingPts));
+        localStorage.setItem("kosmica_pending_pts", String(Math.floor(grandTotal / 36)));
         localStorage.setItem("kosmica_pending_order_total", String(grandTotal));
-        if (currentUser) {
-          localStorage.setItem("kosmica_pending_pts_user", currentUser.email);
-        }
+        // Guardar orderNumber para mostrar éxito al volver
+        localStorage.setItem("kosmica_pending_order", orderResp.orderNumber || "");
+        if (currentUser) localStorage.setItem("kosmica_pending_pts_user", currentUser.email);
       } catch(_) {}
-      // ✅ Meta Pixel: Purchase
+      // Meta Pixel
       if (typeof window.fbq === 'function') {
         window.fbq('track', 'InitiateCheckout', {
           num_items: cart.reduce((s,i) => s + i.qty, 0),
-          value: grandTotal,
-          currency: 'COP',
+          value: grandTotal, currency: 'COP',
         });
       }
-      window.location.href=result.initPoint;
+      // Limpiar carrito ANTES de redirigir
+      setCart([]); setAppliedCoupon(null); setSelectedShippingMethod(null); setCheckoutOpen(false);
+      try { localStorage.removeItem("kosmica_cart"); } catch(_) {}
+      // Redirigir a MP — el éxito se muestra al volver con ?pago=exitoso
+      window.location.href = result.initPoint;
     }catch(e){ showToast("⚠️ "+e.message); }
     finally{ setPaying(false); }
   };
@@ -2467,7 +2473,16 @@ export default function App() {
       } catch(_) {}
       // 4. Mostrar pantalla de espera con instrucciones
       setNequiWaiting({ paymentId: data.paymentId, phone, orderNumber: orderResp?.orderNumber });
-    } catch(e) { showToast("⚠️ "+e.message); }
+    } catch(e) {
+      const msg = e.message || "Error al procesar el pago";
+      // Si Nequi falla por credenciales de producción, mostrar alternativa por WhatsApp
+      if (msg.includes("producción") || msg.includes("TEST-") || msg.includes("APP_USR")) {
+        showToast("⚠️ Nequi no disponible. Usa MercadoPago o escríbenos por WhatsApp.");
+        setPaymentMethod("mp");
+      } else {
+        showToast("⚠️ " + msg);
+      }
+    }
     finally { setPaying(false); }
   };
 
@@ -3530,6 +3545,19 @@ export default function App() {
                   onClick={()=>{ setOrderSuccess(null); setCheckoutOpen(false); setTrackingMode(true); }}>
                   📦 Rastrear mi pedido en tiempo real
                 </button>
+                {/* ✅ Invitar a activar notificaciones después del pago — mejor momento */}
+                {!pushGranted && (
+                  <button
+                    onClick={()=>{ setOrderSuccess(null); requestPush(); }}
+                    style={{
+                      display:"block",width:"100%",marginTop:10,padding:"12px",
+                      background:"linear-gradient(135deg,#2D1B4E,#4A2D7A)",
+                      color:"#fff",border:"none",borderRadius:50,
+                      fontSize:".9rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"
+                    }}>
+                    🔔 Activar notificaciones de ofertas y pedidos
+                  </button>
+                )}
                 <a className="success-wa-btn"
                   href={`https://wa.me/573043927148?text=Hola%20Kosmica%20🛍️%20Mi%20pedido%20es%20el%20%23${orderSuccess.orderNumber}%2C%20quiero%20saber%20el%20estado%20de%20mi%20compra%20💜`}
                   target="_blank" rel="noreferrer">
@@ -3806,7 +3834,11 @@ export default function App() {
       ════════════════════════════════════════ */}
       {pushBanner && !pushGranted && (
         <div className="push-banner">
-          <button className="push-banner-close" onClick={()=>{setPushBanner(false);localStorage.setItem("kosmica_push_seen","1");}}>✕</button>
+          <button className="push-banner-close" onClick={()=>{
+                  setPushBanner(false);
+                  const c = parseInt(localStorage.getItem("kosmica_push_count")||"0",10);
+                  localStorage.setItem("kosmica_push_count", String(c+1));
+                }}>✕</button>
           <div className="push-banner-ico">🔔</div>
           <div className="push-banner-text">
             <div className="push-banner-title">¿Activamos notificaciones?</div>

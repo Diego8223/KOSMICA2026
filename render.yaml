@@ -61,6 +61,8 @@ services:
           property: url   # ✅ "url" da https://kosmica-backend.onrender.com — "host" daba solo el hostname sin https
       - key: REACT_APP_ADMIN_PASSWORD
         value: Kosmica2025
+      - key: REACT_APP_VAPID_PUBLIC_KEY
+        sync: false   # Clave pública VAPID — igual que VAPID_PUBLIC_KEY del backend
     routes:
       - type: rewrite
         source: /*
