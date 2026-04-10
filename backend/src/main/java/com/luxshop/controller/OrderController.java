@@ -41,7 +41,11 @@ public class OrderController {
         try {
             BigDecimal amount = new BigDecimal(body.get("amount").toString());
             String phone = body.get("phone").toString();
-            Map<String, String> result = paymentService.createNequiPayment(amount, phone);
+            // ✅ Pasar email y nombre para la Payments API de Nequi (requerido por MercadoPago)
+            String email   = body.containsKey("email")   ? String.valueOf(body.get("email"))   : null;
+            String name    = body.containsKey("name")    ? String.valueOf(body.get("name"))    : null;
+            String orderId = body.containsKey("orderId") ? String.valueOf(body.get("orderId")) : null;
+            Map<String, String> result = paymentService.createNequiPayment(amount, phone, email, name, orderId);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("Error creando pago Nequi: {}", e.getMessage());
