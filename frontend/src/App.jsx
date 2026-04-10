@@ -2246,11 +2246,18 @@ export default function App() {
         nequiPhone:       phone,
       });
       // Llamar al backend para crear pago Nequi
-      const res = await fetch("/api/orders/nequi-payment", {
+      const API_URL = process.env.REACT_APP_API_URL || "https://kosmica-backend.onrender.com";
+      const res = await fetch(`${API_URL}/api/orders/nequi-payment`, {
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ amount: grandTotal, phone, orderId: orderResp?.id || orderResp?.orderNumber }),
       });
+      if (!res.ok) {
+        const errText = await res.text();
+        let errMsg = `Error ${res.status}`;
+        try { const errJson = JSON.parse(errText); errMsg = errJson.error || errJson.message || errMsg; } catch(_) {}
+        throw new Error(errMsg);
+      }
       const data = await res.json();
       setCart([]); setAppliedCoupon(null); setSelectedShippingMethod(null); setCheckoutOpen(false);
       try { localStorage.removeItem("kosmica_cart"); } catch(_) {}
@@ -2536,11 +2543,6 @@ export default function App() {
               <span className="nav-search-ico">🔍</span>
               <input placeholder="Buscar productos..." value={search} onChange={e=>setSearch(e.target.value)}/>
             </div>
-            {displayPoints > 0 && (
-              <button className="loyalty-badge" onClick={()=>setLoyaltyOpen(true)} title="Mis puntos Kosmica">
-                💎 {displayPoints}
-              </button>
-            )}
             {currentUser ? (
               <button className="nav-user-btn" onClick={()=>setAccountOpen(true)} style={{
                 background:"linear-gradient(135deg,#9B72CF,#7C3AED)",
