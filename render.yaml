@@ -37,6 +37,12 @@ services:
         sync: false   # URL del frontend una vez desplegado
       - key: SENDGRID_API_KEY
         sync: false
+      - key: WOMPI_PUBLIC_KEY
+        sync: false   # pub_prod_XXXX o pub_test_XXXX para pruebas
+      - key: WOMPI_PRIVATE_KEY
+        sync: false   # prv_prod_XXXX o prv_test_XXXX para pruebas
+      - key: WOMPI_EVENTS_SECRET
+        sync: false   # Secreto de eventos del webhook Wompi
 
   # ── Frontend React ────────────────────────────────────────
   - type: web

@@ -167,6 +167,12 @@ export const giftCardAPI = {
 
 export default api;
 
+// ── Wompi (Bancolombia) ───────────────────────────────────
+export const wompiAPI = {
+  createTransaction: (data) => api.post('/wompi/transaction', data).then(r => r.data),
+  getStatus:         (txId)  => api.get(`/wompi/status/${txId}`).then(r => r.data),
+};
+
 // ── Cloudinary: optimización automática de imágenes ──────
 // w_   → ancho exacto que necesita la UI (evita descargar imágenes gigantes)
 // q_auto → Cloudinary elige la calidad óptima automáticamente

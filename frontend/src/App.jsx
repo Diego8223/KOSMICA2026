@@ -3,7 +3,7 @@
 //  ✅ Optimizado: lazy loading, useMemo, Schema.org, CountdownTimer
 // ============================================================
 import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense, memo } from "react";
-import { productAPI, orderAPI, referralAPI, imgUrl } from "./services/api";
+import { productAPI, orderAPI, referralAPI, imgUrl, wompiAPI } from "./services/api";
 
 // ✅ LAZY LOADING — reduce bundle inicial ~160KB (mejora LCP en móvil)
 const ProductDetailModal = lazy(() => import("./components/ProductDetailModal"));
@@ -1749,7 +1749,7 @@ export default function App() {
   const [scrolled,setScrolled]               = useState(false);
   const [toast,setToast]                     = useState("");
   const [paying,setPaying]                   = useState(false);
-  const [paymentMethod,setPaymentMethod]     = useState("mp"); // "mp" | "nequi"
+  const [paymentMethod,setPaymentMethod]     = useState("mp"); // "mp" | "nequi" | "wompi"
   const [nequiWaiting, setNequiWaiting]       = useState(null); // {paymentId, phone} cuando esperamos aprobación
   const [nequiPhone,setNequiPhone]           = useState("");
   const [selectedProduct,setSelectedProduct] = useState(null);
@@ -1854,6 +1854,28 @@ export default function App() {
     id: `ph-${i}`, name: '', price: 0, imageUrl: null,
     badge: null, rating: 0, reviewCount: 0, __placeholder: true,
   }));
+
+  // ✅ Acreditar puntos pendientes cuando MP redirige de vuelta con ?pago=exitoso
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const pago = params.get("pago");
+    if (pago === "exitoso") {
+      try {
+        const pending = parseInt(localStorage.getItem("kosmica_pending_pts") || "0", 10);
+        const orderTotal = parseInt(localStorage.getItem("kosmica_pending_order_total") || "0", 10);
+        if (pending > 0) {
+          awardLoyaltyPoints(orderTotal || pending * 36);
+          localStorage.removeItem("kosmica_pending_pts");
+          localStorage.removeItem("kosmica_pending_order_total");
+          localStorage.removeItem("kosmica_pending_pts_user");
+          showToast(`💎 ¡Ganaste ${pending} puntos Kosmica!`);
+        }
+      } catch(_) {}
+      // Limpiar la URL sin recargar
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  // eslint-disable-next-line
+  }, []);
 
   const fetchProducts = useCallback(async () => {
     setError(null);
@@ -2449,6 +2471,63 @@ export default function App() {
     finally { setPaying(false); }
   };
 
+  // ── WOMPI (Bancolombia) CHECKOUT ──────────────────────────
+  const handleWompiCheckout = async e => {
+    e.preventDefault();
+    if (!selectedShippingMethod) { showToast("⚠️ Selecciona un método de envío"); return; }
+    if (!form.name?.trim())  { showToast("⚠️ Ingresa tu nombre completo"); return; }
+    if (!form.email?.trim()) { showToast("⚠️ Ingresa tu correo electrónico"); return; }
+    setPaying(true);
+    try {
+      // 1. Crear el pedido
+      const orderResp = await orderAPI.createOrder({
+        name:form.name, email:form.email, phone:form.phone, document:form.document,
+        city:form.city, neighborhood:form.neighborhood, address:form.address, notes:form.notes,
+        paymentMethod:"WOMPI",
+        paymentIntentId: null,
+        shippingMethod:selectedShippingMethod.id,
+        shippingCost:selectedShippingMethod.cost,
+        items:cart.map(i=>({productId:i.id,quantity:i.qty})),
+        couponCode:       appliedCoupon && !appliedCoupon.code.startsWith("LUX-") && appliedCoupon.type !== "giftcard" ? appliedCoupon.code : null,
+        couponDiscount:   couponDiscount,
+        referralCode:     appliedCoupon?.code.startsWith("LUX-") ? appliedCoupon.code : (referralCode || null),
+        giftCardCode:     appliedCoupon?.type === "giftcard" ? appliedCoupon.code : null,
+        giftCardDiscount: appliedCoupon?.type === "giftcard" ? couponDiscount : 0,
+      });
+      // 2. Crear transacción en Wompi
+      const API_URL = process.env.REACT_APP_API_URL || "https://kosmica-backend.onrender.com";
+      const res = await fetch(`${API_URL}/api/wompi/transaction`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount:      grandTotal,
+          email:       form.email,
+          name:        form.name,
+          phone:       form.phone,
+          orderId:     orderResp?.orderNumber || orderResp?.id,
+          redirectUrl: `${window.location.origin}/?pago=exitoso&metodo=wompi`,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      // 3. Guardar puntos pendientes y limpiar
+      setCart([]); setAppliedCoupon(null); setSelectedShippingMethod(null); setCheckoutOpen(false);
+      try { localStorage.removeItem("kosmica_cart"); } catch(_) {}
+      try {
+        localStorage.setItem("kosmica_pending_pts", String(Math.floor(grandTotal/36)));
+        localStorage.setItem("kosmica_pending_order_total", String(grandTotal));
+        if (currentUser) localStorage.setItem("kosmica_pending_pts_user", currentUser.email);
+      } catch(_) {}
+      // 4. Redirigir al widget de pago Wompi
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+      } else {
+        showToast("✅ Pedido registrado. Redirigiendo a Wompi...");
+      }
+    } catch(e) { showToast("⚠️ " + e.message); }
+    finally { setPaying(false); }
+  };
+
   // ── VIRAL FUNCTIONS ──
   const submitNewsletter = async (e) => {
     e.preventDefault();
@@ -2749,7 +2828,7 @@ export default function App() {
       </nav>
 
       {/* ── PROMO STRIP ── */}
-      <div className="promo-strip">💳 Paga con Nequi, PSE y tarjeta &nbsp;|&nbsp; 🔒 Pago 100% seguro &nbsp;|&nbsp; 🚚 Elige tu envío al finalizar compra ✦</div>
+      <div className="promo-strip">💳 Nequi, PSE, Wompi &amp; tarjeta &nbsp;|&nbsp; 🔒 Pago 100% seguro &nbsp;|&nbsp; 🚚 Elige tu envío al finalizar compra ✦</div>
 
       {/* ── CATEGORÍAS BARRA HORIZONTAL ── */}
       <div className="cats-bar">
@@ -3114,6 +3193,17 @@ export default function App() {
           onClose={()=>setNequiWaiting(null)}
           onApproved={(orderNumber)=>{
             setNequiWaiting(null);
+            // Acreditar puntos pendientes de Nequi
+            try {
+              const pending = parseInt(localStorage.getItem("kosmica_pending_pts") || "0", 10);
+              const orderTotal = parseInt(localStorage.getItem("kosmica_pending_order_total") || "0", 10);
+              if (pending > 0) {
+                awardLoyaltyPoints(orderTotal || pending * 36);
+                localStorage.removeItem("kosmica_pending_pts");
+                localStorage.removeItem("kosmica_pending_order_total");
+                showToast("💎 ¡Ganaste " + pending + " puntos Kosmica!");
+              }
+            } catch(_) {}
             setOrderSuccess({orderNumber: orderNumber || nequiWaiting.orderNumber});
           }}
         />
@@ -3301,27 +3391,37 @@ export default function App() {
                     onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/>
                 </div>
                 <p className="form-section">Método de Pago</p>
-                {/* Selector Nequi vs MercadoPago */}
-                <div style={{display:"flex",gap:10,marginBottom:12}}>
+                {/* Selector Nequi | MercadoPago | Wompi */}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
                   <button type="button"
                     onClick={()=>setPaymentMethod("nequi")}
-                    style={{flex:1,padding:"13px 8px",border:paymentMethod==="nequi"?"2.5px solid #3B0764":"2px solid #E9D5FF",borderRadius:14,
+                    style={{padding:"12px 6px",border:paymentMethod==="nequi"?"2.5px solid #3B0764":"2px solid #E9D5FF",borderRadius:14,
                       background:paymentMethod==="nequi"?"linear-gradient(135deg,#3B0764,#6D28D9)":"#FDFCFF",
-                      color:paymentMethod==="nequi"?"#fff":"#6D28D9",fontWeight:700,fontSize:".88rem",cursor:"pointer",
+                      color:paymentMethod==="nequi"?"#fff":"#6D28D9",fontWeight:700,fontSize:".8rem",cursor:"pointer",
                       boxShadow:paymentMethod==="nequi"?"0 4px 14px rgba(109,40,217,.3)":"none",transition:"all .2s"}}>
-                    <div style={{fontSize:"1.4rem",marginBottom:3}}>🟣</div>
+                    <div style={{fontSize:"1.3rem",marginBottom:3}}>🟣</div>
                     <div>Nequi</div>
-                    <div style={{fontSize:".72rem",fontWeight:500,opacity:.8,marginTop:2}}>Sin redirigir</div>
+                    <div style={{fontSize:".68rem",fontWeight:500,opacity:.8,marginTop:2}}>Sin redirigir</div>
                   </button>
                   <button type="button"
                     onClick={()=>setPaymentMethod("mp")}
-                    style={{flex:1,padding:"13px 8px",border:paymentMethod==="mp"?"2.5px solid #009EE3":"2px solid #BAE6FD",borderRadius:14,
+                    style={{padding:"12px 6px",border:paymentMethod==="mp"?"2.5px solid #009EE3":"2px solid #BAE6FD",borderRadius:14,
                       background:paymentMethod==="mp"?"linear-gradient(135deg,#009EE3,#0070B8)":"#FDFCFF",
-                      color:paymentMethod==="mp"?"#fff":"#0070B8",fontWeight:700,fontSize:".88rem",cursor:"pointer",
+                      color:paymentMethod==="mp"?"#fff":"#0070B8",fontWeight:700,fontSize:".8rem",cursor:"pointer",
                       boxShadow:paymentMethod==="mp"?"0 4px 14px rgba(0,158,227,.3)":"none",transition:"all .2s"}}>
-                    <div style={{fontSize:"1.4rem",marginBottom:3}}>💳</div>
+                    <div style={{fontSize:"1.3rem",marginBottom:3}}>💳</div>
                     <div>MercadoPago</div>
-                    <div style={{fontSize:".72rem",fontWeight:500,opacity:.8,marginTop:2}}>Tarjeta, PSE, Efecty</div>
+                    <div style={{fontSize:".68rem",fontWeight:500,opacity:.8,marginTop:2}}>PSE, Tarjeta, Efecty</div>
+                  </button>
+                  <button type="button"
+                    onClick={()=>setPaymentMethod("wompi")}
+                    style={{padding:"12px 6px",border:paymentMethod==="wompi"?"2.5px solid #F4A100":"2px solid #FFE0A0",borderRadius:14,
+                      background:paymentMethod==="wompi"?"linear-gradient(135deg,#F4A100,#D4880A)":"#FFFDF5",
+                      color:paymentMethod==="wompi"?"#fff":"#A06000",fontWeight:700,fontSize:".8rem",cursor:"pointer",
+                      boxShadow:paymentMethod==="wompi"?"0 4px 14px rgba(244,161,0,.4)":"none",transition:"all .2s"}}>
+                    <div style={{fontSize:"1.3rem",marginBottom:3}}>🏦</div>
+                    <div>Wompi</div>
+                    <div style={{fontSize:".68rem",fontWeight:500,opacity:.8,marginTop:2}}>Bancolombia</div>
                   </button>
                 </div>
                 {/* Nequi: solo pide el número */}
@@ -3334,6 +3434,28 @@ export default function App() {
                       style={{letterSpacing:".1em",fontWeight:700}}/>
                     <div style={{fontSize:".76rem",color:"#7C3AED",marginTop:6}}>
                       💡 Recibirás una notificación push en tu app Nequi para aprobar el pago
+                    </div>
+                  </div>
+                )}
+                {paymentMethod==="wompi" && (
+                  <div style={{background:"linear-gradient(135deg,#F4A100,#D4880A)",borderRadius:16,padding:"16px 18px",marginBottom:12}}>
+                    <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
+                      <div style={{fontSize:"2rem"}}>🏦</div>
+                      <div>
+                        <div style={{color:"#fff",fontWeight:800,fontSize:"1rem"}}>Pagar con Wompi (Bancolombia)</div>
+                        <div style={{color:"rgba(255,255,255,.85)",fontSize:".82rem",marginTop:2}}>
+                          Nequi, PSE, Tarjetas, Bancolombia, Daviplata, Efecty
+                        </div>
+                      </div>
+                      <div style={{marginLeft:"auto",background:"rgba(255,255,255,.2)",borderRadius:8,padding:"4px 10px",color:"#fff",fontSize:".78rem",fontWeight:700}}>
+                        ✓ Seguro
+                      </div>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
+                      {["💳 Tarjeta","🟣 Nequi","🏛️ PSE","🏦 Bancolombia","💵 Efecty","📱 Daviplata"].map(m=>(
+                        <div key={m} style={{background:"rgba(255,255,255,.15)",borderRadius:8,padding:"4px 6px",
+                          color:"#fff",fontSize:".7rem",fontWeight:600,textAlign:"center"}}>{m}</div>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -3352,20 +3474,24 @@ export default function App() {
                   </div>
                 )}
                 <div className="secure-note">
-                  🔒 {paymentMethod==="nequi" ? "Pago directo desde tu app Nequi, sin formularios" : "Serás redirigido a MercadoPago para completar tu pago de forma segura"}
+                  🔒 {paymentMethod==="nequi" ? "Pago directo desde tu app Nequi, sin formularios"
+                    : paymentMethod==="wompi" ? "Serás redirigido a Wompi (Bancolombia) para completar tu pago"
+                    : "Serás redirigido a MercadoPago para completar tu pago de forma segura"}
                 </div>
                 <button type="submit" className="pay-btn"
-                  onClick={paymentMethod==="nequi" ? handleNequiCheckout : undefined}
+                  onClick={paymentMethod==="nequi" ? handleNequiCheckout : paymentMethod==="wompi" ? handleWompiCheckout : undefined}
                   disabled={paying || !selectedShippingMethod || (paymentMethod==="nequi" && nequiPhone.length < 10)}
                   style={{
                     background: paying||!selectedShippingMethod ? "#A0AEC0"
                       : paymentMethod==="nequi" ? "linear-gradient(135deg,#3B0764,#6D28D9)"
+                      : paymentMethod==="wompi" ? "linear-gradient(135deg,#F4A100,#D4880A)"
                       : "linear-gradient(135deg,#009EE3,#0070B8)",
                     cursor: paying||!selectedShippingMethod||(paymentMethod==="nequi"&&nequiPhone.length<10) ? "not-allowed" : "pointer"
                   }}>
                   {paying ? "⏳ Procesando..."
                     : !selectedShippingMethod ? "Selecciona un método de envío"
                     : paymentMethod==="nequi" ? `🟣 Pagar con Nequi ${fmtCOP(grandTotal)} COP`
+                    : paymentMethod==="wompi" ? `🏦 Pagar con Wompi ${fmtCOP(grandTotal)} COP →`
                     : `Ir a pagar ${fmtCOP(grandTotal)} COP →`}
                 </button>
               </form>
@@ -3717,7 +3843,7 @@ export default function App() {
               <div className="loyalty-points-label">puntos acumulados</div>
             </div>
             <div className="loyalty-value-note">
-              💡 1 punto = $36 COP · Valor acumulado: ${(displayPoints * 36).toLocaleString("es-CO")} COP
+              💎 1 punto = $36 COP &nbsp;·&nbsp; Valor acumulado: <strong>${(displayPoints * 36).toLocaleString("es-CO")} COP</strong> &nbsp;·&nbsp; Límite diario: {DAILY_POINTS_LIMIT} pts
             </div>
             {/* Racha */}
             {purchaseStreak > 0 && (
@@ -3763,7 +3889,7 @@ export default function App() {
             <div className="loyalty-how">
               <div className="loyalty-how-title">Cómo ganar puntos</div>
               {[
-                ["Cada compra","1 pt por cada $36 COP"],
+                ["Cada compra","1 pt por cada $36 COP — máx. "+DAILY_POINTS_LIMIT+" pts/día"],
                 ["Referir una amiga","+50 pts cuando ella compra"],
                 ["Dejar reseña","+10 pts por reseña publicada"],
                 ["Newsletter","+20 pts al suscribirte"],
