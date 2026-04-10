@@ -1532,6 +1532,173 @@ const CountdownTimer = memo(function CountdownTimer({ endHour = 23, endMin = 59 
 // ✅ SUSPENSE FALLBACK — spinner mientras carga componente lazy
 const SpinFallback = () => <div className="lazy-spinner" />;
 
+// ══════════════════════════════════════════════════════════
+//  COMPONENTE: Pantalla de espera Nequi con polling de estado
+// ══════════════════════════════════════════════════════════
+function NequiWaitingScreen({ data, onClose, onApproved }) {
+  const [pollStatus, setPollStatus] = useState("pending");
+  const [pollCount,  setPollCount]  = useState(0);
+  const [expired,    setExpired]    = useState(false);
+  const API_URL = process.env.REACT_APP_API_URL || "https://kosmica-backend.onrender.com";
+  const MAX_POLLS = 60; // 60 × 5s = 5 minutos
+
+  useEffect(() => {
+    if (!data?.paymentId) return;
+    let cancelled = false;
+
+    const poll = async () => {
+      if (cancelled) return;
+      try {
+        const res  = await fetch(`${API_URL}/api/orders/nequi-status/${data.paymentId}`);
+        const json = await res.json();
+        if (cancelled) return;
+        setPollStatus(json.status || "pending");
+        if (json.status === "approved") {
+          onApproved && onApproved(data.orderNumber);
+          return;
+        }
+        if (json.status === "rejected" || json.status === "cancelled") return;
+      } catch(_) {}
+
+      setPollCount(c => {
+        const next = c + 1;
+        if (next >= MAX_POLLS) { setExpired(true); return next; }
+        setTimeout(poll, 5000);
+        return next;
+      });
+    };
+
+    const timer = setTimeout(poll, 4000); // primer poll a los 4s
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [data?.paymentId]);
+
+  const approved  = pollStatus === "approved";
+  const rejected  = pollStatus === "rejected" || pollStatus === "cancelled";
+
+  return (
+    <>
+      <div className="overlay" onClick={!approved ? onClose : undefined}/>
+      <div className="modal-wrap">
+        <div className="modal" style={{maxWidth:440}}>
+          <div className="modal-header">
+            <h2 className="modal-title">🟣 Pago con Nequi</h2>
+            {!approved && <button className="close-btn" onClick={onClose}>✕</button>}
+          </div>
+          <div className="modal-body" style={{textAlign:"center",paddingBottom:36}}>
+
+            {/* ── APROBADO ── */}
+            {approved && (
+              <>
+                <div style={{width:80,height:80,borderRadius:"50%",margin:"0 auto 18px",
+                  background:"linear-gradient(135deg,#27AE60,#1a8a4a)",
+                  display:"flex",alignItems:"center",justifyContent:"center",fontSize:"2.4rem"}}>✅</div>
+                <h3 style={{fontFamily:"'Playfair Display',serif",fontSize:"1.5rem",color:"var(--dark)",marginBottom:10}}>
+                  ¡Pago aprobado!
+                </h3>
+                <p style={{color:"var(--brown)",fontSize:".95rem",marginBottom:22}}>Tu pedido está confirmado 💜</p>
+                <button onClick={()=>onApproved(data.orderNumber)} style={{
+                  width:"100%",padding:"14px",background:"linear-gradient(135deg,#27AE60,#1a8a4a)",
+                  border:"none",borderRadius:14,color:"#fff",fontWeight:800,fontSize:"1rem",cursor:"pointer"
+                }}>Ver mi pedido →</button>
+              </>
+            )}
+
+            {/* ── RECHAZADO / EXPIRADO ── */}
+            {(rejected || expired) && !approved && (
+              <>
+                <div style={{fontSize:"3rem",marginBottom:14}}>😔</div>
+                <h3 style={{fontFamily:"'Playfair Display',serif",fontSize:"1.3rem",color:"var(--dark)",marginBottom:10}}>
+                  {rejected ? "Pago no completado" : "Tiempo agotado"}
+                </h3>
+                <p style={{color:"var(--brown)",fontSize:".9rem",marginBottom:20}}>
+                  {rejected
+                    ? "El pago fue rechazado o cancelado en Nequi."
+                    : "La notificación expiró (5 min). Puedes intentar de nuevo."}
+                </p>
+                <a href={`https://wa.me/573043927148?text=Hola%20Kosmica%20💜%20Tuve%20un%20problema%20con%20el%20pago%20Nequi%20al%20número%20${data.phone}${data.orderNumber?"%2C%20pedido%20%23"+data.orderNumber:""}%20%C2%BFPueden%20ayudarme%3F`}
+                  target="_blank" rel="noreferrer"
+                  style={{display:"block",width:"100%",padding:"13px",borderRadius:50,
+                    background:"#25D366",color:"#fff",fontWeight:800,fontSize:"1rem",
+                    textDecoration:"none",textAlign:"center",marginBottom:10}}>
+                  💬 Pedir ayuda por WhatsApp
+                </a>
+                <button onClick={onClose} style={{width:"100%",padding:"11px",background:"none",
+                  border:"1.5px solid var(--lila-xlight)",borderRadius:50,
+                  color:"var(--brown)",fontWeight:600,cursor:"pointer",fontSize:".9rem"}}>
+                  Volver a la tienda
+                </button>
+              </>
+            )}
+
+            {/* ── ESPERANDO ── */}
+            {!approved && !rejected && !expired && (
+              <>
+                <div style={{width:80,height:80,borderRadius:"50%",margin:"0 auto 20px",
+                  background:"linear-gradient(135deg,#3B0764,#6D28D9)",
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  fontSize:"2.2rem",animation:"cartPulse 1.5s infinite"}}>🟣</div>
+                <h3 style={{fontFamily:"'Playfair Display',serif",fontSize:"1.4rem",color:"var(--dark)",marginBottom:10}}>
+                  ¡Notificación enviada!
+                </h3>
+                <p style={{color:"var(--brown)",fontSize:"1rem",lineHeight:1.7,marginBottom:18}}>
+                  Enviamos una notificación push a tu app Nequi al número<br/>
+                  <strong style={{color:"#3B0764",fontSize:"1.1rem",letterSpacing:".05em"}}>
+                    📱 {data.phone}
+                  </strong>
+                </p>
+                {/* Pasos */}
+                <div style={{background:"#F5F3FF",borderRadius:16,padding:"16px 18px",marginBottom:16,textAlign:"left"}}>
+                  <div style={{fontWeight:800,fontSize:".78rem",color:"#5B21B6",textTransform:"uppercase",
+                    letterSpacing:".1em",marginBottom:12}}>Pasos para aprobar</div>
+                  {[
+                    ["1️⃣","Abre tu app Nequi"],
+                    ["2️⃣","Busca la notificación de cobro pendiente"],
+                    ["3️⃣","Revisa el monto y confirma"],
+                    ["4️⃣","Ingresa tu PIN de Nequi"],
+                  ].map(([num, text]) => (
+                    <div key={num} style={{display:"flex",gap:10,alignItems:"center",marginBottom:8}}>
+                      <span style={{fontSize:"1.1rem",flexShrink:0}}>{num}</span>
+                      <span style={{fontSize:".88rem",color:"var(--dark)",fontWeight:600}}>{text}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{background:"#FFF8DC",border:"1.5px solid #FFD700",borderRadius:12,
+                  padding:"9px 13px",fontSize:".8rem",color:"#7B4F00",marginBottom:16}}>
+                  ⏱️ <strong>La notificación expira en 5 minutos.</strong> Si no la ves, revisa notificaciones de Nequi.
+                </div>
+                {/* Indicador de polling */}
+                <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,
+                  marginBottom:16,fontSize:".8rem",color:"var(--muted)"}}>
+                  <div style={{width:10,height:10,borderRadius:"50%",background:"#27AE60",
+                    animation:"cartPulse 1.2s infinite"}}/>
+                  Verificando estado del pago... ({Math.min(pollCount * 5, 300)}s)
+                </div>
+                {data.orderNumber && (
+                  <div style={{fontSize:".8rem",color:"var(--muted)",marginBottom:14}}>
+                    Pedido: <strong style={{color:"var(--lila)"}}>{data.orderNumber}</strong>
+                  </div>
+                )}
+                <a href={`https://wa.me/573043927148?text=Hola%20Kosmica%20💜%20Hice%20un%20pedido%20con%20Nequi%20al%20número%20${data.phone}${data.orderNumber?"%2C%20pedido%20%23"+data.orderNumber:""}%20pero%20no%20llega%20la%20notificación.%20%C2%BFPueden%20ayudarme%3F`}
+                  target="_blank" rel="noreferrer"
+                  style={{display:"block",width:"100%",padding:"12px",borderRadius:50,
+                    background:"#25D366",color:"#fff",fontWeight:800,fontSize:".95rem",
+                    textDecoration:"none",textAlign:"center",marginBottom:10}}>
+                  💬 No me llega la notificación
+                </a>
+                <button onClick={onClose} style={{width:"100%",padding:"10px",background:"none",
+                  border:"1.5px solid var(--lila-xlight)",borderRadius:50,
+                  color:"var(--brown)",fontWeight:600,cursor:"pointer",fontSize:".88rem"}}>
+                  Volver a la tienda
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function App() {
   const [adminMode,setAdminMode]             = useState(false);
   const [currentUser, setCurrentUserState]   = useState(() => {
@@ -2942,75 +3109,14 @@ export default function App() {
 
       {/* ── PANTALLA DE ESPERA NEQUI ── */}
       {nequiWaiting && (
-        <>
-          <div className="overlay" onClick={()=>setNequiWaiting(null)}/>
-          <div className="modal-wrap">
-            <div className="modal" style={{maxWidth:440}}>
-              <div className="modal-header">
-                <h2 className="modal-title">🟣 Pago con Nequi</h2>
-                <button className="close-btn" onClick={()=>setNequiWaiting(null)}>✕</button>
-              </div>
-              <div className="modal-body" style={{textAlign:"center",paddingBottom:40}}>
-                {/* Spinner animado */}
-                <div style={{
-                  width:80,height:80,borderRadius:"50%",margin:"0 auto 20px",
-                  background:"linear-gradient(135deg,#3B0764,#6D28D9)",
-                  display:"flex",alignItems:"center",justifyContent:"center",
-                  fontSize:"2.2rem",animation:"cartPulse 1.5s infinite"
-                }}>🟣</div>
-                <h3 style={{fontFamily:"'Playfair Display',serif",fontSize:"1.4rem",color:"var(--dark)",marginBottom:10}}>
-                  ¡Notificación enviada!
-                </h3>
-                <p style={{color:"var(--brown)",fontSize:"1rem",lineHeight:1.7,marginBottom:20}}>
-                  Enviamos una notificación push a tu app Nequi al número<br/>
-                  <strong style={{color:"#3B0764",fontSize:"1.1rem",letterSpacing:".05em"}}>
-                    📱 {nequiWaiting.phone}
-                  </strong>
-                </p>
-                {/* Pasos */}
-                <div style={{background:"#F5F3FF",borderRadius:16,padding:"18px 20px",marginBottom:20,textAlign:"left"}}>
-                  <div style={{fontWeight:800,fontSize:".82rem",color:"#5B21B6",textTransform:"uppercase",letterSpacing:".1em",marginBottom:14}}>
-                    Pasos para aprobar el pago
-                  </div>
-                  {[
-                    ["1️⃣","Abre tu app Nequi en tu celular"],
-                    ["2️⃣","Verás una notificación de cobro pendiente"],
-                    ["3️⃣","Revisa el monto y confirma el pago"],
-                    ["4️⃣","Ingresa tu PIN de Nequi para aprobar"],
-                  ].map(([num, text]) => (
-                    <div key={num} style={{display:"flex",gap:12,alignItems:"flex-start",marginBottom:10}}>
-                      <span style={{fontSize:"1.2rem",flexShrink:0}}>{num}</span>
-                      <span style={{fontSize:".92rem",color:"var(--dark)",fontWeight:600,paddingTop:2}}>{text}</span>
-                    </div>
-                  ))}
-                </div>
-                <div style={{background:"#FFF8DC",border:"1.5px solid #FFD700",borderRadius:12,padding:"10px 14px",fontSize:".82rem",color:"#7B4F00",marginBottom:20}}>
-                  ⏱️ <strong>La notificación expira en 5 minutos.</strong> Si no la ves, revisa el buzón de tu app Nequi.
-                </div>
-                {nequiWaiting.orderNumber && (
-                  <div style={{fontSize:".82rem",color:"var(--muted)",marginBottom:16}}>
-                    Pedido: <strong style={{color:"var(--lila)"}}>{nequiWaiting.orderNumber}</strong>
-                  </div>
-                )}
-                <a
-                  href={`https://wa.me/573043927148?text=Hola%20Kosmica%20💜%20Acabo%20de%20hacer%20un%20pedido%20con%20Nequi%20al%20número%20${nequiWaiting.phone}${nequiWaiting.orderNumber?"%2C%20pedido%20%23"+nequiWaiting.orderNumber:""}%20pero%20no%20recibo%20la%20notificación.%20%C2%BFPueden%20ayudarme%3F`}
-                  target="_blank" rel="noreferrer"
-                  style={{
-                    display:"block",width:"100%",padding:"13px",borderRadius:50,
-                    background:"#25D366",color:"#fff",fontWeight:800,fontSize:"1rem",
-                    textDecoration:"none",textAlign:"center",marginBottom:10
-                  }}>
-                  💬 No recibí la notificación — pedir ayuda
-                </a>
-                <button onClick={()=>setNequiWaiting(null)} style={{
-                  width:"100%",padding:"11px",background:"none",
-                  border:"1.5px solid var(--lila-xlight)",borderRadius:50,
-                  color:"var(--brown)",fontWeight:600,cursor:"pointer",fontSize:".9rem"
-                }}>Volver a la tienda</button>
-              </div>
-            </div>
-          </div>
-        </>
+        <NequiWaitingScreen
+          data={nequiWaiting}
+          onClose={()=>setNequiWaiting(null)}
+          onApproved={(orderNumber)=>{
+            setNequiWaiting(null);
+            setOrderSuccess({orderNumber: orderNumber || nequiWaiting.orderNumber});
+          }}
+        />
       )}
 
       {/* ── CHECKOUT ── */}

@@ -4,8 +4,8 @@ import com.mercadopago.MercadoPagoConfig;
 import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.client.payment.PaymentCreateRequest;
 import com.mercadopago.client.payment.PaymentPayerRequest;
-import com.mercadopago.client.preference.*;
 import com.mercadopago.client.common.PhoneRequest;
+import com.mercadopago.client.preference.*;
 import com.mercadopago.exceptions.MPApiException;
 import com.mercadopago.exceptions.MPException;
 import com.mercadopago.resources.payment.Payment;
@@ -20,20 +20,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * PaymentService — MercadoPago Checkout Pro + Nequi directo (Payments API)
- * SDK: com.mercadopago:sdk-java:2.8.0
- *
- * NEQUI DIRECTO:
- *   Usa la Payments API (/v1/payments) con payment_method_id="nequi".
- *   MP envía push notification a la app Nequi del comprador.
- *   El cobro queda en estado PENDING hasta que el usuario aprueba en su app.
- *   NO redirige al sitio de MercadoPago.
- *
- * MERCADOPAGO (PSE, tarjetas, Efecty):
- *   Usa Checkout Pro (Preferences API). Redirige al checkout de MP con todos
- *   los métodos: PSE, tarjetas crédito/débito, Efecty, Bancolombia.
- */
 @Slf4j
 @Service
 public class PaymentService {
@@ -50,19 +36,17 @@ public class PaymentService {
     @Value("${store.name:Kosmica}")
     private String storeName;
 
-    // ── Crear preferencia de pago (compat.) ───────────────────
+    // ── Checkout Pro: PSE, tarjetas, Efecty ───────────────────
     public Map<String, String> createPaymentIntent(BigDecimal amount, String currency) throws Exception {
         return createPreference(amount, "Compra en " + storeName, null);
     }
 
-    // ── Checkout Pro: PSE, tarjetas, Efecty, Bancolombia ──────
     public Map<String, String> createPreference(
             BigDecimal total,
             String description,
             List<Map<String, Object>> items) throws MPException, MPApiException {
 
         MercadoPagoConfig.setAccessToken(accessToken);
-
         PreferenceClient client = new PreferenceClient();
         List<PreferenceItemRequest> mpItems = new ArrayList<>();
 
@@ -71,8 +55,7 @@ public class PaymentService {
                 String rawPrice = String.valueOf(item.getOrDefault("price", total));
                 BigDecimal unitPrice;
                 try { unitPrice = new BigDecimal(rawPrice); } catch (NumberFormatException e) { unitPrice = total; }
-                if (unitPrice.compareTo(BigDecimal.ZERO) <= 0) continue; // Ignorar descuentos negativos
-
+                if (unitPrice.compareTo(BigDecimal.ZERO) <= 0) continue;
                 mpItems.add(PreferenceItemRequest.builder()
                     .id(String.valueOf(item.getOrDefault("id", "prod")))
                     .title(String.valueOf(item.getOrDefault("name", "Producto")))
@@ -83,31 +66,24 @@ public class PaymentService {
                     .build());
             }
         }
-
         if (mpItems.isEmpty()) {
             mpItems.add(PreferenceItemRequest.builder()
                 .id("kosmica-order")
                 .title(description != null ? description : "Compra en " + storeName)
-                .quantity(1)
-                .unitPrice(total)
-                .currencyId("COP")
-                .build());
+                .quantity(1).unitPrice(total).currencyId("COP").build());
         }
-
-        PreferenceBackUrlsRequest backUrls = PreferenceBackUrlsRequest.builder()
-            .success(storeUrl + "/?pago=exitoso")
-            .failure(storeUrl + "/?pago=fallido")
-            .pending(storeUrl + "/?pago=pendiente")
-            .build();
 
         PreferenceRequest request = PreferenceRequest.builder()
             .items(mpItems)
-            .backUrls(backUrls)
+            .backUrls(PreferenceBackUrlsRequest.builder()
+                .success(storeUrl + "/?pago=exitoso")
+                .failure(storeUrl + "/?pago=fallido")
+                .pending(storeUrl + "/?pago=pendiente")
+                .build())
             .autoReturn("approved")
             .externalReference("KOSMICA-" + System.currentTimeMillis())
             .notificationUrl(storeUrl + "/api/orders/webhook")
             .statementDescriptor(storeName)
-            // ✅ Sin exclusiones: PSE, tarjetas, Efecty disponibles
             .build();
 
         Preference preference = client.create(request);
@@ -124,13 +100,7 @@ public class PaymentService {
         );
     }
 
-    // ── Nequi DIRECTO con Payments API ───────────────────────
-    // Flujo correcto:
-    //   1. Backend llama POST /v1/payments con payment_method_id="nequi"
-    //   2. MercadoPago envía push notification al celular del comprador
-    //   3. Comprador aprueba en su app Nequi → estado = "approved"
-    //   4. MercadoPago llama nuestro webhook → pedido se marca PAID
-    //   *** NO redirige a ningún sitio externo ***
+    // ── Nequi DIRECTO — Payments API con diagnóstico completo ──
     public Map<String, String> createNequiPayment(
             BigDecimal amount,
             String phone,
@@ -140,40 +110,66 @@ public class PaymentService {
 
         MercadoPagoConfig.setAccessToken(accessToken);
 
-        String cleanPhone = phone.replaceAll("\\D", "");
-        if (cleanPhone.length() != 10) {
-            throw new IllegalArgumentException("El número Nequi debe tener 10 dígitos: " + cleanPhone);
+        // Validar credenciales: Nequi SOLO funciona con token de producción real
+        if (accessToken == null || accessToken.startsWith("TEST-") || accessToken.equals("TEST-placeholder")) {
+            log.warn("⚠️ Nequi requiere credenciales de PRODUCCIÓN de MercadoPago Colombia. Token actual parece ser de prueba.");
+            throw new RuntimeException(
+                "Nequi directo requiere credenciales de producción activas de MercadoPago Colombia. " +
+                "Por favor verifica que MERCADOPAGO_ACCESS_TOKEN sea tu token de producción (APP_USR-...).");
         }
 
-        String email = (customerEmail != null && !customerEmail.isBlank())
+        String cleanPhone = phone.replaceAll("\\D", "");
+        if (cleanPhone.length() != 10) {
+            throw new IllegalArgumentException("El número Nequi debe tener exactamente 10 dígitos: recibido=" + cleanPhone);
+        }
+
+        String email = (customerEmail != null && !customerEmail.isBlank() && customerEmail.contains("@"))
             ? customerEmail : "cliente@kosmica.com.co";
+
+        String firstName = extractFirstName(customerName);
+        String extRef = "KOSMICA-NEQUI-" + (orderId != null ? orderId : System.currentTimeMillis());
+
+        log.info("🟣 Creando pago Nequi: phone={} email={} amount={} ref={}", cleanPhone, email, amount, extRef);
 
         PaymentCreateRequest paymentRequest = PaymentCreateRequest.builder()
             .transactionAmount(amount)
-            .description("Compra en " + storeName + (orderId != null ? " #" + orderId : ""))
+            .description("Compra en " + storeName)
             .paymentMethodId("nequi")
             .payer(PaymentPayerRequest.builder()
                 .email(email)
-                .firstName(extractFirstName(customerName))
+                .firstName(firstName)
                 .phone(PhoneRequest.builder()
                     .areaCode("57")
                     .number(cleanPhone)
                     .build())
                 .build())
-            .externalReference("KOSMICA-NEQUI-" + (orderId != null ? orderId : System.currentTimeMillis()))
+            .externalReference(extRef)
             .notificationUrl(storeUrl + "/api/orders/webhook")
             .build();
 
         PaymentClient client = new PaymentClient();
-        Payment payment = client.create(paymentRequest);
+        Payment payment;
 
-        log.info("Nequi Payments API: id={} status={} statusDetail={}",
+        try {
+            payment = client.create(paymentRequest);
+        } catch (MPApiException apiEx) {
+            // Log completo del error de la API para diagnóstico
+            log.error("❌ MercadoPago API error al crear pago Nequi: status={} content={}",
+                apiEx.getStatusCode(), apiEx.getApiResponse() != null ? apiEx.getApiResponse().getContent() : "sin contenido");
+            throw new RuntimeException("Error MercadoPago [" + apiEx.getStatusCode() + "]: " +
+                (apiEx.getApiResponse() != null ? apiEx.getApiResponse().getContent() : apiEx.getMessage()));
+        }
+
+        log.info("✅ Nequi Payments API: id={} status={} statusDetail={}",
             payment.getId(), payment.getStatus(), payment.getStatusDetail());
 
         if ("rejected".equals(payment.getStatus())) {
-            throw new RuntimeException("Pago Nequi rechazado: " + humanizeNequiError(payment.getStatusDetail()));
+            String detail = payment.getStatusDetail();
+            log.error("❌ Pago Nequi rechazado: paymentId={} detail={}", payment.getId(), detail);
+            throw new RuntimeException("Pago rechazado: " + humanizeNequiError(detail));
         }
 
+        // Estado esperado: "pending" / "pending_waiting_transfer" → notificación enviada
         Map<String, String> result = new HashMap<>();
         result.put("paymentId",    String.valueOf(payment.getId()));
         result.put("status",       payment.getStatus() != null ? payment.getStatus() : "pending");
@@ -182,12 +178,12 @@ public class PaymentService {
         return result;
     }
 
-    // Sobrecarga de compatibilidad para el controlador existente
+    // Sobrecarga de compatibilidad
     public Map<String, String> createNequiPayment(BigDecimal amount, String phone) throws Exception {
         return createNequiPayment(amount, phone, null, null, null);
     }
 
-    // ── Verificar pago por payment_id (webhook) ───────────────
+    // ── Verificar pago por payment_id ─────────────────────────
     public boolean verifyPayment(String paymentId) {
         try {
             MercadoPagoConfig.setAccessToken(accessToken);
@@ -202,6 +198,23 @@ public class PaymentService {
         }
     }
 
+    // ── Consultar estado de un pago Nequi (para polling) ─────
+    public Map<String, String> getPaymentStatus(String paymentId) {
+        try {
+            MercadoPagoConfig.setAccessToken(accessToken);
+            PaymentClient client = new PaymentClient();
+            Payment payment = client.get(Long.parseLong(paymentId));
+            Map<String, String> result = new HashMap<>();
+            result.put("paymentId",    paymentId);
+            result.put("status",       payment.getStatus() != null ? payment.getStatus() : "pending");
+            result.put("statusDetail", payment.getStatusDetail() != null ? payment.getStatusDetail() : "");
+            return result;
+        } catch (Exception e) {
+            log.error("Error consultando estado pago {}: {}", paymentId, e.getMessage());
+            return Map.of("paymentId", paymentId, "status", "error", "statusDetail", e.getMessage());
+        }
+    }
+
     private String extractFirstName(String fullName) {
         if (fullName == null || fullName.isBlank()) return "Cliente";
         return fullName.trim().split("\\s+")[0];
@@ -210,11 +223,13 @@ public class PaymentService {
     private String humanizeNequiError(String detail) {
         if (detail == null) return "Error desconocido";
         return switch (detail) {
-            case "cc_rejected_insufficient_amount" -> "Saldo insuficiente en Nequi";
-            case "cc_rejected_bad_filled_other"    -> "Datos incorrectos";
-            case "pending_waiting_transfer"        -> "Esperando aprobación en app Nequi";
-            case "pending_review_manual"           -> "En revisión por MercadoPago";
-            default                                -> detail;
+            case "cc_rejected_insufficient_amount"    -> "Saldo insuficiente en Nequi";
+            case "cc_rejected_bad_filled_other"       -> "Datos incorrectos";
+            case "cc_rejected_call_for_authorize"     -> "Nequi bloqueó el pago. Verifica tu app";
+            case "cc_rejected_other_reason"           -> "Nequi no procesó el pago. Intenta de nuevo";
+            case "pending_waiting_transfer"           -> "Notificación enviada — espera en la app";
+            case "pending_review_manual"              -> "En revisión por MercadoPago";
+            default                                   -> detail;
         };
     }
 }

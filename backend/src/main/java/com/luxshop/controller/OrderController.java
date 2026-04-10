@@ -40,18 +40,27 @@ public class OrderController {
             @RequestBody Map<String, Object> body) {
         try {
             BigDecimal amount = new BigDecimal(body.get("amount").toString());
-            String phone = body.get("phone").toString();
-            // ✅ Pasar email y nombre para la Payments API de Nequi (requerido por MercadoPago)
+            String phone   = body.get("phone").toString();
             String email   = body.containsKey("email")   ? String.valueOf(body.get("email"))   : null;
             String name    = body.containsKey("name")    ? String.valueOf(body.get("name"))    : null;
             String orderId = body.containsKey("orderId") ? String.valueOf(body.get("orderId")) : null;
             Map<String, String> result = paymentService.createNequiPayment(amount, phone, email, name, orderId);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
-            log.error("Error creando pago Nequi: {}", e.getMessage());
-            return ResponseEntity.internalServerError()
-                .body(Map.of("error", e.getMessage()));
+            log.error("❌ Error creando pago Nequi: {}", e.getMessage());
+            // Devolver 200 con campo error para que el frontend pueda leerlo sin romper el JSON parse
+            Map<String, String> errorResp = new HashMap<>();
+            errorResp.put("error",  e.getMessage());
+            errorResp.put("status", "error");
+            return ResponseEntity.ok(errorResp);
         }
+    }
+
+    // ── Polling de estado de pago Nequi ───────────────────────
+    @GetMapping("/nequi-status/{paymentId}")
+    public ResponseEntity<Map<String, String>> getNequiStatus(@PathVariable String paymentId) {
+        Map<String, String> status = paymentService.getPaymentStatus(paymentId);
+        return ResponseEntity.ok(status);
     }
 
     // ── Crear preferencia MercadoPago ─────────────────────────
