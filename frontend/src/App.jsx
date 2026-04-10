@@ -1264,12 +1264,13 @@ const CSS = `
      💎 PUNTOS DE FIDELIDAD
   ════════════════════════════════════════ */
   .loyalty-badge {
-    display: inline-flex; align-items: center; gap: 6px;
+    display: inline-flex; align-items: center; gap: 5px;
     background: linear-gradient(135deg, #FFD700, #FFA500);
-    color: #7B4F00; border-radius: 30px; padding: 5px 13px;
+    color: #7B4F00; border-radius: 30px; padding: 5px 11px;
     font-size: .82rem; font-weight: 800; cursor: pointer;
     border: none; box-shadow: 0 2px 10px rgba(255,165,0,.35);
     transition: transform .2s; white-space: nowrap;
+    flex-shrink: 0; max-width: 110px; overflow: hidden;
   }
   .loyalty-badge:hover { transform: scale(1.05); }
   .loyalty-modal-overlay {
@@ -1334,6 +1335,24 @@ const CSS = `
   .loyalty-tier-ico { font-size: 1.3rem; margin-bottom: 4px; }
   .loyalty-tier-name { font-weight: 700; color: var(--dark); }
   .loyalty-tier-pts { font-size: .72rem; color: var(--muted); margin-top: 2px; }
+  .loyalty-streak-box {
+    display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(135deg,#FFF3E0,#FFE0B2);
+    border: 1.5px solid #FFCC80; border-radius: 14px; padding: 12px 16px;
+    margin-bottom: 14px;
+  }
+  .loyalty-streak-left { display: flex; align-items: center; gap: 10px; }
+  .loyalty-streak-fire { font-size: 1.8rem; }
+  .loyalty-streak-label { font-size: .78rem; color: #BF6000; font-weight: 600; }
+  .loyalty-streak-count { font-size: 1.4rem; font-weight: 900; color: #E65100; }
+  .loyalty-daily-bar {
+    background: #F3F4F6; border-radius: 12px; padding: 10px 14px;
+    margin-bottom: 14px;
+  }
+  .loyalty-daily-label { font-size: .76rem; color: #6B7280; font-weight: 600; margin-bottom: 6px; display: flex; justify-content: space-between; }
+  .loyalty-daily-track { height: 8px; background: #E5E7EB; border-radius: 99px; overflow: hidden; }
+  .loyalty-daily-fill { height: 100%; background: linear-gradient(90deg,#9B72CF,#7C3AED); border-radius: 99px; transition: width .5s ease; }
+  .loyalty-value-note { font-size: .78rem; color: #7C3AED; font-weight: 700; text-align: center; margin-bottom: 10px; }
 
   /* ════════════════════════════════════════
      🔔 NOTIFICACIONES PUSH BANNER
@@ -1563,6 +1582,8 @@ export default function App() {
   const [scrolled,setScrolled]               = useState(false);
   const [toast,setToast]                     = useState("");
   const [paying,setPaying]                   = useState(false);
+  const [paymentMethod,setPaymentMethod]     = useState("mp"); // "mp" | "nequi"
+  const [nequiPhone,setNequiPhone]           = useState("");
   const [selectedProduct,setSelectedProduct] = useState(null);
   const [drawerOpen,setDrawerOpen]           = useState(false);
   const [form,setForm] = useState({name:"",email:"",phone:"",document:"",city:"",neighborhood:"",address:"",notes:""});
@@ -1612,12 +1633,25 @@ export default function App() {
   const [socialProof, setSocialProof]         = useState(null);
   const [spHiding, setSpHiding]               = useState(false);
   // ── PUNTOS DE FIDELIDAD ──
+  const DAILY_POINTS_LIMIT = 200;
   const [loyaltyOpen, setLoyaltyOpen]         = useState(false);
   const [loyaltyPoints] = useState(() => {
     try { return parseInt(localStorage.getItem("kosmica_pts") || "0", 10); }
     catch { return 0; }
   });
   const [displayPoints, setDisplayPoints]     = useState(loyaltyPoints);
+  const [purchaseStreak, setPurchaseStreak]   = useState(() => {
+    try { return parseInt(localStorage.getItem("kosmica_streak") || "0", 10); }
+    catch { return 0; }
+  });
+  const [dailyPtsEarned, setDailyPtsEarned]   = useState(() => {
+    try {
+      const today = new Date().toDateString();
+      const savedDate = localStorage.getItem("kosmica_daily_pts_date");
+      if (savedDate !== today) return 0;
+      return parseInt(localStorage.getItem("kosmica_daily_pts") || "0", 10);
+    } catch { return 0; }
+  });
   // ── NOTIFICACIONES PUSH ──
   const [pushBanner, setPushBanner]           = useState(false);
   const [pushGranted, setPushGranted]         = useState(false);
@@ -1998,13 +2032,41 @@ export default function App() {
   // ════════════════════════════════════════
   // 💎 PUNTOS — sumar por compra y guardar
   // ════════════════════════════════════════
+  // 1 punto = $36 COP → pts = round(total / 36)
   const awardLoyaltyPoints = (total) => {
-    const pts = Math.floor(total / 1000); // 1 punto por cada $1.000 COP
+    const pts = Math.floor(total / 36);
     try {
-      const current = parseInt(localStorage.getItem("kosmica_pts") || "0", 10);
-      const newTotal = current + pts;
-      localStorage.setItem("kosmica_pts", String(newTotal));
-      setDisplayPoints(newTotal);
+      const today = new Date().toDateString();
+      // Límite diario
+      const savedDate = localStorage.getItem("kosmica_daily_pts_date");
+      let todayEarned = savedDate === today
+        ? parseInt(localStorage.getItem("kosmica_daily_pts") || "0", 10)
+        : 0;
+      const remaining = DAILY_POINTS_LIMIT - todayEarned;
+      const awarded = Math.max(0, Math.min(pts, remaining));
+      if (awarded > 0) {
+        const current = parseInt(localStorage.getItem("kosmica_pts") || "0", 10);
+        const newTotal = current + awarded;
+        localStorage.setItem("kosmica_pts", String(newTotal));
+        setDisplayPoints(newTotal);
+        todayEarned += awarded;
+        localStorage.setItem("kosmica_daily_pts", String(todayEarned));
+        localStorage.setItem("kosmica_daily_pts_date", today);
+        setDailyPtsEarned(todayEarned);
+      }
+      // Racha de compras
+      const lastPurchase = localStorage.getItem("kosmica_last_purchase_date");
+      const yesterday = new Date(Date.now() - 864e5).toDateString();
+      let newStreak = 1;
+      if (lastPurchase === yesterday) {
+        newStreak = (parseInt(localStorage.getItem("kosmica_streak") || "0", 10)) + 1;
+      } else if (lastPurchase === today) {
+        newStreak = parseInt(localStorage.getItem("kosmica_streak") || "1", 10);
+      }
+      localStorage.setItem("kosmica_streak", String(newStreak));
+      localStorage.setItem("kosmica_last_purchase_date", today);
+      setPurchaseStreak(newStreak);
+      return awarded;
     } catch(_) {}
     return pts;
   };
@@ -2138,8 +2200,9 @@ export default function App() {
       // ✅ PUNTOS: guardar como PENDIENTES — solo se acreditan cuando MP confirma pago
       //    Se aplican al volver con ?payment_status=approved en la URL
       try {
-        const pendingPts = Math.floor(grandTotal / 1000);
+        const pendingPts = Math.floor(grandTotal / 36);
         localStorage.setItem("kosmica_pending_pts", String(pendingPts));
+        localStorage.setItem("kosmica_pending_order_total", String(grandTotal));
         if (currentUser) {
           localStorage.setItem("kosmica_pending_pts_user", currentUser.email);
         }
@@ -2159,6 +2222,50 @@ export default function App() {
 
   const scrollTo=()=>ref.current?.scrollIntoView({behavior:"smooth"});
   const selectCat=cat=>{ setActiveCategory(cat); setSearch(""); setDrawerOpen(false); scrollTo(); };
+
+  const handleNequiCheckout = async e => {
+    e.preventDefault();
+    if (!selectedShippingMethod) { showToast("⚠️ Selecciona un método de envío"); return; }
+    const phone = nequiPhone.replace(/\D/g,"");
+    if (phone.length < 10) { showToast("⚠️ Ingresa tu número de celular Nequi (10 dígitos)"); return; }
+    setPaying(true);
+    try {
+      const orderResp = await orderAPI.createOrder({
+        name:form.name, email:form.email, phone:form.phone, document:form.document,
+        city:form.city, neighborhood:form.neighborhood, address:form.address, notes:form.notes,
+        paymentMethod:"NEQUI",
+        paymentIntentId: null,
+        shippingMethod:selectedShippingMethod.id,
+        shippingCost:selectedShippingMethod.cost,
+        items:cart.map(i=>({productId:i.id,quantity:i.qty})),
+        couponCode:       appliedCoupon && !appliedCoupon.code.startsWith("LUX-") && appliedCoupon.type !== "giftcard" ? appliedCoupon.code : null,
+        couponDiscount:   couponDiscount,
+        referralCode:     appliedCoupon?.code.startsWith("LUX-") ? appliedCoupon.code : (referralCode || null),
+        giftCardCode:     appliedCoupon?.type === "giftcard" ? appliedCoupon.code : null,
+        giftCardDiscount: appliedCoupon?.type === "giftcard" ? couponDiscount : 0,
+        nequiPhone:       phone,
+      });
+      // Llamar al backend para crear pago Nequi
+      const res = await fetch("/api/orders/nequi-payment", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ amount: grandTotal, phone, orderId: orderResp?.id || orderResp?.orderNumber }),
+      });
+      const data = await res.json();
+      setCart([]); setAppliedCoupon(null); setSelectedShippingMethod(null); setCheckoutOpen(false);
+      try { localStorage.removeItem("kosmica_cart"); } catch(_) {}
+      try {
+        localStorage.setItem("kosmica_pending_pts", String(Math.floor(grandTotal/36)));
+        if (currentUser) localStorage.setItem("kosmica_pending_pts_user", currentUser.email);
+      } catch(_) {}
+      if (data.checkoutUrl || data.initPoint) {
+        window.location.href = data.checkoutUrl || data.initPoint;
+      } else {
+        showToast("✅ Pedido registrado. Te notificamos por WhatsApp para confirmar el pago Nequi.");
+      }
+    } catch(e) { showToast("⚠️ "+e.message); }
+    finally { setPaying(false); }
+  };
 
   // ── VIRAL FUNCTIONS ──
   const submitNewsletter = async (e) => {
@@ -2431,7 +2538,7 @@ export default function App() {
             </div>
             {displayPoints > 0 && (
               <button className="loyalty-badge" onClick={()=>setLoyaltyOpen(true)} title="Mis puntos Kosmica">
-                💎 {displayPoints} pts
+                💎 {displayPoints}
               </button>
             )}
             {currentUser ? (
@@ -3005,26 +3112,71 @@ export default function App() {
                     onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/>
                 </div>
                 <p className="form-section">Método de Pago</p>
-                <div style={{background:'linear-gradient(135deg,#009EE3,#0070B8)',borderRadius:16,padding:'18px 20px',marginBottom:12,display:'flex',alignItems:'center',gap:14}}>
-                  <div style={{fontSize:'2.2rem'}}>💳</div>
-                  <div>
-                    <div style={{color:'#fff',fontWeight:700,fontSize:'1rem'}}>Pagar con MercadoPago</div>
-                    <div style={{color:'rgba(255,255,255,.8)',fontSize:'.88rem',marginTop:3}}>
-                      Tarjetas, PSE, Nequi, Efecty, Bancolombia y más
+                {/* Selector Nequi vs MercadoPago */}
+                <div style={{display:"flex",gap:10,marginBottom:12}}>
+                  <button type="button"
+                    onClick={()=>setPaymentMethod("nequi")}
+                    style={{flex:1,padding:"13px 8px",border:paymentMethod==="nequi"?"2.5px solid #3B0764":"2px solid #E9D5FF",borderRadius:14,
+                      background:paymentMethod==="nequi"?"linear-gradient(135deg,#3B0764,#6D28D9)":"#FDFCFF",
+                      color:paymentMethod==="nequi"?"#fff":"#6D28D9",fontWeight:700,fontSize:".88rem",cursor:"pointer",
+                      boxShadow:paymentMethod==="nequi"?"0 4px 14px rgba(109,40,217,.3)":"none",transition:"all .2s"}}>
+                    <div style={{fontSize:"1.4rem",marginBottom:3}}>🟣</div>
+                    <div>Nequi</div>
+                    <div style={{fontSize:".72rem",fontWeight:500,opacity:.8,marginTop:2}}>Sin redirigir</div>
+                  </button>
+                  <button type="button"
+                    onClick={()=>setPaymentMethod("mp")}
+                    style={{flex:1,padding:"13px 8px",border:paymentMethod==="mp"?"2.5px solid #009EE3":"2px solid #BAE6FD",borderRadius:14,
+                      background:paymentMethod==="mp"?"linear-gradient(135deg,#009EE3,#0070B8)":"#FDFCFF",
+                      color:paymentMethod==="mp"?"#fff":"#0070B8",fontWeight:700,fontSize:".88rem",cursor:"pointer",
+                      boxShadow:paymentMethod==="mp"?"0 4px 14px rgba(0,158,227,.3)":"none",transition:"all .2s"}}>
+                    <div style={{fontSize:"1.4rem",marginBottom:3}}>💳</div>
+                    <div>MercadoPago</div>
+                    <div style={{fontSize:".72rem",fontWeight:500,opacity:.8,marginTop:2}}>Tarjeta, PSE, Efecty</div>
+                  </button>
+                </div>
+                {/* Nequi: solo pide el número */}
+                {paymentMethod==="nequi" && (
+                  <div style={{background:"linear-gradient(135deg,#F5F3FF,#EDE9FE)",border:"1.5px solid #C4B5FD",borderRadius:14,padding:"16px",marginBottom:12}}>
+                    <div style={{fontWeight:700,color:"#5B21B6",marginBottom:8,fontSize:".92rem"}}>🟣 Pagar con Nequi</div>
+                    <label className="form-label">Número celular Nequi *</label>
+                    <input type="tel" className="form-input" placeholder="3XX XXX XXXX" maxLength={10}
+                      value={nequiPhone} onChange={e=>setNequiPhone(e.target.value.replace(/\D/g,""))}
+                      style={{letterSpacing:".1em",fontWeight:700}}/>
+                    <div style={{fontSize:".76rem",color:"#7C3AED",marginTop:6}}>
+                      💡 Recibirás una notificación push en tu app Nequi para aprobar el pago
                     </div>
                   </div>
-                  <div style={{marginLeft:'auto',background:'rgba(255,255,255,.18)',borderRadius:10,padding:'5px 13px',color:'#fff',fontSize:'.82rem',fontWeight:700}}>
-                    ✓ Seguro
+                )}
+                {paymentMethod==="mp" && (
+                  <div style={{background:"linear-gradient(135deg,#009EE3,#0070B8)",borderRadius:16,padding:"18px 20px",marginBottom:12,display:"flex",alignItems:"center",gap:14}}>
+                    <div style={{fontSize:"2.2rem"}}>💳</div>
+                    <div>
+                      <div style={{color:"#fff",fontWeight:700,fontSize:"1rem"}}>Pagar con MercadoPago</div>
+                      <div style={{color:"rgba(255,255,255,.8)",fontSize:".88rem",marginTop:3}}>
+                        Tarjetas, PSE, Efecty, Bancolombia y más
+                      </div>
+                    </div>
+                    <div style={{marginLeft:"auto",background:"rgba(255,255,255,.18)",borderRadius:10,padding:"5px 13px",color:"#fff",fontSize:".82rem",fontWeight:700}}>
+                      ✓ Seguro
+                    </div>
                   </div>
-                </div>
+                )}
                 <div className="secure-note">
-                  🔒 Serás redirigido a MercadoPago para completar tu pago de forma segura
+                  🔒 {paymentMethod==="nequi" ? "Pago directo desde tu app Nequi, sin formularios" : "Serás redirigido a MercadoPago para completar tu pago de forma segura"}
                 </div>
                 <button type="submit" className="pay-btn"
-                  disabled={paying || !selectedShippingMethod}
-                  style={{background:paying||!selectedShippingMethod?"#A0AEC0":"linear-gradient(135deg,#009EE3,#0070B8)",cursor:paying||!selectedShippingMethod?"not-allowed":"pointer"}}>
-                  {paying ? "⏳ Redirigiendo..."
+                  onClick={paymentMethod==="nequi" ? handleNequiCheckout : undefined}
+                  disabled={paying || !selectedShippingMethod || (paymentMethod==="nequi" && nequiPhone.length < 10)}
+                  style={{
+                    background: paying||!selectedShippingMethod ? "#A0AEC0"
+                      : paymentMethod==="nequi" ? "linear-gradient(135deg,#3B0764,#6D28D9)"
+                      : "linear-gradient(135deg,#009EE3,#0070B8)",
+                    cursor: paying||!selectedShippingMethod||(paymentMethod==="nequi"&&nequiPhone.length<10) ? "not-allowed" : "pointer"
+                  }}>
+                  {paying ? "⏳ Procesando..."
                     : !selectedShippingMethod ? "Selecciona un método de envío"
+                    : paymentMethod==="nequi" ? `🟣 Pagar con Nequi ${fmtCOP(grandTotal)} COP`
                     : `Ir a pagar ${fmtCOP(grandTotal)} COP →`}
                 </button>
               </form>
@@ -3375,6 +3527,35 @@ export default function App() {
               <div className="loyalty-points-num">{displayPoints}</div>
               <div className="loyalty-points-label">puntos acumulados</div>
             </div>
+            <div className="loyalty-value-note">
+              💡 1 punto = $36 COP · Valor acumulado: ${(displayPoints * 36).toLocaleString("es-CO")} COP
+            </div>
+            {/* Racha */}
+            {purchaseStreak > 0 && (
+              <div className="loyalty-streak-box">
+                <div className="loyalty-streak-left">
+                  <div className="loyalty-streak-fire">🔥</div>
+                  <div>
+                    <div className="loyalty-streak-label">Racha de compras</div>
+                    <div style={{fontSize:".74rem",color:"#BF6000"}}>¡Sigue comprando cada día!</div>
+                  </div>
+                </div>
+                <div>
+                  <div className="loyalty-streak-count">{purchaseStreak}</div>
+                  <div style={{fontSize:".68rem",color:"#BF6000",textAlign:"center"}}>días</div>
+                </div>
+              </div>
+            )}
+            {/* Límite diario */}
+            <div className="loyalty-daily-bar">
+              <div className="loyalty-daily-label">
+                <span>Puntos de hoy</span>
+                <span>{dailyPtsEarned} / {DAILY_POINTS_LIMIT} pts</span>
+              </div>
+              <div className="loyalty-daily-track">
+                <div className="loyalty-daily-fill" style={{width:`${Math.min(100,(dailyPtsEarned/DAILY_POINTS_LIMIT)*100)}%`}}/>
+              </div>
+            </div>
             {/* Niveles */}
             <div className="loyalty-tier">
               {[
@@ -3393,7 +3574,7 @@ export default function App() {
             <div className="loyalty-how">
               <div className="loyalty-how-title">Cómo ganar puntos</div>
               {[
-                ["Cada compra","1 pt por cada $1.000 COP"],
+                ["Cada compra","1 pt por cada $36 COP"],
                 ["Referir una amiga","+50 pts cuando ella compra"],
                 ["Dejar reseña","+10 pts por reseña publicada"],
                 ["Newsletter","+20 pts al suscribirte"],
@@ -3409,11 +3590,11 @@ export default function App() {
                 setLoyaltyOpen(false);
                 showToast("💎 Contacta a Kosmica por WhatsApp para canjear tus puntos");
                 setTimeout(()=>{
-                  const text = `Hola Kosmica! 💜 Tengo ${displayPoints} puntos acumulados y me gustaría canjearlos por un descuento.`;
+                  const text = `Hola Kosmica! 💜 Tengo ${displayPoints} puntos acumulados (equivalen a $${(displayPoints*36).toLocaleString("es-CO")} COP) y me gustaría canjearlos por un descuento.`;
                   window.open(`https://wa.me/573043927148?text=${encodeURIComponent(text)}`,"_blank");
                 },1000);
               }}>
-                🎁 Canjear mis {displayPoints} puntos
+                🎁 Canjear mis {displayPoints} pts (${(displayPoints*36).toLocaleString("es-CO")} COP)
               </button>
             ) : (
               <button className="loyalty-redeem" style={{background:"linear-gradient(135deg,#B8A0D8,#9B72CF)"}} onClick={()=>{setLoyaltyOpen(false);scrollTo();}}>

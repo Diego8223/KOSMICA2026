@@ -34,6 +34,22 @@ public class OrderController {
     private final ReferralService referralService;  // ✅ NUEVO: para activar cupón 15%
     private final EmailService    emailService;     // ✅ NUEVO: para notificaciones gift card
 
+    // ── Pago directo con Nequi ─────────────────────────────────────
+    @PostMapping("/nequi-payment")
+    public ResponseEntity<Map<String, Object>> createNequiPayment(
+            @RequestBody Map<String, Object> body) {
+        try {
+            BigDecimal amount = new BigDecimal(body.get("amount").toString());
+            String phone = body.get("phone").toString();
+            Map<String, Object> result = paymentService.createNequiPayment(amount, phone);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("Error creando pago Nequi: {}", e.getMessage());
+            return ResponseEntity.internalServerError()
+                .body(Map.of("error", e.getMessage()));
+        }
+    }
+
     // ── Crear preferencia MercadoPago ─────────────────────────
     @PostMapping("/payment-intent")
     public ResponseEntity<Map<String, String>> createPaymentIntent(

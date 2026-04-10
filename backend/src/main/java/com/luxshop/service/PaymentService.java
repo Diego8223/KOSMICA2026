@@ -1,6 +1,7 @@
 package com.luxshop.service;
 
 import com.mercadopago.MercadoPagoConfig;
+import com.mercadopago.client.payment.*;
 import com.mercadopago.client.preference.*;
 import com.mercadopago.exceptions.MPApiException;
 import com.mercadopago.exceptions.MPException;
@@ -15,18 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * PaymentService — MercadoPago Checkout Pro
- *
- * Flujo:
- * 1. Frontend llama POST /api/orders/payment-intent con los items
- * 2. Backend crea una Preference en MercadoPago
- * 3. Backend devuelve init_point (URL de pago)
- * 4. Frontend redirige al cliente a esa URL
- * 5. Cliente paga en MercadoPago (tarjeta, PSE, Nequi, Efecty, etc)
- * 6. MercadoPago redirige de vuelta a la tienda con el resultado
- *
- * Obtén tus credenciales en:
- * https://www.mercadopago.com.co/developers/es/docs/your-integrations/credentials
+ * PaymentService — MercadoPago Checkout Pro + Nequi directo
  */
 @Slf4j
 @Service
@@ -59,7 +49,6 @@ public class PaymentService {
 
         PreferenceClient client = new PreferenceClient();
 
-        // Items de la preferencia
         List<PreferenceItemRequest> mpItems = new ArrayList<>();
 
         if (items != null && !items.isEmpty()) {
@@ -74,7 +63,6 @@ public class PaymentService {
                     .build());
             }
         } else {
-            // Item genérico si no se pasan detalles
             mpItems.add(PreferenceItemRequest.builder()
                 .id("kosmica-order")
                 .title(description)
@@ -84,14 +72,12 @@ public class PaymentService {
                 .build());
         }
 
-        // URLs de retorno
         PreferenceBackUrlsRequest backUrls = PreferenceBackUrlsRequest.builder()
             .success(storeUrl + "/?pago=exitoso")
             .failure(storeUrl + "/?pago=fallido")
             .pending(storeUrl + "/?pago=pendiente")
             .build();
 
-        // Construir preferencia
         PreferenceRequest request = PreferenceRequest.builder()
             .items(mpItems)
             .backUrls(backUrls)
@@ -105,7 +91,6 @@ public class PaymentService {
 
         log.info("MercadoPago Preference creada: {}", preference.getId());
 
-        // Usar sandbox_init_point en TEST, init_point en producción
         String initPoint = accessToken.startsWith("TEST-")
             ? preference.getSandboxInitPoint()
             : preference.getInitPoint();
@@ -114,6 +99,53 @@ public class PaymentService {
             "preferenceId",  preference.getId(),
             "initPoint",     initPoint != null ? initPoint : preference.getInitPoint(),
             "publicKey",     publicKey
+        );
+    }
+
+    // ── Pago directo con Nequi ─────────────────────────────────────
+    // Usa la Payments API de MercadoPago con payment_method_id = "nequi"
+    // El cliente recibe una notificación push en su app Nequi para aprobar
+    public Map<String, Object> createNequiPayment(BigDecimal amount, String phone) throws Exception {
+        MercadoPagoConfig.setAccessToken(accessToken);
+
+        // Normalizar teléfono: solo dígitos, 10 caracteres
+        String cleanPhone = phone.replaceAll("\\D", "");
+        if (cleanPhone.length() != 10) {
+            throw new IllegalArgumentException("El número Nequi debe tener 10 dígitos");
+        }
+
+        PaymentClient paymentClient = new PaymentClient();
+
+        PaymentCreateRequest paymentRequest = PaymentCreateRequest.builder()
+            .transactionAmount(amount)
+            .description("Compra en " + storeName)
+            .paymentMethodId("nequi")
+            .payer(PaymentPayerRequest.builder()
+                .email("cliente@kosmica.com.co") // email genérico requerido por MP
+                .identification(PaymentIdentificationRequest.builder()
+                    .type("CC")
+                    .number(cleanPhone)
+                    .build())
+                .build())
+            .additionalInfo(PaymentAdditionalInfoRequest.builder()
+                .payer(PaymentAdditionalInfoPayerRequest.builder()
+                    .phone(PaymentAdditionalInfoPayerPhoneRequest.builder()
+                        .number(cleanPhone)
+                        .build())
+                    .build())
+                .build())
+            .notificationUrl(storeUrl + "/api/orders/webhook")
+            .externalReference("KOSMICA-NEQUI-" + System.currentTimeMillis())
+            .build();
+
+        com.mercadopago.resources.payment.Payment payment = paymentClient.create(paymentRequest);
+
+        log.info("Nequi payment creado: id={} status={}", payment.getId(), payment.getStatus());
+
+        return Map.of(
+            "paymentId",  String.valueOf(payment.getId()),
+            "status",     payment.getStatus(),
+            "statusDetail", payment.getStatusDetail() != null ? payment.getStatusDetail() : ""
         );
     }
 
