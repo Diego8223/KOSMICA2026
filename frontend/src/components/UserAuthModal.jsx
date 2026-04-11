@@ -216,7 +216,6 @@ export default function UserAuthModal({ open, onClose, onSuccess, initialTab = "
     setError("");
     if (!loginEmail || !loginPwd) { setError("Completa todos los campos"); return; }
     setLoading(true);
-    await new Promise(r => setTimeout(r, 500)); // simula latencia
     const users = getUsers();
     const user = users.find(u => u.email.toLowerCase() === loginEmail.toLowerCase());
     if (!user) { setError("No encontramos una cuenta con ese correo"); setLoading(false); return; }
@@ -243,7 +242,6 @@ export default function UserAuthModal({ open, onClose, onSuccess, initialTab = "
       setError("Ya existe una cuenta con ese correo. Inicia sesión."); return;
     }
     setLoading(true);
-    await new Promise(r => setTimeout(r, 600));
     const newUser = {
       name, email: email.toLowerCase(), phone, document,
       city, neighborhood: reg.neighborhood, address,

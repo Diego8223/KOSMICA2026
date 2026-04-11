@@ -4162,6 +4162,17 @@ export default function App() {
       {accountOpen && (
         <Suspense fallback={<SpinFallback/>}>
           <div style={{position:"fixed",inset:0,zIndex:8000,background:"#fff",overflowY:"auto"}}>
+            {/* FIX: boton de cierre de emergencia siempre visible en la capa superior */}
+            <button
+              onClick={()=>setAccountOpen(false)}
+              style={{
+                position:"fixed", top:12, right:14, zIndex:8100,
+                background:"none", border:"none", fontSize:"1.4rem",
+                cursor:"pointer", color:"#6B7280", lineHeight:1,
+                padding:"4px 8px", borderRadius:8
+              }}
+              aria-label="Cerrar panel"
+            >✕</button>
             <UserAccountPage
               onClose={()=>setAccountOpen(false)}
               onOpenGiftCard={()=>{setAccountOpen(false);setGiftCardOpen(true);}}

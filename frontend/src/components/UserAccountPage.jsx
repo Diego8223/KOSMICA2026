@@ -293,7 +293,29 @@ export default function UserAccountPage({ onClose, onOpenGiftCard, onLogout }) {
     onLogout?.();
   };
 
-  if (!user) return null;
+  // FIX: si no hay sesion activa, mostrar fallback con boton de cierre
+  if (!user) return (
+    <div style={{
+      display:"flex", flexDirection:"column", alignItems:"center",
+      justifyContent:"center", minHeight:"100vh", gap:16,
+      background:"#fff", padding:24
+    }}>
+      <div style={{fontSize:"2.5rem"}}>🔒</div>
+      <p style={{color:"#6B7280", fontWeight:600, textAlign:"center"}}>
+        Sesión no encontrada. Por favor inicia sesión nuevamente.
+      </p>
+      <button
+        onClick={onClose}
+        style={{
+          padding:"12px 32px", background:"#7C3AED", color:"#fff",
+          border:"none", borderRadius:12, fontWeight:700,
+          fontSize:"1rem", cursor:"pointer"
+        }}
+      >
+        ← Volver a la tienda
+      </button>
+    </div>
+  );
 
   const tier = getTier(user.points || 0);
   const giftCards = user.giftCards || [];
