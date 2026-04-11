@@ -4150,11 +4150,13 @@ export default function App() {
         onClose={()=>setAuthOpen(false)}
         onSuccess={user=>{
           setCurrentUser(user);
+          setAuthOpen(false);
           const isNew = !user.createdAt || (Date.now() - new Date(user.createdAt).getTime()) < 5000;
           showToast(isNew
             ? "🎉 ¡Cuenta creada! Te regalamos 20 pts de bienvenida 💎"
             : "💜 ¡Bienvenida de nuevo, "+user.name.split(" ")[0]+"!"
           );
+          setAccountOpen(true);
         }}
       />
 
