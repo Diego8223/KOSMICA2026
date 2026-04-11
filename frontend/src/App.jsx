@@ -12,8 +12,9 @@ const OrderTracking      = lazy(() => import("./components/OrderTracking"));
 const AIChatBot          = lazy(() => import("./components/AIChatBot"));
 const ReferralModal      = lazy(() => import("./components/ReferralModal"));
 const GiftCardModal      = lazy(() => import("./components/GiftCardModal"));
-const UserAuthModal      = lazy(() => import("./components/UserAuthModal"));
 const UserAccountPage    = lazy(() => import("./components/UserAccountPage"));
+// ✅ Auth cargado de forma eager (no lazy) → respuesta instantánea al login/logout
+import UserAuthModal from "./components/UserAuthModal";
 
 const CSS = `
   /* ✅ FUENTE: cargada en index.html con display=swap — no bloquea render */
@@ -4143,17 +4144,19 @@ export default function App() {
         </div>
       )}
       {/* ════ MODAL AUTH — Registro / Login ════ */}
-      <Suspense fallback={<SpinFallback/>}>
-        <UserAuthModal
-          open={authOpen}
-          initialTab={authTab}
-          onClose={()=>setAuthOpen(false)}
-          onSuccess={user=>{
-            setCurrentUser(user);
-            showToast("💜 ¡Bienvenida, "+user.name.split(" ")[0]+"!");
-          }}
-        />
-      </Suspense>
+      <UserAuthModal
+        open={authOpen}
+        initialTab={authTab}
+        onClose={()=>setAuthOpen(false)}
+        onSuccess={user=>{
+          setCurrentUser(user);
+          const isNew = !user.createdAt || (Date.now() - new Date(user.createdAt).getTime()) < 5000;
+          showToast(isNew
+            ? "🎉 ¡Cuenta creada! Te regalamos 20 pts de bienvenida 💎"
+            : "💜 ¡Bienvenida de nuevo, "+user.name.split(" ")[0]+"!"
+          );
+        }}
+      />
 
       {/* ════ MI CUENTA — Panel usuario ════ */}
       {accountOpen && (

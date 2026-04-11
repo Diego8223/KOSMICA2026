@@ -224,8 +224,9 @@ export default function UserAuthModal({ open, onClose, onSuccess, initialTab = "
     const sessionUser = { ...user };
     delete sessionUser.passwordHash;
     setCurrentUser(sessionUser);
-    setSuccess("¡Bienvenida de nuevo! 💜");
-    setTimeout(() => { onSuccess?.(sessionUser); onClose?.(); }, 900);
+    // Llamar onSuccess Y cerrar inmediatamente — sin delay para mejor UX
+    onSuccess?.(sessionUser);
+    onClose?.();
     setLoading(false);
   };
 
@@ -256,8 +257,9 @@ export default function UserAuthModal({ open, onClose, onSuccess, initialTab = "
     const sessionUser = { ...newUser };
     delete sessionUser.passwordHash;
     setCurrentUser(sessionUser);
-    setSuccess("¡Cuenta creada! 🎉 Te regalamos 20 puntos de bienvenida 💎");
-    setTimeout(() => { onSuccess?.(sessionUser); onClose?.(); }, 1200);
+    // Llamar onSuccess Y cerrar inmediatamente — el toast lo muestra App.jsx
+    onSuccess?.(sessionUser);
+    onClose?.();
     setLoading(false);
   };
 
