@@ -1281,7 +1281,8 @@ const CSS = `
   .loyalty-modal {
     width: 100%; max-width: 480px; margin: 0 auto;
     background: #fff; border-radius: 28px 28px 0 0;
-    padding: 28px 22px 36px; animation: slideUp .35s cubic-bezier(.22,1,.36,1);
+    padding: 24px 18px 32px; animation: slideUp .35s cubic-bezier(.22,1,.36,1);
+    max-height: 92vh; overflow-y: auto;
   }
   .loyalty-header {
     text-align: center; margin-bottom: 22px;
@@ -1809,11 +1810,13 @@ export default function App() {
   // ── PUNTOS DE FIDELIDAD ──
   const DAILY_POINTS_LIMIT = 200;
   const [loyaltyOpen, setLoyaltyOpen]         = useState(false);
-  const [loyaltyPoints] = useState(() => {
+  // Fuente única de puntos: currentUser.points (si logueado) o localStorage (fallback)
+  const getUserPoints = () => {
+    if (currentUser?.points != null) return parseInt(currentUser.points, 10) || 0;
     try { return parseInt(localStorage.getItem("kosmica_pts") || "0", 10); }
     catch { return 0; }
-  });
-  const [displayPoints, setDisplayPoints]     = useState(loyaltyPoints);
+  };
+  const [displayPoints, setDisplayPoints]     = useState(getUserPoints);
   const [purchaseStreak, setPurchaseStreak]   = useState(() => {
     try { return parseInt(localStorage.getItem("kosmica_streak") || "0", 10); }
     catch { return 0; }
@@ -1837,6 +1840,17 @@ export default function App() {
     try { return parseInt(localStorage.getItem("kosmica_checkin_streak") || "0", 10); }
     catch { return 0; }
   });
+  // Sincronizar displayPoints cuando cambia el usuario (login/logout)
+  useEffect(() => {
+    if (currentUser) {
+      const pts = parseInt(currentUser.points, 10) || 0;
+      setDisplayPoints(pts);
+      localStorage.setItem("kosmica_pts", String(pts));
+    } else {
+      setDisplayPoints(0);
+    }
+  }, [currentUser]);
+
   // Mostrar check-in popup automáticamente si usuario logueado y no lo hizo hoy
   useEffect(() => {
     if (!currentUser) return;
@@ -1849,6 +1863,7 @@ export default function App() {
   }, [currentUser]);
 
   const doCheckin = () => {
+    if (!currentUser) { setCheckinOpen(false); setAuthOpen(true); return; }
     const today = new Date().toDateString();
     const yesterday = new Date(Date.now() - 864e5).toDateString();
     const lastCheckin = localStorage.getItem("kosmica_checkin_date");
@@ -1864,10 +1879,13 @@ export default function App() {
     setCheckinDone(true);
     // Bonus de puntos por check-in
     const bonusPts = DAILY_CHECKIN_PTS + (newStreak >= 7 ? 10 : newStreak >= 3 ? 5 : 0);
-    const current = parseInt(localStorage.getItem("kosmica_pts") || "0", 10);
+    const current = parseInt(currentUser.points || 0, 10);
     const newTotal = current + bonusPts;
-    localStorage.setItem("kosmica_pts", String(newTotal));
+    // Actualizar usuario en localStorage y estado React
+    const updatedUser = { ...currentUser, points: newTotal };
+    setCurrentUser(updatedUser);
     setDisplayPoints(newTotal);
+    localStorage.setItem("kosmica_pts", String(newTotal));
     showToast(`🔥 +${bonusPts} pts por tu visita diaria · Racha: ${newStreak} días`);
     setTimeout(() => setCheckinOpen(false), 1800);
   };
@@ -2287,6 +2305,7 @@ export default function App() {
   // ════════════════════════════════════════
   // 1 punto = $36 COP → pts = round(total / 36)
   const awardLoyaltyPoints = (total) => {
+    if (!currentUser) return 0; // Solo acumula si está registrada
     const pts = Math.floor(total / 36);
     try {
       const today = new Date().toDateString();
@@ -2298,10 +2317,13 @@ export default function App() {
       const remaining = DAILY_POINTS_LIMIT - todayEarned;
       const awarded = Math.max(0, Math.min(pts, remaining));
       if (awarded > 0) {
-        const current = parseInt(localStorage.getItem("kosmica_pts") || "0", 10);
+        const current = parseInt(currentUser.points || 0, 10);
         const newTotal = current + awarded;
-        localStorage.setItem("kosmica_pts", String(newTotal));
+        // Actualizar usuario en localStorage y estado React
+        const updatedUser = { ...currentUser, points: newTotal };
+        setCurrentUser(updatedUser);
         setDisplayPoints(newTotal);
+        localStorage.setItem("kosmica_pts", String(newTotal));
         todayEarned += awarded;
         localStorage.setItem("kosmica_daily_pts", String(todayEarned));
         localStorage.setItem("kosmica_daily_pts_date", today);
@@ -2876,9 +2898,6 @@ export default function App() {
                 boxShadow:"0 2px 10px rgba(124,58,237,.25)",whiteSpace:"nowrap",
               }}>
                 <span className="nav-user-name">{currentUser.name?.split(" ")[0]?.slice(0,7)||"Cuenta"}</span>
-                <span className="nav-user-pts" style={{background:"rgba(255,255,255,.25)",borderRadius:50,padding:"1px 6px",fontSize:".7rem",fontWeight:900}}>
-                  💎{currentUser.points||0}
-                </span>
               </button>
             ) : (
               <button onClick={()=>{setAuthTab("login");setAuthOpen(true);}} style={{
@@ -2890,10 +2909,12 @@ export default function App() {
                 <span style={{fontSize:".82rem"}}>Ingresar</span>
               </button>
             )}
-            {/* 💎 Badge de puntos — siempre visible */}
-            <button className="loyalty-badge" onClick={()=>setLoyaltyOpen(true)} title="Mis puntos Kosmica">
-              💎 {displayPoints} pts
-            </button>
+            {/* 💎 Badge de puntos — solo si está registrada */}
+            {currentUser && (
+              <button className="loyalty-badge" onClick={()=>setLoyaltyOpen(true)} title="Mis puntos Kosmica">
+                💎 {displayPoints} pts
+              </button>
+            )}
             <button className={`cart-btn${cartPulse?" pulse":""}`} onClick={()=>setCartOpen(true)}>
               🛍️{cartCount>0&&<span className="cart-badge">{cartCount}</span>}
             </button>
