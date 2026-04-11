@@ -216,7 +216,7 @@ const STATUS_LABEL = {
   SHIPPED:"Enviado", DELIVERED:"Entregado", CANCELLED:"Cancelado",
 };
 
-export default function UserAccountPage({ onClose, onOpenGiftCard }) {
+export default function UserAccountPage({ onClose, onOpenGiftCard, onLogout }) {
   const [user, setUser]       = useState(getCurrentUser());
   const [tab, setTab]         = useState("perfil");
   const [editing, setEditing] = useState(false);
@@ -290,6 +290,7 @@ export default function UserAccountPage({ onClose, onOpenGiftCard }) {
   const handleLogout = () => {
     logoutUser();
     onClose?.();
+    onLogout?.();
   };
 
   if (!user) return null;

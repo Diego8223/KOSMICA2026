@@ -1705,6 +1705,12 @@ export default function App() {
     try { return JSON.parse(localStorage.getItem("kosmica_current_user")||"null"); }
     catch { return null; }
   });
+  // Wrapper: sincroniza estado React Y localStorage juntos
+  const setCurrentUser = (user) => {
+    if (user) localStorage.setItem("kosmica_current_user", JSON.stringify(user));
+    else localStorage.removeItem("kosmica_current_user");
+    setCurrentUser(user);
+  };
   const [authOpen, setAuthOpen]              = useState(false);
   const [authTab, setAuthTab]                = useState("login");
   const [accountOpen, setAccountOpen]        = useState(false);
@@ -1820,6 +1826,51 @@ export default function App() {
       return parseInt(localStorage.getItem("kosmica_daily_pts") || "0", 10);
     } catch { return 0; }
   });
+  // ── CHECK-IN DIARIO (tipo Shein) ──
+  const DAILY_CHECKIN_PTS = 5; // pts por entrar cada día
+  const [checkinOpen,  setCheckinOpen]  = useState(false);
+  const [checkinDone,  setCheckinDone]  = useState(() => {
+    try { return localStorage.getItem("kosmica_checkin_date") === new Date().toDateString(); }
+    catch { return false; }
+  });
+  const [checkinStreak, setCheckinStreak] = useState(() => {
+    try { return parseInt(localStorage.getItem("kosmica_checkin_streak") || "0", 10); }
+    catch { return 0; }
+  });
+  // Mostrar check-in popup automáticamente si usuario logueado y no lo hizo hoy
+  useEffect(() => {
+    if (!currentUser) return;
+    const today = new Date().toDateString();
+    const lastCheckin = localStorage.getItem("kosmica_checkin_date");
+    if (lastCheckin !== today) {
+      const t = setTimeout(() => setCheckinOpen(true), 2000);
+      return () => clearTimeout(t);
+    }
+  }, [currentUser]);
+
+  const doCheckin = () => {
+    const today = new Date().toDateString();
+    const yesterday = new Date(Date.now() - 864e5).toDateString();
+    const lastCheckin = localStorage.getItem("kosmica_checkin_date");
+    let newStreak = 1;
+    if (lastCheckin === yesterday) {
+      newStreak = (parseInt(localStorage.getItem("kosmica_checkin_streak") || "0", 10)) + 1;
+    } else if (lastCheckin === today) {
+      return; // ya hizo check-in
+    }
+    localStorage.setItem("kosmica_checkin_date", today);
+    localStorage.setItem("kosmica_checkin_streak", String(newStreak));
+    setCheckinStreak(newStreak);
+    setCheckinDone(true);
+    // Bonus de puntos por check-in
+    const bonusPts = DAILY_CHECKIN_PTS + (newStreak >= 7 ? 10 : newStreak >= 3 ? 5 : 0);
+    const current = parseInt(localStorage.getItem("kosmica_pts") || "0", 10);
+    const newTotal = current + bonusPts;
+    localStorage.setItem("kosmica_pts", String(newTotal));
+    setDisplayPoints(newTotal);
+    showToast(`🔥 +${bonusPts} pts por tu visita diaria · Racha: ${newStreak} días`);
+    setTimeout(() => setCheckinOpen(false), 1800);
+  };
   // ── NOTIFICACIONES PUSH ──
   const [pushBanner, setPushBanner]           = useState(false);
   const [pushGranted, setPushGranted]         = useState(false);
@@ -2748,6 +2799,10 @@ export default function App() {
               <span className="drawer-cat-ico">✨</span> Crear cuenta / Ingresar
             </button>
           )}
+          <button className="drawer-action-btn" onClick={()=>{setDrawerOpen(false);setLoyaltyOpen(true);}}>
+            <span className="drawer-cat-ico">💎</span> Mis puntos Kosmica · {displayPoints} pts
+            {!checkinDone && <span style={{marginLeft:6,background:"#FF6B35",color:"#fff",borderRadius:30,padding:"1px 7px",fontSize:".7rem",fontWeight:900}}>¡Check-in!</span>}
+          </button>
           <button className="drawer-action-btn" onClick={()=>{setDrawerOpen(false);setTrackingMode(true);}}>
             <span className="drawer-cat-ico">📦</span> Rastrear mi pedido
           </button>
@@ -2835,6 +2890,10 @@ export default function App() {
                 <span style={{fontSize:".82rem"}}>Ingresar</span>
               </button>
             )}
+            {/* 💎 Badge de puntos — siempre visible */}
+            <button className="loyalty-badge" onClick={()=>setLoyaltyOpen(true)} title="Mis puntos Kosmica">
+              💎 {displayPoints} pts
+            </button>
             <button className={`cart-btn${cartPulse?" pulse":""}`} onClick={()=>setCartOpen(true)}>
               🛍️{cartCount>0&&<span className="cart-badge">{cartCount}</span>}
             </button>
@@ -3860,6 +3919,62 @@ export default function App() {
       )}
 
       {/* ════════════════════════════════════════
+          🔥 MODAL CHECK-IN DIARIO
+      ════════════════════════════════════════ */}
+      {checkinOpen && !checkinDone && (
+        <div style={{position:"fixed",inset:0,zIndex:9000,background:"rgba(45,27,78,.65)",backdropFilter:"blur(6px)",display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}
+          onClick={()=>setCheckinOpen(false)}>
+          <div onClick={e=>e.stopPropagation()} style={{
+            background:"#fff",borderRadius:28,padding:"28px 24px 24px",maxWidth:360,width:"100%",
+            boxShadow:"0 20px 60px rgba(45,27,78,.3)",textAlign:"center",animation:"slideUp .35s cubic-bezier(.22,1,.36,1)"
+          }}>
+            <div style={{fontSize:"3rem",marginBottom:8}}>🔥</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:"1.4rem",fontWeight:900,color:"#2D1B4E",marginBottom:4}}>
+              ¡Racha diaria!
+            </div>
+            <div style={{fontSize:".9rem",color:"#7B5EA7",marginBottom:20}}>
+              Entra cada día y gana puntos gratis
+            </div>
+            {/* 7 días tipo Shein */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4,marginBottom:20}}>
+              {[1,2,3,4,5,6,7].map(day => {
+                const isDone = day <= checkinStreak;
+                const isToday = day === ((checkinStreak % 7) + 1);
+                const pts = day === 7 ? 20 : day >= 5 ? 10 : day >= 3 ? 8 : 5;
+                return (
+                  <div key={day} style={{
+                    borderRadius:12,padding:"8px 4px",textAlign:"center",
+                    background: isDone ? "linear-gradient(135deg,#9B72CF,#7C3AED)" : isToday ? "#FFF3E0" : "#F5F0FF",
+                    border: isToday ? "2px solid #FFA500" : "2px solid transparent",
+                    opacity: isDone || isToday ? 1 : 0.6,
+                  }}>
+                    <div style={{fontSize:isDone?"1.1rem":".9rem"}}>{isDone ? "✅" : day===7 ? "👑" : "💎"}</div>
+                    <div style={{fontSize:".6rem",fontWeight:800,color: isDone ? "#fff" : "#7B5EA7",marginTop:2}}>Día {day}</div>
+                    <div style={{fontSize:".58rem",color: isDone ? "rgba(255,255,255,.8)" : "#9B72CF",fontWeight:700}}>+{pts}pts</div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{background:"#F5F0FF",borderRadius:14,padding:"10px 14px",marginBottom:18,fontSize:".84rem",color:"#5B2D8E"}}>
+              🔥 Racha actual: <strong>{checkinStreak} días</strong> &nbsp;·&nbsp; Hoy ganas: <strong>+{DAILY_CHECKIN_PTS + (checkinStreak+1 >= 7 ? 10 : checkinStreak+1 >= 3 ? 5 : 0)} pts</strong>
+            </div>
+            <button onClick={doCheckin} style={{
+              width:"100%",padding:"14px",border:"none",borderRadius:50,
+              background:"linear-gradient(135deg,#FF6B35,#FF8C00)",
+              color:"#fff",fontWeight:900,fontSize:"1.05rem",cursor:"pointer",
+              boxShadow:"0 4px 20px rgba(255,107,53,.4)",marginBottom:10
+            }}>
+              🔥 ¡Hacer check-in ahora!
+            </button>
+            <button onClick={()=>setCheckinOpen(false)} style={{
+              width:"100%",padding:"10px",border:"1.5px solid #E8D5FF",borderRadius:50,
+              background:"none",color:"#9B72CF",fontWeight:600,fontSize:".9rem",cursor:"pointer"
+            }}>Después</button>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════
           💎 MODAL DE PUNTOS DE FIDELIDAD
       ════════════════════════════════════════ */}
       {loyaltyOpen && (
@@ -3877,11 +3992,60 @@ export default function App() {
             <div className="loyalty-value-note">
               💎 1 punto = $36 COP &nbsp;·&nbsp; Valor acumulado: <strong>${(displayPoints * 36).toLocaleString("es-CO")} COP</strong> &nbsp;·&nbsp; Límite diario: {DAILY_POINTS_LIMIT} pts
             </div>
-            {/* Racha */}
+
+            {/* ── RACHA DIARIA TIPO SHEIN ── */}
+            <div style={{background:"linear-gradient(135deg,#FFF3E0,#FFE0B2)",border:"1.5px solid #FFCC80",borderRadius:16,padding:"14px 16px",marginBottom:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{fontSize:"1.5rem"}}>🔥</span>
+                  <div>
+                    <div style={{fontWeight:800,fontSize:".88rem",color:"#E65100"}}>Racha de visitas diarias</div>
+                    <div style={{fontSize:".72rem",color:"#BF6000"}}>Entra cada día y gana puntos gratis</div>
+                  </div>
+                </div>
+                <div style={{textAlign:"center"}}>
+                  <div style={{fontSize:"1.5rem",fontWeight:900,color:"#E65100",lineHeight:1}}>{checkinStreak}</div>
+                  <div style={{fontSize:".65rem",color:"#BF6000",fontWeight:700}}>días</div>
+                </div>
+              </div>
+              {/* 7 días grid */}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:5,marginBottom:10}}>
+                {[1,2,3,4,5,6,7].map(day => {
+                  const streak7 = checkinStreak % 7 || (checkinStreak > 0 ? 7 : 0);
+                  const isDone = day <= streak7;
+                  const isToday = day === streak7 + 1 && !checkinDone;
+                  const pts = day === 7 ? 20 : day >= 5 ? 10 : day >= 3 ? 8 : 5;
+                  return (
+                    <div key={day} style={{
+                      borderRadius:10,padding:"7px 2px",textAlign:"center",
+                      background: isDone ? "linear-gradient(135deg,#9B72CF,#7C3AED)" : isToday ? "#FFF9C4" : "#fff",
+                      border: isToday ? "2px solid #FFA500" : isDone ? "2px solid transparent" : "2px solid #FFD59A",
+                    }}>
+                      <div style={{fontSize:".9rem"}}>{isDone ? "✅" : day===7 ? "👑" : "💎"}</div>
+                      <div style={{fontSize:".58rem",fontWeight:800,color: isDone ? "#fff" : "#7B5EA7",marginTop:1}}>Día {day}</div>
+                      <div style={{fontSize:".56rem",color: isDone ? "rgba(255,255,255,.85)" : "#BF6000",fontWeight:700}}>+{pts}pts</div>
+                    </div>
+                  );
+                })}
+              </div>
+              {checkinDone ? (
+                <div style={{textAlign:"center",fontSize:".82rem",color:"#388E3C",fontWeight:700,background:"#E8F5E9",borderRadius:30,padding:"6px"}}>
+                  ✅ ¡Ya hiciste check-in hoy! Vuelve mañana 🎉
+                </div>
+              ) : (
+                <button onClick={()=>{setLoyaltyOpen(false);setCheckinOpen(true);}} style={{
+                  width:"100%",padding:"10px",border:"none",borderRadius:30,
+                  background:"linear-gradient(135deg,#FF6B35,#FF8C00)",
+                  color:"#fff",fontWeight:800,fontSize:".88rem",cursor:"pointer"
+                }}>🔥 ¡Hacer check-in y ganar puntos!</button>
+              )}
+            </div>
+
+            {/* Racha de compras */}
             {purchaseStreak > 0 && (
               <div className="loyalty-streak-box">
                 <div className="loyalty-streak-left">
-                  <div className="loyalty-streak-fire">🔥</div>
+                  <div className="loyalty-streak-fire">🛍️</div>
                   <div>
                     <div className="loyalty-streak-label">Racha de compras</div>
                     <div style={{fontSize:".74rem",color:"#BF6000"}}>¡Sigue comprando cada día!</div>
@@ -3893,10 +4057,10 @@ export default function App() {
                 </div>
               </div>
             )}
-            {/* Límite diario */}
+            {/* Límite diario por compras */}
             <div className="loyalty-daily-bar">
               <div className="loyalty-daily-label">
-                <span>Puntos de hoy</span>
+                <span>Puntos por compras hoy</span>
                 <span>{dailyPtsEarned} / {DAILY_POINTS_LIMIT} pts</span>
               </div>
               <div className="loyalty-daily-track">
@@ -3921,6 +4085,7 @@ export default function App() {
             <div className="loyalty-how">
               <div className="loyalty-how-title">Cómo ganar puntos</div>
               {[
+                ["Check-in diario","+5 pts gratis cada día (hasta +20 pts el día 7)"],
                 ["Cada compra","1 pt por cada $36 COP — máx. "+DAILY_POINTS_LIMIT+" pts/día"],
                 ["Referir una amiga","+50 pts cuando ella compra"],
                 ["Dejar reseña","+10 pts por reseña publicada"],
@@ -3963,7 +4128,7 @@ export default function App() {
           initialTab={authTab}
           onClose={()=>setAuthOpen(false)}
           onSuccess={user=>{
-            setCurrentUserState(user);
+            setCurrentUser(user);
             showToast("💜 ¡Bienvenida, "+user.name.split(" ")[0]+"!");
           }}
         />
@@ -3976,6 +4141,7 @@ export default function App() {
             <UserAccountPage
               onClose={()=>setAccountOpen(false)}
               onOpenGiftCard={()=>{setAccountOpen(false);setGiftCardOpen(true);}}
+              onLogout={()=>{ setCurrentUser(null); setAccountOpen(false); }}
             />
           </div>
         </Suspense>

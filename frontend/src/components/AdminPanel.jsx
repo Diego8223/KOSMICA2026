@@ -943,6 +943,11 @@ export default function AdminPanel({ onExit }) {
   const [gallery, setGallery] = useState([]);
   const [vidName, setVidName] = useState('');
   const [orderSearch,    setOrderSearch]    = useState('');
+  const [orderTab,       setOrderTab]       = useState('active'); // 'active' | 'history'
+  const [archivedOrders, setArchivedOrders] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('kosmica_admin_archived_orders')||'[]'); }
+    catch { return []; }
+  });
   const [prodCatFilter,  setProdCatFilter]  = useState('');
   const [shipModal,      setShipModal]      = useState(null);
   const [shipRates,      setShipRates]      = useState([]);
@@ -984,7 +989,25 @@ export default function AdminPanel({ onExit }) {
       console.log('ORDERS RAW:', JSON.stringify(d));
       const list = Array.isArray(d) ? d : (d.content || d.orders || d || []);
       console.log('ORDERS LIST:', list.length, list);
-      setOrders(list);
+
+      // Auto-archivar entregados y cancelados que vengan del backend
+      const toArchive = list.filter(o => o.status === 'DELIVERED' || o.status === 'CANCELLED');
+      const active    = list.filter(o => o.status !== 'DELIVERED' && o.status !== 'CANCELLED');
+
+      if (toArchive.length > 0) {
+        setArchivedOrders(prev => {
+          const existingIds = new Set(prev.map(a => a.id));
+          const newOnes = toArchive
+            .filter(o => !existingIds.has(o.id))
+            .map(o => ({ ...o, archivedAt: o.updatedAt || new Date().toISOString(), archiveReason: o.status === 'DELIVERED' ? 'entregado' : 'cancelado' }));
+          if (newOnes.length === 0) return prev;
+          const merged = [...prev, ...newOnes];
+          localStorage.setItem('kosmica_admin_archived_orders', JSON.stringify(merged));
+          return merged;
+        });
+      }
+
+      setOrders(active);
     }
     catch(e) { showToast(e.message,'error'); }
     finally  { setLoading(false); }
@@ -1313,21 +1336,54 @@ export default function AdminPanel({ onExit }) {
     catch(e) { showToast(e.message,'error'); }
   };
 
+  const saveArchived = (list) => {
+    localStorage.setItem('kosmica_admin_archived_orders', JSON.stringify(list));
+    setArchivedOrders(list);
+  };
+
+  const archiveOrder = (order, reason) => {
+    const archived = { ...order, archivedAt: new Date().toISOString(), archiveReason: reason };
+    const newArchived = [...archivedOrders.filter(a => a.id !== order.id), archived];
+    saveArchived(newArchived);
+    setOrders(prev => prev.filter(o => o.id !== order.id));
+    showToast('📁 Pedido movido al historial');
+  };
+
+  const deleteFromHistory = (id) => {
+    if (!window.confirm('¿Eliminar este pedido del historial permanentemente?')) return;
+    saveArchived(archivedOrders.filter(a => a.id !== id));
+    showToast('🗑️ Pedido eliminado del historial');
+  };
+
   const updateOrderStatus = async (id, status) => {
     try {
       await orderAPI.updateStatus(id, status);
+      if (status === 'DELIVERED' || status === 'CANCELLED') {
+        const order = orders.find(o => o.id === id);
+        if (order) {
+          archiveOrder({ ...order, status }, status === 'DELIVERED' ? 'entregado' : 'cancelado');
+          return;
+        }
+      }
       setOrders(prev => prev.map(o => o.id===id ? {...o,status} : o));
       showToast('✓ Estado actualizado');
     } catch(e) { showToast(e.message,'error'); }
   };
 
   const totalRev = orders.filter(o=>o.status!=='CANCELLED').reduce((s,o)=>s+Number(o.total||0),0);
-  const filteredOrders = orders.filter(o =>
+  const activeOrders = orders.filter(o => o.status !== 'DELIVERED' && o.status !== 'CANCELLED');
+  const filteredOrders = activeOrders.filter(o =>
     !orderSearch ||
     o.orderNumber?.toLowerCase().includes(orderSearch.toLowerCase()) ||
     o.customerEmail?.toLowerCase().includes(orderSearch.toLowerCase()) ||
     o.customerName?.toLowerCase().includes(orderSearch.toLowerCase())
   );
+  const filteredHistory = archivedOrders.filter(o =>
+    !orderSearch ||
+    o.orderNumber?.toLowerCase().includes(orderSearch.toLowerCase()) ||
+    o.customerEmail?.toLowerCase().includes(orderSearch.toLowerCase()) ||
+    o.customerName?.toLowerCase().includes(orderSearch.toLowerCase())
+  ).sort((a,b) => new Date(b.archivedAt||0) - new Date(a.archivedAt||0));
 
   const NAV = [
     { id:'dashboard', ico:'📊', lbl:'Dashboard'      },
@@ -1629,18 +1685,38 @@ export default function AdminPanel({ onExit }) {
           {section==='orders' && (<>
             <h1 className="adm-h1">Pedidos</h1>
             <p className="adm-sub">Gestiona el estado de cada pedido</p>
+
+            {/* Tabs activos / historial */}
+            <div style={{display:'flex',gap:8,marginBottom:18}}>
+              <button onClick={()=>setOrderTab('active')} style={{
+                padding:'9px 20px',borderRadius:30,border:'none',fontWeight:700,fontSize:'.9rem',cursor:'pointer',
+                background: orderTab==='active' ? 'linear-gradient(135deg,#9B72CF,#7B5EA7)' : '#F0E8FF',
+                color: orderTab==='active' ? '#fff' : '#7B5EA7'
+              }}>📦 Activos ({activeOrders.length})</button>
+              <button onClick={()=>setOrderTab('history')} style={{
+                padding:'9px 20px',borderRadius:30,border:'none',fontWeight:700,fontSize:'.9rem',cursor:'pointer',
+                background: orderTab==='history' ? 'linear-gradient(135deg,#9B72CF,#7B5EA7)' : '#F0E8FF',
+                color: orderTab==='history' ? '#fff' : '#7B5EA7'
+              }}>🗂️ Historial ({archivedOrders.length})</button>
+            </div>
+
             <div className="adm-card">
               <div className="adm-card-top">
-                <span className="adm-card-title">{orders.length} pedidos</span>
+                <span className="adm-card-title">
+                  {orderTab==='active' ? `${activeOrders.length} pedidos activos` : `${archivedOrders.length} en historial`}
+                </span>
                 <input className="adm-search" placeholder="🔍 Buscar..." value={orderSearch} onChange={e=>setOrderSearch(e.target.value)}/>
               </div>
-              {loading
+
+              {/* ── PEDIDOS ACTIVOS ── */}
+              {orderTab==='active' && (
+                loading
                 ? <div className="adm-loading">⏳ Cargando pedidos...</div>
                 : filteredOrders.length===0
-                ? <div className="adm-empty"><div className="adm-empty-ico">📭</div><p>Sin pedidos</p></div>
+                ? <div className="adm-empty"><div className="adm-empty-ico">📭</div><p>Sin pedidos activos</p></div>
                 : <div className="adm-tbl-wrap">
                     <table className="adm-tbl">
-                      <thead><tr><th>#</th><th>Cliente</th><th>Total</th><th>Estado</th><th>Fecha</th><th>Cambiar</th></tr></thead>
+                      <thead><tr><th>#</th><th>Cliente</th><th>Total</th><th>Estado</th><th>Fecha</th><th>Acciones</th></tr></thead>
                       <tbody>
                         {filteredOrders.map(o=>(
                           <tr key={o.id}>
@@ -1667,13 +1743,54 @@ export default function AdminPanel({ onExit }) {
                                 style={{background:'linear-gradient(135deg,#9B72CF,#7B5EA7)',color:'#fff',whiteSpace:'nowrap'}}>
                                 🚚 Enviar
                               </button>
+                              <button className="adm-btn-sm" onClick={()=>archiveOrder(o,'manual')}
+                                title="Mover al historial"
+                                style={{background:'#F0E8FF',color:'#7B5EA7',whiteSpace:'nowrap'}}>
+                                📁 Archivar
+                              </button>
                             </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-              }
+              )}
+
+              {/* ── HISTORIAL ── */}
+              {orderTab==='history' && (
+                filteredHistory.length===0
+                ? <div className="adm-empty"><div className="adm-empty-ico">🗂️</div><p>Historial vacío</p></div>
+                : <div className="adm-tbl-wrap">
+                    <table className="adm-tbl">
+                      <thead><tr><th>#</th><th>Cliente</th><th>Total</th><th>Estado</th><th>Archivado</th><th>Razón</th><th>Acción</th></tr></thead>
+                      <tbody>
+                        {filteredHistory.map(o=>(
+                          <tr key={o.id} style={{opacity:.85}}>
+                            <td style={{fontWeight:700,color:'#9B72CF',whiteSpace:'nowrap'}}>{o.orderNumber}</td>
+                            <td>
+                              <div style={{fontWeight:600}}>{o.customerName}</div>
+                              <div style={{fontSize:'.8rem',color:'#aaa'}}>{o.customerEmail}</div>
+                            </td>
+                            <td style={{fontWeight:700,whiteSpace:'nowrap'}}>${Number(o.total||0).toLocaleString("es-CO",{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
+                            <td><span className={`adm-status ${o.status}`}>
+                                {{'PENDING':'⏳ Pendiente','PAID':'✅ Pagado','PROCESSING':'📦 Preparando','SHIPPED':'🚚 Enviado','DELIVERED':'🎉 Entregado','CANCELLED':'❌ Cancelado'}[o.status]||o.status}
+                              </span></td>
+                            <td style={{fontSize:'.82rem',color:'#aaa',whiteSpace:'nowrap'}}>{o.archivedAt?new Date(o.archivedAt).toLocaleDateString('es-CO'):'-'}</td>
+                            <td style={{fontSize:'.82rem'}}>
+                              {o.archiveReason==='entregado'?'✅ Entregado':o.archiveReason==='cancelado'?'❌ Cancelado':'📁 Manual'}
+                            </td>
+                            <td>
+                              <button className="adm-btn-sm" onClick={()=>deleteFromHistory(o.id)}
+                                style={{background:'#FFF0F0',color:'#E74C3C',whiteSpace:'nowrap'}}>
+                                🗑️ Eliminar
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+              )}
             </div>
           </>)}
 
