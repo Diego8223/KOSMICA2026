@@ -1711,7 +1711,7 @@ export default function App() {
   const setCurrentUser = (user) => {
     if (user) localStorage.setItem("kosmica_current_user", JSON.stringify(user));
     else localStorage.removeItem("kosmica_current_user");
-    setCurrentUser(user);
+    setCurrentUserState(user);   // FIX: llamar al setter real, no recursion
   };
   const [authOpen, setAuthOpen]              = useState(false);
   const [authTab, setAuthTab]                = useState("login");
