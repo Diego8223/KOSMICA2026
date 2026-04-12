@@ -7,9 +7,11 @@ import lombok.extern.slf4j.Slf4j;
 import nl.martijndwars.webpush.Notification;
 import nl.martijndwars.webpush.PushService;
 import nl.martijndwars.webpush.Subscription;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.security.Security;
 import java.util.List;
 import java.util.Map;
 
@@ -27,6 +29,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Service
 @RequiredArgsConstructor
 public class PushNotificationService {
+
+    static {
+        // Garantizar que BouncyCastle esté registrado antes de cualquier operación push
+        if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
+            Security.addProvider(new BouncyCastleProvider());
+        }
+    }
 
     private final PushSubscriptionRepository subscriptionRepo;
     private final ObjectMapper objectMapper = new ObjectMapper();
