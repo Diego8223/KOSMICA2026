@@ -1702,7 +1702,13 @@ function NequiWaitingScreen({ data, onClose, onApproved }) {
 }
 
 export default function App() {
-  const [adminMode,setAdminMode]             = useState(false);
+  // ✅ FIX: persistir adminMode en URL hash para que refresh no saque del panel admin
+  const [adminMode, setAdminModeRaw]          = useState(() => window.location.hash === "#admin");
+  const setAdminMode = (val) => {
+    setAdminModeRaw(val);
+    if (val) { window.history.replaceState(null, "", "#admin"); }
+    else { window.history.replaceState(null, "", window.location.pathname + window.location.search); }
+  };
   const [currentUser, setCurrentUserState]   = useState(() => {
     try { return JSON.parse(localStorage.getItem("kosmica_current_user")||"null"); }
     catch { return null; }
@@ -1722,7 +1728,13 @@ export default function App() {
     if (val) { window.history.replaceState(null, "", "#mi-cuenta"); }
     else { window.history.replaceState(null, "", window.location.pathname + window.location.search); }
   };
-  const [trackingMode,setTrackingMode]       = useState(false);
+  // ✅ FIX: persistir trackingMode en URL hash para que refresh no saque del rastreador
+  const [trackingMode, setTrackingModeRaw]    = useState(() => window.location.hash === "#rastrear");
+  const setTrackingMode = (val) => {
+    setTrackingModeRaw(val);
+    if (val) { window.history.replaceState(null, "", "#rastrear"); }
+    else { window.history.replaceState(null, "", window.location.pathname + window.location.search); }
+  };
   const [activeCategory,setActiveCategory]   = useState("BOLSOS");
   const [products,setProducts]               = useState([]);
   const [loading,setLoading]                 = useState(true);
