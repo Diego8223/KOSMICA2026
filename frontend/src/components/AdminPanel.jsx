@@ -375,7 +375,7 @@ function ClientesSection() {
     const API_URL = process.env.REACT_APP_API_URL || 'https://kosmica-backend.onrender.com';
     Promise.allSettled([
       fetch(`${API_URL}/api/users`).then(r => r.ok ? r.json() : []),
-      fetch(`${API_URL}/api/orders?page=0&size=500`).then(r => r.json()),
+      fetch(`${API_URL}/api/orders?all=true`).then(r => r.json()),
     ]).then(([usersRes, ordersRes]) => {
       // Mapa base: usuarios registrados directamente
       const map = new Map();

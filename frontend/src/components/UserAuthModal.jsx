@@ -264,7 +264,10 @@ export default function UserAuthModal({ open, onClose, onSuccess, initialTab = "
           createdAt: new Date().toISOString(),
         }),
       });
-    } catch(_) { /* no bloquear si falla */ }
+    } catch(err) {
+      // No bloquear el registro si el backend falla, pero sí registrar el error
+      console.warn("⚠️ No se pudo sincronizar usuario con el backend:", err?.message || err);
+    }
     const sessionUser = { ...newUser };
     delete sessionUser.passwordHash;
     setCurrentUser(sessionUser);

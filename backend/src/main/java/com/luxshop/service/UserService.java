@@ -15,14 +15,17 @@ import java.util.Map;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final EmailService   emailService;   // ✅ FIX: inyectado para enviar email de bienvenida
 
     /**
      * Registra un usuario nuevo o actualiza sus datos si el email ya existe.
-     * Se llama desde el frontend al crear cuenta.
+     * Al ser registro NUEVO, envía email de bienvenida automáticamente.
      */
     public User registerOrUpdate(Map<String, Object> payload) {
         String email = ((String) payload.getOrDefault("email", "")).toLowerCase().trim();
         if (email.isEmpty()) throw new IllegalArgumentException("Email requerido");
+
+        boolean isNew = !userRepository.findByEmailIgnoreCase(email).isPresent();
 
         User user = userRepository.findByEmailIgnoreCase(email)
                 .orElse(new User());
@@ -36,7 +39,17 @@ public class UserService {
         user.setAddress((String) payload.getOrDefault("address", ""));
 
         User saved = userRepository.save(user);
-        log.info("✅ Usuario guardado: {} ({})", saved.getName(), saved.getEmail());
+        log.info("✅ Usuario {}: {} ({})", isNew ? "registrado" : "actualizado", saved.getName(), saved.getEmail());
+
+        // ✅ FIX: enviar email de bienvenida solo en registros nuevos
+        if (isNew) {
+            try {
+                emailService.sendWelcomeEmail(saved.getEmail(), saved.getName());
+            } catch (Exception e) {
+                log.warn("No se pudo enviar email de bienvenida a {}: {}", saved.getEmail(), e.getMessage());
+            }
+        }
+
         return saved;
     }
 

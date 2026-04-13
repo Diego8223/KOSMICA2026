@@ -124,7 +124,19 @@ public class EmailService {
             "💜 Tu código de descuento exclusivo — " + code, html);
     }
 
-    // ── Cupón de bienvenida por WHATSAPP ─────────────────────
+    // ── Email de bienvenida al registrarse ───────────────────
+    public void sendWelcomeEmail(String toEmail, String toName) {
+        if (!isEmailConfigured()) {
+            log.warn("SendGrid no configurado — email de bienvenida omitido para {}", toEmail);
+            return;
+        }
+        String html = buildWelcomeRegisterHtml(toName);
+        sendEmail(toEmail, toName,
+            "💜 ¡Bienvenida a Kosmica, " + toName.split(" ")[0] + "!", html);
+        log.info("✉️ Email de bienvenida enviado a {}", toEmail);
+    }
+
+        // ── Cupón de bienvenida por WHATSAPP ─────────────────────
     public void sendWelcomeCouponWhatsapp(String phone, String code) {
         if (!isWhatsappConfigured()) {
             log.warn("WhatsApp no configurado — mensaje de cupón omitido");
@@ -605,4 +617,31 @@ public class EmailService {
             log.error("Error enviando WhatsApp a {}: {}", phone, e.getMessage());
         }
     }
+    // ── HTML bienvenida por registro ─────────────────────────
+    private String buildWelcomeRegisterHtml(String name) {
+        String firstName = name != null && !name.isBlank() ? name.split(" ")[0] : "amiga";
+        return "<!DOCTYPE html><html><head><meta charset='UTF-8'></head><body style='margin:0;padding:0;background:#F5F0FF;font-family:Arial,sans-serif'>"
+            + "<div style='max-width:560px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(45,27,78,.1)'>"
+            + "<div style='background:linear-gradient(135deg,#9B72CF,#7C3AED);padding:40px 32px;text-align:center'>"
+            + "<div style='font-size:2.5rem;margin-bottom:8px'>✦</div>"
+            + "<h1 style='color:#fff;font-size:1.8rem;margin:0;font-weight:800'>¡Bienvenida a Kosmica!</h1>"
+            + "<p style='color:rgba(255,255,255,.85);margin:8px 0 0;font-size:1rem'>Tu cuenta ha sido creada exitosamente</p>"
+            + "</div>"
+            + "<div style='padding:32px'>"
+            + "<p style='color:#2D1B4E;font-size:1.1rem;font-weight:700;margin-bottom:16px'>Hola " + firstName + " 💜</p>"
+            + "<p style='color:#6B7280;font-size:.95rem;line-height:1.6;margin-bottom:24px'>Estamos felices de tenerte en nuestra comunidad. Ya puedes disfrutar de todos los beneficios de tu cuenta:</p>"
+            + "<div style='background:#F5F0FF;border-radius:12px;padding:20px;margin-bottom:24px'>"
+            + "<div style='margin-bottom:12px;font-size:.9rem;color:#4C1D95'><span style='margin-right:8px'>⚡</span>Checkout en 1 clic — sin volver a llenar datos</div>"
+            + "<div style='margin-bottom:12px;font-size:.9rem;color:#4C1D95'><span style='margin-right:8px'>💎</span>Acumulas 20 puntos Kosmica de bienvenida</div>"
+            + "<div style='margin-bottom:12px;font-size:.9rem;color:#4C1D95'><span style='margin-right:8px'>🎁</span>Acceso a tarjetas de regalo y referidos</div>"
+            + "<div style='font-size:.9rem;color:#4C1D95'><span style='margin-right:8px'>📦</span>Historial y rastreo de pedidos</div>"
+            + "</div>"
+            + "<a href='" + storeUrl + "' style='display:block;background:linear-gradient(135deg,#9B72CF,#7C3AED);color:#fff;text-align:center;padding:14px;border-radius:12px;text-decoration:none;font-weight:800;font-size:1rem;margin-bottom:24px'>✦ Ir a la tienda</a>"
+            + "<p style='color:#9CA3AF;font-size:.8rem;text-align:center;margin:0'>Si no creaste esta cuenta, ignora este correo.</p>"
+            + "</div>"
+            + "<div style='background:#F9F7FF;padding:16px;text-align:center'>"
+            + "<p style='color:#9CA3AF;font-size:.75rem;margin:0'>" + storeName + " · <a href='" + storeUrl + "' style='color:#9B72CF'>" + storeUrl + "</a></p>"
+            + "</div></div></body></html>";
+    }
+
 }

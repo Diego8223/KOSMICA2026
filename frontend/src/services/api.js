@@ -94,7 +94,7 @@ export const orderAPI = {
   createOrder:   (data)       => api.post('/orders', data).then(r => r.data),
   getByNumber:   (number)     => api.get(`/orders/${number}`).then(r => r.data),
   getByCustomer: (email)      => api.get(`/orders/customer/${email}`).then(r => r.data),
-  getAll:        (p=0, s=20)  => api.get(`/orders?page=${p}&size=${s}`).then(r => r.data).then(d => Array.isArray(d) ? d : (d.content || [])),
+  getAll:        (p=0, s=20)  => api.get('/orders?all=true').then(r => r.data).then(d => Array.isArray(d) ? d : (d.content || [])),
   updateStatus:  (id, status) => api.patch(`/orders/${id}/status`, { status }).then(r => r.data),
 };
 

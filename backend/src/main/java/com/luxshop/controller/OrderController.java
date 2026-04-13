@@ -102,9 +102,14 @@ public class OrderController {
 
     // ── Todos los pedidos paginados (admin) ────────────────────
     @GetMapping
-    public ResponseEntity<Page<Order>> getAllOrders(
+    public ResponseEntity<?> getAllOrders(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "false") boolean all) {
+        // ✅ FIX: si all=true o size>=200 devuelve TODOS los pedidos (para el panel admin)
+        if (all || size >= 200) {
+            return ResponseEntity.ok(orderService.getAllOrdersList());
+        }
         return ResponseEntity.ok(orderService.getAllOrders(page, size));
     }
 
