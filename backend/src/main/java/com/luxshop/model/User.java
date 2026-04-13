@@ -22,6 +22,15 @@ public class User {
     @Column(length = 20)
     private String phone;
 
+    @Column(length = 30)
+    private String document;
+
+    @Column(length = 100)
+    private String city;
+
+    @Column(length = 100)
+    private String neighborhood;
+
     @Column(columnDefinition = "TEXT")
     private String address;
 
@@ -29,5 +38,7 @@ public class User {
     private LocalDateTime createdAt;
 
     @PrePersist
-    protected void onCreate() { createdAt = LocalDateTime.now(); }
+    protected void onCreate() {
+        if (createdAt == null) createdAt = LocalDateTime.now();
+    }
 }

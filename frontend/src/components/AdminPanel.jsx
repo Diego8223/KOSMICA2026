@@ -370,34 +370,50 @@ function ClientesSection() {
   const fmtDate = str => { try { return new Date(str).toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}); } catch { return '—'; } };
 
   React.useEffect(() => {
-    // Construir lista de clientes únicos a partir de las órdenes del backend
+    // ✅ FIX: leer usuarios registrados del backend (endpoint /api/users)
+    // y combinar con clientes de órdenes para tener lista completa
     const API_URL = process.env.REACT_APP_API_URL || 'https://kosmica-backend.onrender.com';
-    fetch(`${API_URL}/api/orders?page=0&size=200`)
-      .then(r => r.json())
-      .then(data => {
-        const orders = Array.isArray(data) ? data : (data.content || []);
-        // Agrupar por email, quedarse con el cliente único más reciente
-        const map = new Map();
-        orders.forEach(o => {
-          const email = o.customerEmail?.toLowerCase();
-          if (!email) return;
-          if (!map.has(email)) {
-            map.set(email, {
-              name:      o.customerName  || '—',
-              email:     o.customerEmail || '—',
-              phone:     o.customerPhone || '—',
-              city:      o.city || o.shippingCity || '—',
-              createdAt: o.createdAt,
-              orders:    1,
-            });
-          } else {
-            map.get(email).orders += 1;
-          }
+    Promise.allSettled([
+      fetch(`${API_URL}/api/users`).then(r => r.ok ? r.json() : []),
+      fetch(`${API_URL}/api/orders?page=0&size=500`).then(r => r.json()),
+    ]).then(([usersRes, ordersRes]) => {
+      // Mapa base: usuarios registrados directamente
+      const map = new Map();
+      const regUsers = usersRes.status === 'fulfilled' ? (Array.isArray(usersRes.value) ? usersRes.value : []) : [];
+      regUsers.forEach(u => {
+        const email = u.email?.toLowerCase();
+        if (!email) return;
+        map.set(email, {
+          name:      u.name      || '—',
+          email:     u.email     || '—',
+          phone:     u.phone     || '—',
+          city:      u.city      || '—',
+          createdAt: u.createdAt,
+          orders:    0,
         });
-        setUsers([...map.values()]);
-      })
-      .catch(() => setUsers([]))
-      .finally(() => setLoading(false));
+      });
+      // Complementar/agregar desde órdenes
+      const ordersData = ordersRes.status === 'fulfilled' ? ordersRes.value : [];
+      const orders = Array.isArray(ordersData) ? ordersData : (ordersData.content || []);
+      orders.forEach(o => {
+        const email = o.customerEmail?.toLowerCase();
+        if (!email) return;
+        if (!map.has(email)) {
+          map.set(email, {
+            name:      o.customerName  || '—',
+            email:     o.customerEmail || '—',
+            phone:     o.customerPhone || '—',
+            city:      o.city || o.shippingCity || '—',
+            createdAt: o.createdAt,
+            orders:    1,
+          });
+        } else {
+          map.get(email).orders += 1;
+        }
+      });
+      setUsers([...map.values()].sort((a,b) => new Date(b.createdAt||0) - new Date(a.createdAt||0)));
+    }).catch(() => setUsers([]))
+    .finally(() => setLoading(false));
   }, []);
 
   if (loading) return (

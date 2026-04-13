@@ -1715,7 +1715,13 @@ export default function App() {
   };
   const [authOpen, setAuthOpen]              = useState(false);
   const [authTab, setAuthTab]                = useState("login");
-  const [accountOpen, setAccountOpen]        = useState(false);
+  // ✅ FIX: persistir accountOpen en URL hash para que refresh no saque al usuario
+  const [accountOpen, setAccountOpenRaw]     = useState(() => window.location.hash === "#mi-cuenta");
+  const setAccountOpen = (val) => {
+    setAccountOpenRaw(val);
+    if (val) { window.history.replaceState(null, "", "#mi-cuenta"); }
+    else { window.history.replaceState(null, "", window.location.pathname + window.location.search); }
+  };
   const [trackingMode,setTrackingMode]       = useState(false);
   const [activeCategory,setActiveCategory]   = useState("BOLSOS");
   const [products,setProducts]               = useState([]);

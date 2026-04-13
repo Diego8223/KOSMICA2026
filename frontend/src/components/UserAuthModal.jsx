@@ -252,6 +252,19 @@ export default function UserAuthModal({ open, onClose, onSuccess, initialTab = "
       createdAt: new Date().toISOString(),
     };
     saveUser(newUser);
+    // ✅ FIX: también guardar en el backend para que aparezca en panel de admin
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || "https://kosmica-backend.onrender.com";
+      await fetch(`${API_URL}/api/users/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name, email: email.toLowerCase(), phone, document,
+          city, neighborhood: reg.neighborhood, address,
+          createdAt: new Date().toISOString(),
+        }),
+      });
+    } catch(_) { /* no bloquear si falla */ }
     const sessionUser = { ...newUser };
     delete sessionUser.passwordHash;
     setCurrentUser(sessionUser);
