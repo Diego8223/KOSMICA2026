@@ -365,9 +365,48 @@ const CSS = `
 
 // ── CLIENTES SECTION ───────────────────────────────────────
 function ClientesSection() {
-  let users = [];
-  try { users = JSON.parse(localStorage.getItem('kosmica_users') || '[]'); } catch(_) {}
+  const [users, setUsers] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
   const fmtDate = str => { try { return new Date(str).toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}); } catch { return '—'; } };
+
+  React.useEffect(() => {
+    // Construir lista de clientes únicos a partir de las órdenes del backend
+    const API_URL = process.env.REACT_APP_API_URL || 'https://kosmica-backend.onrender.com';
+    fetch(`${API_URL}/api/orders?page=0&size=200`)
+      .then(r => r.json())
+      .then(data => {
+        const orders = Array.isArray(data) ? data : (data.content || []);
+        // Agrupar por email, quedarse con el cliente único más reciente
+        const map = new Map();
+        orders.forEach(o => {
+          const email = o.customerEmail?.toLowerCase();
+          if (!email) return;
+          if (!map.has(email)) {
+            map.set(email, {
+              name:      o.customerName  || '—',
+              email:     o.customerEmail || '—',
+              phone:     o.customerPhone || '—',
+              city:      o.city || o.shippingCity || '—',
+              createdAt: o.createdAt,
+              orders:    1,
+            });
+          } else {
+            map.get(email).orders += 1;
+          }
+        });
+        setUsers([...map.values()]);
+      })
+      .catch(() => setUsers([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return (
+    <div style={{textAlign:'center',padding:'32px 0',color:'#9CA3AF'}}>
+      <div style={{fontSize:'2rem',marginBottom:8}}>⏳</div>
+      <div style={{fontWeight:600}}>Cargando clientes...</div>
+    </div>
+  );
+
   return (
     <div className="adm-card">
       {users.length === 0 ? (
@@ -381,8 +420,8 @@ function ClientesSection() {
           <div style={{display:'flex',gap:12,marginBottom:18,flexWrap:'wrap'}}>
             {[
               ['👥','Total clientes',users.length,'#EDE9FE','#6D28D9'],
-              ['💎','Puntos totales',users.reduce((s,u)=>s+(u.points||0),0).toLocaleString('es-CO'),'#FEF3C7','#92400E'],
-              ['🎁','Con tarjetas',users.filter(u=>(u.giftCards||[]).length>0).length,'#D1FAE5','#065F46'],
+              ['📦','Total pedidos',users.reduce((s,u)=>s+(u.orders||0),0),'#FEF3C7','#92400E'],
+              ['🏙️','Ciudades',new Set(users.map(u=>u.city).filter(c=>c!=='—')).size,'#D1FAE5','#065F46'],
             ].map(([ico,lbl,val,bg,color])=>(
               <div key={lbl} style={{background:bg,borderRadius:13,padding:'12px 18px',flex:'1 1 120px',minWidth:120}}>
                 <div style={{fontSize:'1.3rem',marginBottom:4}}>{ico}</div>
@@ -395,7 +434,7 @@ function ClientesSection() {
             <table className="adm-tbl">
               <thead><tr>
                 <th>Nombre</th><th>Email</th><th>Teléfono</th><th>Ciudad</th>
-                <th>Puntos</th><th>Tarjetas</th><th>Registro</th>
+                <th>Pedidos</th><th>Primer pedido</th>
               </tr></thead>
               <tbody>
                 {users.map((u,i)=>(
@@ -404,8 +443,7 @@ function ClientesSection() {
                     <td style={{fontSize:'.82rem'}}>{u.email}</td>
                     <td>{u.phone||'—'}</td>
                     <td>{u.city||'—'}</td>
-                    <td><span style={{background:'#EDE9FE',color:'#6D28D9',padding:'2px 10px',borderRadius:50,fontWeight:800,fontSize:'.75rem'}}>💎 {u.points||0}</span></td>
-                    <td style={{textAlign:'center'}}>{(u.giftCards||[]).length||'—'}</td>
+                    <td><span style={{background:'#EDE9FE',color:'#6D28D9',padding:'2px 10px',borderRadius:50,fontWeight:800,fontSize:'.75rem'}}>📦 {u.orders}</span></td>
                     <td style={{fontSize:'.78rem',color:'#9CA3AF'}}>{fmtDate(u.createdAt)}</td>
                   </tr>
                 ))}
