@@ -30,10 +30,14 @@ public class PaymentService {
     @Value("${store.url:http://localhost:3000}")
     private String storeUrl;
 
-    @Value("${store.name:Kosmica}")
+    @Value("${store.name:LuxShop}")
     private String storeName;
 
-    // ── Checkout Pro ─────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════
+    //  MERCADOPAGO — Checkout Pro (redirige al usuario a MP)
+    //  Soporta: Tarjetas, PSE, Efecty, Bancolombia, Nequi, y más
+    // ══════════════════════════════════════════════════════════════
+
     public Map<String, String> createPaymentIntent(BigDecimal amount, String currency) throws Exception {
         return createPreference(amount, "Compra en " + storeName, null);
     }
@@ -68,7 +72,7 @@ public class PaymentService {
 
         if (mpItems.isEmpty()) {
             mpItems.add(PreferenceItemRequest.builder()
-                    .id("kosmica-order")
+                    .id("order")
                     .title(description != null ? description : "Compra en " + storeName)
                     .quantity(1)
                     .unitPrice(total)
@@ -84,13 +88,14 @@ public class PaymentService {
                         .pending(storeUrl + "/?pago=pendiente")
                         .build())
                 .autoReturn("approved")
-                .externalReference("KOSMICA-" + System.currentTimeMillis())
+                .externalReference(storeName.toUpperCase() + "-" + System.currentTimeMillis())
                 .notificationUrl(storeUrl + "/api/orders/webhook")
                 .statementDescriptor(storeName)
                 .build();
 
         Preference preference = client.create(request);
 
+        // En sandbox usamos sandboxInitPoint; en producción initPoint
         String initPoint = accessToken.startsWith("TEST-")
                 ? preference.getSandboxInitPoint()
                 : preference.getInitPoint();
@@ -102,7 +107,20 @@ public class PaymentService {
         );
     }
 
-    // ── NEQUI DIRECTO (CORREGIDO) ───────────────────────────
+    // ══════════════════════════════════════════════════════════════
+    //  NEQUI — Notificación Push (el cliente aprueba desde su app)
+    //
+    //  ⚠️  REQUISITO: MERCADOPAGO_ACCESS_TOKEN debe ser de PRODUCCIÓN
+    //      formato: APP_USR-XXXX...  (NO TEST-...)
+    //
+    //  Flujo:
+    //    1. Backend llama a MP con payment_method_id = "nequi"
+    //    2. MP envía push notification a la app Nequi del cliente
+    //    3. Cliente abre Nequi → Centro de notificaciones → Aprueba
+    //    4. Frontend hace polling cada 5s a /api/orders/nequi-status/{id}
+    //    5. Cuando status = "approved", se confirma el pedido
+    // ══════════════════════════════════════════════════════════════
+
     public Map<String, String> createNequiPayment(
             BigDecimal amount,
             String phone,
@@ -110,44 +128,54 @@ public class PaymentService {
             String customerName,
             String orderId) throws Exception {
 
-        MercadoPagoConfig.setAccessToken(accessToken);
-
-        if (accessToken == null || accessToken.startsWith("TEST-") || accessToken.equals("TEST-placeholder")) {
-            throw new RuntimeException("Nequi requiere token de PRODUCCIÓN (APP_USR-...)");
+        // Validar que sea token de producción
+        if (accessToken == null
+                || accessToken.startsWith("TEST-")
+                || accessToken.equals("TEST-placeholder")
+                || accessToken.equals("APP_USR-placeholder")) {
+            throw new RuntimeException(
+                "Nequi push requiere token de PRODUCCIÓN de MercadoPago (APP_USR-...)." +
+                " Configura MERCADOPAGO_ACCESS_TOKEN con tu token productivo.");
         }
 
+        // Limpiar y validar teléfono
         String cleanPhone = phone.replaceAll("\\D", "");
+        if (cleanPhone.startsWith("57") && cleanPhone.length() == 12) {
+            cleanPhone = cleanPhone.substring(2); // quitar indicativo si ya viene incluido
+        }
         if (cleanPhone.length() != 10) {
-            throw new IllegalArgumentException("El número Nequi debe tener 10 dígitos");
+            throw new IllegalArgumentException(
+                "El número Nequi debe tener 10 dígitos (ej: 3001234567). Se recibió: " + cleanPhone);
         }
 
+        // Email válido (requerido por MP aunque sea ficticio)
         String email = (customerEmail != null && customerEmail.contains("@"))
                 ? customerEmail
-                : "cliente@kosmica.com.co";
+                : "cliente@" + storeName.toLowerCase().replaceAll("\\s","") + ".com";
 
         String firstName = extractFirstName(customerName);
-        String extRef = "KOSMICA-NEQUI-" + (orderId != null ? orderId : System.currentTimeMillis());
+        String extRef = storeName.toUpperCase().replaceAll("\\s","") + "-NEQUI-"
+                + (orderId != null ? orderId : System.currentTimeMillis());
 
-        // 🔥 AQUÍ ESTABA EL ERROR (YA CORREGIDO)
-        PaymentPayerPhoneRequest phoneRequest =
-                PaymentPayerPhoneRequest.builder()
-                        .areaCode("57")
-                        .number(cleanPhone)
-                        .build();
+        log.info("💜 Iniciando pago Nequi push → teléfono: {} | monto: {} | ref: {}", cleanPhone, amount, extRef);
 
-        PaymentCreateRequest paymentRequest =
-                PaymentCreateRequest.builder()
-                        .transactionAmount(amount)
-                        .description("Compra en " + storeName)
-                        .paymentMethodId("nequi")
-                        .payer(PaymentPayerRequest.builder()
-                                .email(email)
-                                .firstName(firstName)
-                                .phone(phoneRequest) // ✅ CORRECTO
+        MercadoPagoConfig.setAccessToken(accessToken);
+
+        PaymentCreateRequest paymentRequest = PaymentCreateRequest.builder()
+                .transactionAmount(amount)
+                .description("Compra en " + storeName)
+                .paymentMethodId("nequi")
+                .payer(PaymentPayerRequest.builder()
+                        .email(email)
+                        .firstName(firstName)
+                        .phone(PaymentPayerPhoneRequest.builder()
+                                .areaCode("57")
+                                .number(cleanPhone)
                                 .build())
-                        .externalReference(extRef)
-                        .notificationUrl(storeUrl + "/api/orders/webhook")
-                        .build();
+                        .build())
+                .externalReference(extRef)
+                .notificationUrl(storeUrl + "/api/orders/webhook")
+                .build();
 
         PaymentClient client = new PaymentClient();
         Payment payment;
@@ -155,17 +183,32 @@ public class PaymentService {
         try {
             payment = client.create(paymentRequest);
         } catch (MPApiException e) {
-            throw new RuntimeException("Error MercadoPago: " + e.getMessage());
+            String apiMsg = e.getMessage();
+            log.error("❌ MPApiException al crear pago Nequi: {} | statusCode: {}", apiMsg, e.getStatusCode());
+
+            // Mensajes amigables según error de MP
+            if (apiMsg != null && apiMsg.contains("phone")) {
+                throw new RuntimeException("Número de celular inválido para Nequi. Verifica que sea un número Nequi activo.");
+            } else if (apiMsg != null && (apiMsg.contains("unauthorized") || apiMsg.contains("401"))) {
+                throw new RuntimeException("Token de MercadoPago inválido o sin permisos para Nequi en producción.");
+            }
+            throw new RuntimeException("Error MercadoPago al crear pago Nequi: " + apiMsg);
         }
+
+        log.info("✅ Pago Nequi creado: id={} | status={} | detail={}", 
+            payment.getId(), payment.getStatus(), payment.getStatusDetail());
 
         Map<String, String> result = new HashMap<>();
         result.put("paymentId", String.valueOf(payment.getId()));
         result.put("status", payment.getStatus());
         result.put("statusDetail", payment.getStatusDetail());
         result.put("phone", cleanPhone);
-
         return result;
     }
+
+    // ══════════════════════════════════════════════════════════════
+    //  CONSULTA DE ESTADO — Usado por el polling del frontend
+    // ══════════════════════════════════════════════════════════════
 
     public boolean verifyPayment(String paymentId) {
         try {
@@ -174,6 +217,7 @@ public class PaymentService {
             Payment payment = client.get(Long.parseLong(paymentId));
             return "approved".equals(payment.getStatus());
         } catch (Exception e) {
+            log.warn("⚠️ verifyPayment error para {}: {}", paymentId, e.getMessage());
             return false;
         }
     }
@@ -185,22 +229,27 @@ public class PaymentService {
             Payment payment = client.get(Long.parseLong(paymentId));
 
             return Map.of(
-                    "paymentId", paymentId,
-                    "status", payment.getStatus(),
-                    "statusDetail", payment.getStatusDetail()
+                "paymentId",    paymentId,
+                "status",       payment.getStatus() != null ? payment.getStatus() : "unknown",
+                "statusDetail", payment.getStatusDetail() != null ? payment.getStatusDetail() : ""
             );
 
         } catch (Exception e) {
+            log.warn("⚠️ getPaymentStatus error para {}: {}", paymentId, e.getMessage());
             return Map.of(
-                    "paymentId", paymentId,
-                    "status", "error",
-                    "statusDetail", e.getMessage()
+                "paymentId",    paymentId,
+                "status",       "error",
+                "statusDetail", e.getMessage()
             );
         }
     }
 
+    // ══════════════════════════════════════════════════════════════
+    //  Helpers
+    // ══════════════════════════════════════════════════════════════
+
     private String extractFirstName(String fullName) {
         if (fullName == null || fullName.isBlank()) return "Cliente";
-        return fullName.split(" ")[0];
+        return fullName.trim().split("\\s+")[0];
     }
 }

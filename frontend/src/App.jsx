@@ -2578,68 +2578,103 @@ export default function App() {
   const handleNequiCheckout = async e => {
     e.preventDefault();
     if (!selectedShippingMethod) { showToast("⚠️ Selecciona un método de envío"); return; }
-    const phone = nequiPhone.replace(/\D/g,"");
+    const phone = nequiPhone.replace(/\D/g, "");
     if (phone.length < 10) { showToast("⚠️ Ingresa tu número de celular Nequi (10 dígitos)"); return; }
     if (!form.name?.trim())  { showToast("⚠️ Ingresa tu nombre completo"); return; }
     if (!form.email?.trim()) { showToast("⚠️ Ingresa tu correo electrónico"); return; }
     setPaying(true);
     try {
-      // 1. Crear pedido en el sistema
-      const orderResp = await orderAPI.createOrder({
-        name:form.name, email:form.email, phone:form.phone, document:form.document,
-        city:form.city, neighborhood:form.neighborhood, address:form.address, notes:form.notes,
-        paymentMethod:"NEQUI",
-        paymentIntentId: null,
-        shippingMethod:selectedShippingMethod.id,
-        shippingCost:selectedShippingMethod.cost,
-        items:cart.map(i=>({productId:i.id,quantity:i.qty})),
-        couponCode:       appliedCoupon && !appliedCoupon.code.startsWith("LUX-") && appliedCoupon.type !== "giftcard" ? appliedCoupon.code : null,
-        couponDiscount:   couponDiscount,
-        referralCode:     appliedCoupon?.code.startsWith("LUX-") ? appliedCoupon.code : (referralCode || null),
-        giftCardCode:     appliedCoupon?.type === "giftcard" ? appliedCoupon.code : null,
-        giftCardDiscount: appliedCoupon?.type === "giftcard" ? couponDiscount : 0,
-        nequiPhone:       phone,
-      });
-      // 2. Llamar al backend → Payments API de MercadoPago → push notification Nequi
       const API_URL = process.env.REACT_APP_API_URL || "https://kosmica-backend.onrender.com";
+
+      // ── 1. Crear pedido en el sistema ─────────────────────────────
+      const orderResp = await orderAPI.createOrder({
+        name:            form.name,
+        email:           form.email,
+        phone:           form.phone,
+        document:        form.document,
+        city:            form.city,
+        neighborhood:    form.neighborhood,
+        address:         form.address,
+        notes:           form.notes,
+        paymentMethod:   "NEQUI",
+        paymentIntentId: null,
+        shippingMethod:  selectedShippingMethod.id,
+        shippingCost:    selectedShippingMethod.cost,
+        items:           cart.map(i => ({ productId: i.id, quantity: i.qty })),
+        couponCode:      appliedCoupon && !appliedCoupon.code.startsWith("LUX-") && appliedCoupon.type !== "giftcard"
+                           ? appliedCoupon.code : null,
+        couponDiscount:  couponDiscount,
+        referralCode:    appliedCoupon?.code.startsWith("LUX-")
+                           ? appliedCoupon.code : (referralCode || null),
+        giftCardCode:    appliedCoupon?.type === "giftcard" ? appliedCoupon.code : null,
+        giftCardDiscount: appliedCoupon?.type === "giftcard" ? couponDiscount : 0,
+        nequiPhone:      phone,
+      });
+
+      // ── 2. Enviar notificación push Nequi vía MercadoPago ─────────
       const res = await fetch(`${API_URL}/api/orders/nequi-payment`, {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount:   grandTotal,
+          amount:  grandTotal,
           phone,
-          email:    form.email,
-          name:     form.name,
-          orderId:  orderResp?.orderNumber || orderResp?.id,
+          email:   form.email,
+          name:    form.name,
+          orderId: orderResp?.orderNumber || orderResp?.id,
         }),
       });
-      if (!res.ok) {
-        const errText = await res.text();
-        let errMsg = `Error ${res.status}`;
-        try { const errJson = JSON.parse(errText); errMsg = errJson.error || errJson.message || errMsg; } catch(_) {}
-        throw new Error(errMsg);
+
+      // El backend siempre devuelve 200 con campo "error" si algo falla
+      let data = {};
+      try { data = await res.json(); } catch (_) {}
+
+      if (!res.ok || data.error || data.status === "error") {
+        throw new Error(data.error || data.message || `Error ${res.status} al enviar notificación Nequi`);
       }
-      const data = await res.json();
-      // 3. Limpiar carrito y mostrar pantalla de espera (NO redirigir)
-      setCart([]); setAppliedCoupon(null); setSelectedShippingMethod(null); setCheckoutOpen(false);
-      try { localStorage.removeItem("kosmica_cart"); } catch(_) {}
+
+      // Verificar que venga el paymentId para poder hacer polling
+      if (!data.paymentId) {
+        throw new Error("No se recibió ID de pago de Nequi. Intenta de nuevo o usa MercadoPago.");
+      }
+
+      // ── 3. Limpiar carrito ────────────────────────────────────────
+      setCart([]);
+      setAppliedCoupon(null);
+      setSelectedShippingMethod(null);
+      setCheckoutOpen(false);
+      try { localStorage.removeItem("kosmica_cart"); } catch (_) {}
       try {
-        localStorage.setItem("kosmica_pending_pts", String(Math.floor(grandTotal/36)));
+        localStorage.setItem("kosmica_pending_pts", String(Math.floor(grandTotal / 36)));
         if (currentUser) localStorage.setItem("kosmica_pending_pts_user", currentUser.email);
-      } catch(_) {}
-      // 4. Mostrar pantalla de espera con instrucciones
-      setNequiWaiting({ paymentId: data.paymentId, phone, orderNumber: orderResp?.orderNumber });
-    } catch(e) {
+      } catch (_) {}
+
+      // ── 4. Mostrar pantalla de espera con polling automático ──────
+      setNequiWaiting({
+        paymentId:   data.paymentId,
+        phone,
+        orderNumber: orderResp?.orderNumber,
+      });
+
+    } catch (e) {
       const msg = e.message || "Error al procesar el pago";
-      // Si Nequi falla por credenciales de producción, mostrar alternativa por WhatsApp
-      if (msg.includes("producción") || msg.includes("TEST-") || msg.includes("APP_USR")) {
-        showToast("⚠️ Nequi no disponible. Usa MercadoPago o escríbenos por WhatsApp.");
+      // Si falla por token sandbox / sin credenciales de producción → fallback automático a MP
+      if (
+        msg.includes("producción") ||
+        msg.includes("TEST-")      ||
+        msg.includes("APP_USR")    ||
+        msg.includes("token")      ||
+        msg.includes("unauthorized")
+      ) {
+        showToast("⚠️ Nequi push no disponible. Te cambiamos a MercadoPago automáticamente.");
         setPaymentMethod("mp");
-      } else {
+      } else if (msg.includes("celular") || msg.includes("teléfono") || msg.includes("10 dígitos")) {
         showToast("⚠️ " + msg);
+      } else {
+        showToast("⚠️ " + msg + " — También puedes pagar con MercadoPago.");
       }
+    } finally {
+      setPaying(false);
     }
-    finally { setPaying(false); }
   };
 
   // ── WOMPI (Bancolombia) CHECKOUT ──────────────────────────
