@@ -253,8 +253,8 @@ public class PaymentService {
     public boolean verifyPayment(String paymentId) {
         try {
             MercadoPagoConfig.setAccessToken(accessToken);
-            log.info("📋 Nequi request → phone: {} | doc: {} | email: {} | amount: {}", cleanPhone, docNumber, email, amount);
-        PaymentClient client = new PaymentClient();
+            log.info("🔍 verifyPayment → paymentId: {}", paymentId);
+            PaymentClient client = new PaymentClient();
             Payment payment = client.get(Long.parseLong(paymentId));
             return "approved".equals(payment.getStatus());
         } catch (Exception e) {
@@ -266,8 +266,8 @@ public class PaymentService {
     public Map<String, String> getPaymentStatus(String paymentId) {
         try {
             MercadoPagoConfig.setAccessToken(accessToken);
-            log.info("📋 Nequi request → phone: {} | doc: {} | email: {} | amount: {}", cleanPhone, docNumber, email, amount);
-        PaymentClient client = new PaymentClient();
+            log.info("🔍 getPaymentStatus → paymentId: {}", paymentId);
+            PaymentClient client = new PaymentClient();
             Payment payment = client.get(Long.parseLong(paymentId));
 
             return Map.of(
