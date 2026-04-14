@@ -2616,11 +2616,12 @@ export default function App() {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount:  grandTotal,
+          amount:   grandTotal,
           phone,
-          email:   form.email,
-          name:    form.name,
-          orderId: orderResp?.orderNumber || orderResp?.id,
+          email:    form.email,
+          name:     form.name,
+          document: form.document,   // ✅ Cédula requerida por MercadoPago para Nequi push
+          orderId:  orderResp?.orderNumber || orderResp?.id,
         }),
       });
 
@@ -2657,8 +2658,15 @@ export default function App() {
 
     } catch (e) {
       const msg = e.message || "Error al procesar el pago";
-      // Si falla por token sandbox / sin credenciales de producción → fallback automático a MP
-      if (
+
+      // Número no encontrado en Nequi (código 10102 de MercadoPago)
+      if (msg.includes("NEQUI_NOT_FOUND")) {
+        const badPhone = msg.split(":")[1] || nequiPhone;
+        showToast(`⚠️ El número ${badPhone} no tiene cuenta Nequi activa. Verifica el número e intenta de nuevo.`);
+        // NO hacemos fallback — dejamos que el usuario corrija el número
+      }
+      // Token sandbox / sin credenciales de producción → fallback a MP
+      else if (
         msg.includes("producción") ||
         msg.includes("TEST-")      ||
         msg.includes("APP_USR")    ||
@@ -2667,9 +2675,13 @@ export default function App() {
       ) {
         showToast("⚠️ Nequi push no disponible. Te cambiamos a MercadoPago automáticamente.");
         setPaymentMethod("mp");
-      } else if (msg.includes("celular") || msg.includes("teléfono") || msg.includes("10 dígitos")) {
+      }
+      // Error de número/teléfono
+      else if (msg.includes("celular") || msg.includes("teléfono") || msg.includes("10 dígitos") || msg.includes("registrado")) {
         showToast("⚠️ " + msg);
-      } else {
+      }
+      // Error genérico
+      else {
         showToast("⚠️ " + msg + " — También puedes pagar con MercadoPago.");
       }
     } finally {

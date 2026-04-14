@@ -40,11 +40,12 @@ public class OrderController {
             @RequestBody Map<String, Object> body) {
         try {
             BigDecimal amount = new BigDecimal(body.get("amount").toString());
-            String phone   = body.get("phone").toString();
-            String email   = body.containsKey("email")   ? String.valueOf(body.get("email"))   : null;
-            String name    = body.containsKey("name")    ? String.valueOf(body.get("name"))    : null;
-            String orderId = body.containsKey("orderId") ? String.valueOf(body.get("orderId")) : null;
-            Map<String, String> result = paymentService.createNequiPayment(amount, phone, email, name, orderId);
+            String phone    = body.get("phone").toString();
+            String email    = body.containsKey("email")    ? String.valueOf(body.get("email"))    : null;
+            String name     = body.containsKey("name")     ? String.valueOf(body.get("name"))     : null;
+            String document = body.containsKey("document") ? String.valueOf(body.get("document")) : null;
+            String orderId  = body.containsKey("orderId")  ? String.valueOf(body.get("orderId"))  : null;
+            Map<String, String> result = paymentService.createNequiPayment(amount, phone, email, name, document, orderId);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("❌ Error creando pago Nequi: {}", e.getMessage());
