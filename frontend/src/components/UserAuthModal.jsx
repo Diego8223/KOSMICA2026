@@ -222,8 +222,31 @@ export default function UserAuthModal({ open, onClose, onSuccess, initialTab = "
     if (user.passwordHash !== simpleHash(loginPwd)) { setError("Contraseña incorrecta"); setLoading(false); return; }
     const sessionUser = { ...user };
     delete sessionUser.passwordHash;
+
+    // ✅ FIX: sincronizar puntos y racha desde el backend al hacer login
+    // Si el backend responde, usamos esos datos (son la fuente de verdad).
+    // Si no responde, usamos los datos locales como fallback.
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || "https://kosmica-backend.onrender.com";
+      const res = await fetch(`${API_URL}/api/users/${encodeURIComponent(sessionUser.email)}`);
+      if (res.ok) {
+        const backendUser = await res.json();
+        // Mezclar: datos de perfil del backend + passwordHash del localStorage (para futuras sesiones)
+        sessionUser.points        = backendUser.points        ?? sessionUser.points ?? 0;
+        sessionUser.checkinStreak = backendUser.checkinStreak ?? sessionUser.checkinStreak ?? 0;
+        sessionUser.purchaseStreak= backendUser.purchaseStreak?? sessionUser.purchaseStreak ?? 0;
+        sessionUser.city          = backendUser.city          || sessionUser.city;
+        sessionUser.phone         = backendUser.phone         || sessionUser.phone;
+        sessionUser.address       = backendUser.address       || sessionUser.address;
+        sessionUser.neighborhood  = backendUser.neighborhood  || sessionUser.neighborhood;
+        // Actualizar también el registro local para que futuras sesiones offline sean correctas
+        saveUser({ ...sessionUser, passwordHash: simpleHash(loginPwd) });
+      }
+    } catch (_) {
+      // Sin conexión: continuar con datos locales
+    }
+
     setCurrentUser(sessionUser);
-    // Llamar onSuccess Y cerrar inmediatamente — sin delay para mejor UX
     onSuccess?.(sessionUser);
     onClose?.();
     setLoading(false);

@@ -2,6 +2,7 @@ package com.luxshop.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -34,11 +35,32 @@ public class User {
     @Column(columnDefinition = "TEXT")
     private String address;
 
+    // ── Puntos Kosmica ────────────────────────────────────
+    @Column(name = "points", columnDefinition = "INT NOT NULL DEFAULT 0")
+    private Integer points = 0;
+
+    // ── Racha de check-in diario ──────────────────────────
+    @Column(name = "checkin_streak", columnDefinition = "INT NOT NULL DEFAULT 0")
+    private Integer checkinStreak = 0;
+
+    @Column(name = "last_checkin_date")
+    private LocalDate lastCheckinDate;
+
+    // ── Racha de compras ──────────────────────────────────
+    @Column(name = "purchase_streak", columnDefinition = "INT NOT NULL DEFAULT 0")
+    private Integer purchaseStreak = 0;
+
+    @Column(name = "last_purchase_date")
+    private LocalDate lastPurchaseDate;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) createdAt = LocalDateTime.now();
+        if (points == null) points = 0;
+        if (checkinStreak == null) checkinStreak = 0;
+        if (purchaseStreak == null) purchaseStreak = 0;
     }
 }

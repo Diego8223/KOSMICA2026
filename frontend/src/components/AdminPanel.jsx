@@ -665,7 +665,7 @@ function GiftCardsAdminSection() {
 }
 
 // ── REPORTS SECTION ────────────────────────────────────────
-function ReportsSection({ orders, products }) {
+function ReportsSection({ orders, products, registeredUsers = [] }) {
   const fmtCOP = n => '$'+Number(n||0).toLocaleString('es-CO');
   const now = new Date();
   const thisMonth = orders.filter(o => {
@@ -715,8 +715,8 @@ function ReportsSection({ orders, products }) {
    .filter(s=>s.count>0);
   const totalStatus = statusDist.reduce((s,x)=>s+x.count,0)||1;
 
-  // Reg users
-  let users = []; try { users = JSON.parse(localStorage.getItem('kosmica_users')||'[]'); } catch(_) {}
+  // ✅ FIX: usar datos reales del backend (prop registeredUsers), no localStorage
+  const users = registeredUsers;
 
   const CARD = ({ico,label,val,sub,color='#6D28D9',bg='#F5F0FF'}) => (
     <div style={{background:bg,borderRadius:16,padding:'18px 20px',border:'1.5px solid '+bg,
@@ -985,8 +985,9 @@ export default function AdminPanel({ onExit }) {
   const [loginErr,setLoginErr]= useState('');
   const [section, setSection] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);   // ← FIX: declarado
-  const [products,setProducts]= useState([]);
-  const [orders,  setOrders]  = useState([]);
+  const [products,       setProducts]        = useState([]);
+  const [orders,         setOrders]          = useState([]);
+  const [registeredUsers,setRegisteredUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form,    setForm]    = useState(EMPTY_PROD);
@@ -1071,6 +1072,16 @@ export default function AdminPanel({ onExit }) {
     if (!authed) return;
     if (section === 'products'  || section === 'dashboard') loadProducts();
     if (section === 'orders'    || section === 'dashboard') loadOrders();
+    if (section === 'reports'   || section === 'dashboard') {
+      const API_URL = process.env.REACT_APP_API_URL || 'https://kosmica-backend.onrender.com';
+      fetch(`${API_URL}/api/users`)
+        .then(r => r.ok ? r.json() : [])
+        .then(data => setRegisteredUsers(Array.isArray(data) ? data : []))
+        .catch(() => {
+          // Fallback: intentar desde localStorage si el backend no responde
+          try { setRegisteredUsers(JSON.parse(localStorage.getItem('kosmica_users') || '[]')); } catch(_) {}
+        });
+    }
   }, [authed, section]);
 
   const fSet    = (k,v) => setForm(p => ({...p,[k]:v}));
@@ -1881,7 +1892,7 @@ export default function AdminPanel({ onExit }) {
           {section==='reports' && (<>
             <h1 className="adm-h1">📈 Reportes & Analytics</h1>
             <p className="adm-sub">Métricas clave de tu tienda Kosmica en tiempo real</p>
-            <ReportsSection orders={orders} products={products} />
+            <ReportsSection orders={orders} products={products} registeredUsers={registeredUsers} />
           </>)}
 
           {/* MEDIOS — FIX: sin useRef en map */}

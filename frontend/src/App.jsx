@@ -1881,29 +1881,65 @@ export default function App() {
     }
   }, [currentUser]);
 
-  const doCheckin = () => {
+  const doCheckin = async () => {
     if (!currentUser) { setCheckinOpen(false); setAuthOpen(true); return; }
+    // Evitar doble click
     const today = new Date().toDateString();
+    if (localStorage.getItem("kosmica_checkin_date") === today) {
+      setCheckinDone(true); setCheckinOpen(false); return;
+    }
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || "";
+      const res = await fetch(
+        `${API_URL}/api/users/${encodeURIComponent(currentUser.email)}/checkin`,
+        { method: "POST", headers: { "Content-Type": "application/json" } }
+      );
+      if (res.ok) {
+        const updatedUser = await res.json();
+        // Calcular bonus para el toast (diferencia de puntos)
+        const prevPts = parseInt(currentUser.points || 0, 10);
+        const newPts  = parseInt(updatedUser.points || 0, 10);
+        const bonusPts = newPts - prevPts;
+        const newStreak = updatedUser.checkinStreak || 1;
+        // Persistir en estado React + localStorage (para UI offline/inmediata)
+        setCurrentUser(updatedUser);
+        setDisplayPoints(newPts);
+        setCheckinStreak(newStreak);
+        setCheckinDone(true);
+        localStorage.setItem("kosmica_checkin_date", today);
+        localStorage.setItem("kosmica_checkin_streak", String(newStreak));
+        localStorage.setItem("kosmica_pts", String(newPts));
+        showToast(`🔥 +${bonusPts} pts por tu visita diaria · Racha: ${newStreak} días`);
+        setTimeout(() => setCheckinOpen(false), 1800);
+      } else {
+        // Fallback local si backend no responde
+        _doCheckinLocal();
+      }
+    } catch (_) {
+      // Sin conexión: guardar localmente y sincronizar después
+      _doCheckinLocal();
+    }
+  };
+
+  // Fallback para check-in cuando el backend no está disponible
+  const _doCheckinLocal = () => {
+    const today     = new Date().toDateString();
     const yesterday = new Date(Date.now() - 864e5).toDateString();
     const lastCheckin = localStorage.getItem("kosmica_checkin_date");
+    if (lastCheckin === today) { setCheckinDone(true); setCheckinOpen(false); return; }
     let newStreak = 1;
     if (lastCheckin === yesterday) {
       newStreak = (parseInt(localStorage.getItem("kosmica_checkin_streak") || "0", 10)) + 1;
-    } else if (lastCheckin === today) {
-      return; // ya hizo check-in
     }
-    localStorage.setItem("kosmica_checkin_date", today);
-    localStorage.setItem("kosmica_checkin_streak", String(newStreak));
-    setCheckinStreak(newStreak);
-    setCheckinDone(true);
-    // Bonus de puntos por check-in
     const bonusPts = DAILY_CHECKIN_PTS + (newStreak >= 7 ? 10 : newStreak >= 3 ? 5 : 0);
-    const current = parseInt(currentUser.points || 0, 10);
-    const newTotal = current + bonusPts;
-    // Actualizar usuario en localStorage y estado React
+    const newTotal = parseInt(currentUser.points || 0, 10) + bonusPts;
     const updatedUser = { ...currentUser, points: newTotal };
     setCurrentUser(updatedUser);
     setDisplayPoints(newTotal);
+    setCheckinStreak(newStreak);
+    setCheckinDone(true);
+    localStorage.setItem("kosmica_checkin_date", today);
+    localStorage.setItem("kosmica_checkin_streak", String(newStreak));
     localStorage.setItem("kosmica_pts", String(newTotal));
     showToast(`🔥 +${bonusPts} pts por tu visita diaria · Racha: ${newStreak} días`);
     setTimeout(() => setCheckinOpen(false), 1800);
@@ -2320,15 +2356,45 @@ export default function App() {
   }, [cartOpen]);
 
   // ════════════════════════════════════════
-  // 💎 PUNTOS — sumar por compra y guardar
+  // 💎 PUNTOS — sumar por compra y guardar en backend
   // ════════════════════════════════════════
-  // 1 punto = $36 COP → pts = round(total / 36)
-  const awardLoyaltyPoints = (total) => {
-    if (!currentUser) return 0; // Solo acumula si está registrada
+  // 1 punto = $36 COP → pts = floor(total / 36)
+  const awardLoyaltyPoints = async (total) => {
+    if (!currentUser) return 0;
     const pts = Math.floor(total / 36);
     try {
+      const API_URL = process.env.REACT_APP_API_URL || "";
+      const res = await fetch(
+        `${API_URL}/api/users/${encodeURIComponent(currentUser.email)}/purchase-points`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ total }),
+        }
+      );
+      if (res.ok) {
+        const updatedUser = await res.json();
+        const newPts   = parseInt(updatedUser.points || 0, 10);
+        const newStreak = updatedUser.purchaseStreak || 1;
+        // Actualizar estado React + localStorage
+        setCurrentUser(updatedUser);
+        setDisplayPoints(newPts);
+        setPurchaseStreak(newStreak);
+        localStorage.setItem("kosmica_pts", String(newPts));
+        localStorage.setItem("kosmica_streak", String(newStreak));
+        localStorage.setItem("kosmica_last_purchase_date", new Date().toDateString());
+        const awarded = newPts - parseInt(currentUser.points || 0, 10);
+        return Math.max(0, awarded);
+      }
+    } catch (_) {}
+    // Fallback local si backend no responde
+    return _awardLoyaltyPointsLocal(total, pts);
+  };
+
+  // Fallback local para puntos de compra cuando el backend no está disponible
+  const _awardLoyaltyPointsLocal = (total, pts) => {
+    try {
       const today = new Date().toDateString();
-      // Límite diario
       const savedDate = localStorage.getItem("kosmica_daily_pts_date");
       let todayEarned = savedDate === today
         ? parseInt(localStorage.getItem("kosmica_daily_pts") || "0", 10)
@@ -2338,7 +2404,6 @@ export default function App() {
       if (awarded > 0) {
         const current = parseInt(currentUser.points || 0, 10);
         const newTotal = current + awarded;
-        // Actualizar usuario en localStorage y estado React
         const updatedUser = { ...currentUser, points: newTotal };
         setCurrentUser(updatedUser);
         setDisplayPoints(newTotal);
@@ -2348,7 +2413,6 @@ export default function App() {
         localStorage.setItem("kosmica_daily_pts_date", today);
         setDailyPtsEarned(todayEarned);
       }
-      // Racha de compras
       const lastPurchase = localStorage.getItem("kosmica_last_purchase_date");
       const yesterday = new Date(Date.now() - 864e5).toDateString();
       let newStreak = 1;
