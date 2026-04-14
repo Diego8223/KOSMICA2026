@@ -189,6 +189,7 @@ public class PaymentService {
                 .notificationUrl(storeUrl + "/api/orders/webhook")
                 .build();
 
+        log.info("📋 Nequi request → phone: {} | doc: {} | email: {} | amount: {}", cleanPhone, docNumber, email, amount);
         PaymentClient client = new PaymentClient();
         Payment payment;
 
@@ -252,7 +253,8 @@ public class PaymentService {
     public boolean verifyPayment(String paymentId) {
         try {
             MercadoPagoConfig.setAccessToken(accessToken);
-            PaymentClient client = new PaymentClient();
+            log.info("📋 Nequi request → phone: {} | doc: {} | email: {} | amount: {}", cleanPhone, docNumber, email, amount);
+        PaymentClient client = new PaymentClient();
             Payment payment = client.get(Long.parseLong(paymentId));
             return "approved".equals(payment.getStatus());
         } catch (Exception e) {
@@ -264,7 +266,8 @@ public class PaymentService {
     public Map<String, String> getPaymentStatus(String paymentId) {
         try {
             MercadoPagoConfig.setAccessToken(accessToken);
-            PaymentClient client = new PaymentClient();
+            log.info("📋 Nequi request → phone: {} | doc: {} | email: {} | amount: {}", cleanPhone, docNumber, email, amount);
+        PaymentClient client = new PaymentClient();
             Payment payment = client.get(Long.parseLong(paymentId));
 
             return Map.of(

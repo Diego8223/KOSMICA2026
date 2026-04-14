@@ -2580,8 +2580,9 @@ export default function App() {
     if (!selectedShippingMethod) { showToast("⚠️ Selecciona un método de envío"); return; }
     const phone = nequiPhone.replace(/\D/g, "");
     if (phone.length < 10) { showToast("⚠️ Ingresa tu número de celular Nequi (10 dígitos)"); return; }
-    if (!form.name?.trim())  { showToast("⚠️ Ingresa tu nombre completo"); return; }
-    if (!form.email?.trim()) { showToast("⚠️ Ingresa tu correo electrónico"); return; }
+    if (!form.name?.trim())     { showToast("⚠️ Ingresa tu nombre completo"); return; }
+    if (!form.email?.trim())    { showToast("⚠️ Ingresa tu correo electrónico"); return; }
+    if (!form.document?.trim()) { showToast("⚠️ Ingresa tu número de cédula para pagar con Nequi"); return; }
     setPaying(true);
     try {
       const API_URL = process.env.REACT_APP_API_URL || "https://kosmica-backend.onrender.com";
@@ -3660,6 +3661,12 @@ export default function App() {
                     <div style={{fontSize:".76rem",color:"#7C3AED",marginTop:6}}>
                       💡 Recibirás una notificación push en tu app Nequi para aprobar el pago
                     </div>
+                    {!form.document?.trim() && (
+                      <div style={{marginTop:8,padding:"7px 10px",background:"#FEF3C7",border:"1.5px solid #FCD34D",
+                        borderRadius:8,fontSize:".76rem",color:"#92400E",fontWeight:600}}>
+                        ⚠️ Recuerda llenar el campo <strong>Cédula</strong> arriba para pagar con Nequi
+                      </div>
+                    )}
                   </div>
                 )}
                 {paymentMethod==="wompi" && (
