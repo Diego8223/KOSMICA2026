@@ -1,7 +1,7 @@
 # ============================================================
-#  render.yaml — Kosmica en Render
-#  Sube este archivo a la raíz de tu repo GitHub
-#  Render lo detecta y crea todos los servicios automáticamente
+#  render.yaml — Kosmica en Render (CORREGIDO)
+#  ✅ FIX: usa DATABASE_URL / DB_USER / DB_PASSWORD para que
+#           coincidan con application.properties
 # ============================================================
 
 databases:
@@ -21,28 +21,71 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     envVars:
-      - key: SPRING_DATASOURCE_URL   # ✅ Debe coincidir con ${SPRING_DATASOURCE_URL} en application.properties
+      # ✅ FIX: ahora se llama DATABASE_URL — coincide con application.properties
+      - key: DATABASE_URL
         fromDatabase:
           name: kosmica-db
-          property: connectionString
+          property: connectionString   # Render inyecta: postgresql://user:pass@host/db
+
+      # ✅ DB_USER y DB_PASSWORD también deben coincidir
+      - key: DB_USER
+        fromDatabase:
+          name: kosmica-db
+          property: user
+
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: kosmica-db
+          property: password
+
       - key: MERCADOPAGO_ACCESS_TOKEN
-        sync: false   # Lo ingresas manualmente en el dashboard
+        sync: false
+
       - key: MERCADOPAGO_PUBLIC_KEY
         sync: false
+
+      - key: WOMPI_PUBLIC_KEY
+        sync: false
+
+      - key: WOMPI_PRIVATE_KEY
+        sync: false
+
+      - key: WOMPI_EVENTS_SECRET
+        sync: false
+
       - key: STORE_NAME
         value: Kosmica
+
       - key: STORE_EMAIL
         sync: false
+
       - key: STORE_URL
-        sync: false   # URL del frontend una vez desplegado
-      - key: SENDGRID_API_KEY
+        sync: false   # URL del frontend: https://kosmica-frontend.onrender.com
+
+      - key: MAIL_HOST
+        value: smtp.gmail.com
+
+      - key: MAIL_PORT
+        value: "587"
+
+      - key: MAIL_USER
         sync: false
-      - key: WOMPI_PUBLIC_KEY
-        sync: false   # pub_prod_XXXX o pub_test_XXXX para pruebas
-      - key: WOMPI_PRIVATE_KEY
-        sync: false   # prv_prod_XXXX o prv_test_XXXX para pruebas
-      - key: WOMPI_EVENTS_SECRET
-        sync: false   # Secreto de eventos del webhook Wompi
+
+      - key: MAIL_PASSWORD
+        sync: false
+
+      # ✅ Una sola variable — formato: cloudinary://KEY:SECRET@CLOUD_NAME
+      - key: CLOUDINARY_URL
+        sync: false
+
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+
+      - key: JWT_SECRET
+        sync: false   # Genera uno largo y aleatorio para producción
 
   # ── Frontend React ────────────────────────────────────────
   - type: web
@@ -58,11 +101,21 @@ services:
         fromService:
           name: kosmica-backend
           type: web
-          property: url   # ✅ "url" da https://kosmica-backend.onrender.com — "host" daba solo el hostname sin https
+          property: url
+
       - key: REACT_APP_ADMIN_PASSWORD
         value: Kosmica2025
+
       - key: REACT_APP_VAPID_PUBLIC_KEY
-        sync: false   # Clave pública VAPID — igual que VAPID_PUBLIC_KEY del backend
+        sync: false
+
+      - key: REACT_APP_MP_PUBLIC_KEY
+        sync: false
+
+      # ⚠️  Esta clave es pública en el bundle de React — considera moverla al backend
+      - key: REACT_APP_ANTHROPIC_KEY
+        sync: false
+
     routes:
       - type: rewrite
         source: /*

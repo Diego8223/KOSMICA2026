@@ -1,28 +1,61 @@
+# ============================================================
+#  docker-compose.yml — Kosmica (LOCAL con PostgreSQL + pgAdmin4)
+#  Corrige: MySQL → PostgreSQL, agrega pgAdmin4, fix nginx.conf
+#  Uso: docker compose up --build
+# ============================================================
+
 services:
 
-  mysql:
-    image: mysql:8.0
-    container_name: kosmica-mysql
+  # ── Base de datos PostgreSQL ──────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: kosmica-postgres
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: LuxShop2025!
-      MYSQL_DATABASE: luxshop
-      MYSQL_USER: luxshop_user
-      MYSQL_PASSWORD: LuxPass2025!
+      POSTGRES_DB: luxshop
+      POSTGRES_USER: luxshop_user
+      POSTGRES_PASSWORD: LuxPass2025!
     ports:
-      - "3306:3306"
+      - "5432:5432"           # Puerto accesible desde pgAdmin4 externo o local
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
       - ./database/luxshop_database.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     healthcheck:
-      test: ["CMD","mysqladmin","ping","-h","localhost","-u","root","-pLuxShop2025!"]
+      test: ["CMD-SHELL", "pg_isready -U luxshop_user -d luxshop"]
       interval: 10s
       timeout: 5s
       retries: 10
     networks:
       - kosmica-network
 
+  # ── pgAdmin 4 ─────────────────────────────────────────────
+  #  Acceso: http://localhost:5050
+  #  Login : admin@kosmica.com / Admin2025!
+  #  Para conectar al server de postgres dentro de pgAdmin:
+  #    Host     → postgres      (nombre del servicio Docker)
+  #    Port     → 5432
+  #    Username → luxshop_user
+  #    Password → LuxPass2025!
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: kosmica-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@kosmica.com
+      PGADMIN_DEFAULT_PASSWORD: Admin2025!
+      PGADMIN_CONFIG_SERVER_MODE: "False"   # Modo single-user (sin login de organización)
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - kosmica-network
+
+  # ── Backend Java Spring Boot ──────────────────────────────
   backend:
     build:
       context: ./backend
@@ -30,39 +63,76 @@ services:
     container_name: kosmica-backend
     restart: unless-stopped
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/luxshop?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: luxshop_user
-      SPRING_DATASOURCE_PASSWORD: LuxPass2025!
-      SPRING_PROFILES_ACTIVE: prod
-      SERVER_PORT: 8080
-      # ── MercadoPago ──────────────────────────────────────
-      MERCADOPAGO_ACCESS_TOKEN: ${MERCADOPAGO_ACCESS_TOKEN}
-      MERCADOPAGO_PUBLIC_KEY: ${MERCADOPAGO_PUBLIC_KEY}
-      # ── Tienda ───────────────────────────────────────────
-      STORE_URL: ${STORE_URL:-http://localhost:3000}
+      # ── Base de datos ────────────────────────────────────
+      # ✅ FIX: application.properties lee DATABASE_URL y DB_USER/DB_PASSWORD
+      DATABASE_URL: jdbc:postgresql://postgres:5432/luxshop
+      DB_USER: luxshop_user
+      DB_PASSWORD: LuxPass2025!
+
+      # ── Servidor ─────────────────────────────────────────
+      PORT: 8080
+      STORE_URL: http://localhost:3000
       STORE_NAME: Kosmica
-      STORE_EMAIL: ${STORE_EMAIL:-hola@kosmica.com}
-      # ── SendGrid ─────────────────────────────────────────
-      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
-      # ── Groq AI (chatbot gratis) ──────────────────────────
-      GROQ_API_KEY: ${GROQ_API_KEY}
+      STORE_EMAIL: hola@kosmica.com
+
+      # ── MercadoPago ──────────────────────────────────────
+      # Reemplaza con tus tokens reales de mercadopago.com.co
+      MERCADOPAGO_ACCESS_TOKEN: ${MERCADOPAGO_ACCESS_TOKEN:-TEST-placeholder}
+      MERCADOPAGO_PUBLIC_KEY: ${MERCADOPAGO_PUBLIC_KEY:-TEST-placeholder}
+
+      # ── Wompi (Bancolombia) ──────────────────────────────
+      # Reemplaza en comercios.wompi.co → Configuración → Llaves API
+      WOMPI_PUBLIC_KEY: ${WOMPI_PUBLIC_KEY:-pub_test_placeholder}
+      WOMPI_PRIVATE_KEY: ${WOMPI_PRIVATE_KEY:-prv_test_placeholder}
+      WOMPI_EVENTS_SECRET: ${WOMPI_EVENTS_SECRET:-}
+
+      # ── Email ────────────────────────────────────────────
+      MAIL_HOST: smtp.gmail.com
+      MAIL_PORT: 587
+      MAIL_USER: ${MAIL_USER:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+
+      # ── Cloudinary (imágenes/videos) ─────────────────────
+      # ✅ Una sola variable con este formato exacto:
+      # cloudinary://API_KEY:API_SECRET@CLOUD_NAME
+      CLOUDINARY_URL: ${CLOUDINARY_URL:-}
+
+      # ── JWT ──────────────────────────────────────────────
+      JWT_SECRET: ${JWT_SECRET:-kosmica-secreto-local-2025-cambiar-en-produccion}
+      JWT_EXPIRATION: 86400000
+
+      # ── Push Notifications (VAPID) ────────────────────────
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+
+      # ── Groq AI (chatbot) ────────────────────────────────
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+
     ports:
       - "8080:8080"
     volumes:
       - uploads_data:/app/uploads
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
     networks:
       - kosmica-network
 
+  # ── Frontend React ────────────────────────────────────────
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        REACT_APP_API_URL: ""   # Vacío = usa URL relativa (Nginx hace el proxy /api/)
+        # Vacío = usa URL relativa; Nginx hace el proxy /api/ → backend:8080
+        REACT_APP_API_URL: ""
         REACT_APP_ADMIN_PASSWORD: ${REACT_APP_ADMIN_PASSWORD:-Kosmica2025}
+        REACT_APP_VAPID_PUBLIC_KEY: ${REACT_APP_VAPID_PUBLIC_KEY:-}
+        REACT_APP_MP_PUBLIC_KEY: ${REACT_APP_MP_PUBLIC_KEY:-TEST-placeholder}
+        # ⚠️  ADVERTENCIA: esta clave queda embebida en el bundle público de React.
+        #     Cualquier usuario puede verla en el navegador.
+        #     Solución definitiva: mover el chatbot de Anthropic al backend.
+        REACT_APP_ANTHROPIC_KEY: ${REACT_APP_ANTHROPIC_KEY:-}
     container_name: kosmica-frontend
     restart: unless-stopped
     ports:
@@ -72,25 +142,13 @@ services:
     networks:
       - kosmica-network
 
-  phpmyadmin:
-    image: phpmyadmin:latest
-    container_name: kosmica-phpmyadmin
-    restart: unless-stopped
-    environment:
-      PMA_HOST: mysql
-      PMA_USER: root
-      PMA_PASSWORD: LuxShop2025!
-    ports:
-      - "8081:80"
-    depends_on:
-      - mysql
-    networks:
-      - kosmica-network
-
+# ── Redes ─────────────────────────────────────────────────
 networks:
   kosmica-network:
     driver: bridge
 
+# ── Volúmenes persistentes ────────────────────────────────
 volumes:
-  mysql_data:
-  uploads_data:
+  postgres_data:    # Datos de PostgreSQL (persisten entre reinicios)
+  pgadmin_data:     # Configuración de pgAdmin4 (servidores guardados, etc.)
+  uploads_data:     # Archivos subidos por el backend
