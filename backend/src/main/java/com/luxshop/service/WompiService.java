@@ -19,10 +19,17 @@ import com.fasterxml.jackson.databind.JsonNode;
 /**
  * WompiService — Integración con Wompi (Bancolombia) para Colombia
  *
- * Wompi usa la API REST directa (sin SDK Java oficial).
- * Flujo: crear transacción → redirigir a widget Wompi → recibir webhook con resultado.
+ * Flujo correcto para checkout multi-método (Widget):
+ *   1. Backend obtiene acceptance_token y genera una referencia única
+ *   2. Backend construye la URL de checkout.wompi.co con parámetros en query string
+ *   3. Frontend redirige al usuario a esa URL
+ *   4. Wompi crea la transacción internamente cuando el usuario confirma el pago
+ *   5. Wompi notifica el resultado vía webhook POST /api/wompi/webhook
  *
- * Documentación: https://docs.wompi.co/docs/colombia/
+ * NO se hace POST /v1/transactions desde el backend.
+ * Eso es para cobros directos (tarjeta tokenizada) y exige payment_method.type.
+ *
+ * Documentación: https://docs.wompi.co/docs/colombia/widget-de-pago/
  */
 @Slf4j
 @Service
@@ -53,18 +60,20 @@ public class WompiService {
     private final ObjectMapper mapper = new ObjectMapper();
 
     private boolean isConfigured() {
-        String key = cleanKey(privateKey);
-        return !key.isBlank() && !key.equals("prv_test_placeholder");
+        String key = cleanKey(publicKey);
+        return !key.isBlank() && !key.equals("pub_test_placeholder");
     }
 
     /**
-     * Crea una transacción en Wompi y retorna la URL del widget de pago.
-     * El cliente es redirigido a esa URL para completar el pago con:
-     * - Tarjeta crédito/débito (Visa, Mastercard, Amex, Diners)
-     * - Nequi (push notification)
-     * - PSE (débito bancario)
-     * - Bancolombia (botón de pago)
-     * - Efectivo (Efecty, baloto)
+     * Genera la URL del widget de Wompi para que el usuario complete el pago.
+     *
+     * El backend solo:
+     *   - Obtiene el acceptance_token del merchant (GET /merchants/{publicKey})
+     *   - Genera una referencia única
+     *   - Construye la URL del widget con los parámetros requeridos
+     *
+     * Wompi crea la transacción internamente cuando el usuario confirma.
+     * El resultado llega por webhook a POST /api/wompi/webhook.
      */
     public Map<String, String> createTransaction(
             BigDecimal amountCOP,
@@ -76,7 +85,7 @@ public class WompiService {
 
         if (!isConfigured()) {
             throw new RuntimeException(
-                "Wompi no está configurado. Agrega WOMPI_PUBLIC_KEY y WOMPI_PRIVATE_KEY en las variables de entorno.");
+                "Wompi no está configurado. Agrega WOMPI_PUBLIC_KEY en las variables de entorno.");
         }
 
         // Wompi maneja centavos (COP * 100)
@@ -85,61 +94,25 @@ public class WompiService {
         String redirectFinal = (redirectUrl != null && !redirectUrl.isBlank())
             ? redirectUrl : storeUrl + "/?pago=exitoso&metodo=wompi";
 
-        // Obtener token de aceptación vigente
+        // Obtener acceptance_token vigente — requerido en la URL del widget
         String acceptanceToken = getAcceptanceToken();
 
-        // NOTA: No se incluye "payment_method" aquí.
-        // El flujo de Wompi Widget (checkout.wompi.co) permite que el usuario
-        // elija el método de pago directamente en el widget (Nequi, PSE, Tarjeta,
-        // Bancolombia, Efecty, Daviplata). Incluir payment_method en la creación
-        // de la transacción solo aplica cuando se cobra un método específico
-        // programáticamente (ej. cobro directo a tarjeta tokenizada).
-        Map<String, Object> txBody = new java.util.LinkedHashMap<>();
-        txBody.put("amount_in_cents",  amountInCents);
-        txBody.put("currency",         "COP");
-        txBody.put("customer_email",   customerEmail != null ? customerEmail : "cliente@kosmica.com.co");
-        txBody.put("reference",        reference);
-        txBody.put("acceptance_token", acceptanceToken);
-        txBody.put("redirect_url",     redirectFinal);
-        txBody.put("customer_data",    Map.of(
-            "full_name",           customerName  != null ? customerName  : "Cliente",
-            "phone_number",        customerPhone != null ? customerPhone.replaceAll("[^0-9]","") : "3000000000",
-            "phone_number_prefix", "+57"
-        ));
-        String bodyJson = mapper.writeValueAsString(txBody);
-
-        HttpRequest req = HttpRequest.newBuilder()
-            .uri(URI.create(WOMPI_API + "/transactions"))
-            .header("Authorization", "Bearer " + cleanKey(privateKey))
-            .header("Content-Type", "application/json")
-            .POST(HttpRequest.BodyPublishers.ofString(bodyJson))
-            .build();
-
-        HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
-        log.info("Wompi createTransaction status={}", resp.statusCode());
-
-        if (resp.statusCode() != 200 && resp.statusCode() != 201) {
-            log.error("Wompi error: {}", resp.body());
-            throw new RuntimeException("Error Wompi [" + resp.statusCode() + "]: " + extractWompiError(resp.body()));
-        }
-
-        JsonNode root = mapper.readTree(resp.body());
-        String transactionId = root.path("data").path("id").asText();
-        String status        = root.path("data").path("status").asText("PENDING");
-
-        // URL del widget de pago Wompi
-        String paymentUrl = buildWompiWidgetUrl(publicKey, amountInCents, reference, customerEmail, acceptanceToken, redirectFinal);
+        // Construir URL del widget — el usuario elige el método de pago en la pantalla de Wompi
+        String paymentUrl = buildWompiWidgetUrl(
+            cleanKey(publicKey), amountInCents, reference,
+            customerEmail, acceptanceToken, redirectFinal
+        );
 
         Map<String, String> result = new HashMap<>();
-        result.put("transactionId", transactionId);
+        result.put("transactionId", "pending-" + reference);
         result.put("reference",     reference);
-        result.put("status",        status);
+        result.put("status",        "PENDING");
         result.put("checkoutUrl",   paymentUrl);
-        log.info("Wompi transacción creada: id={} ref={} status={}", transactionId, reference, status);
+        log.info("Wompi widget URL generada: ref={} amountCents={}", reference, amountInCents);
         return result;
     }
 
-    /** Consulta el estado de una transacción Wompi */
+    /** Consulta el estado de una transacción Wompi por su ID */
     public Map<String, String> getTransactionStatus(String transactionId) {
         try {
             HttpRequest req = HttpRequest.newBuilder()
@@ -169,12 +142,7 @@ public class WompiService {
      *   SHA256( id + status + amount_in_cents + currency + created_at + events_secret )
      *
      * El hash resultante (hex en minúsculas) debe coincidir con el header X-Wompi-Signature.
-     *
-     * Si WOMPI_EVENTS_SECRET no está configurado en el entorno, se omite la verificación
-     * (útil en desarrollo) pero se registra una advertencia.
-     *
-     * @param body            Mapa con el body completo del webhook (ya deserializado)
-     * @param wompiSignature  Valor del header X-Wompi-Signature enviado por Wompi
+     * Si WOMPI_EVENTS_SECRET no está configurado, se omite la verificación (útil en dev).
      */
     @SuppressWarnings("unchecked")
     public boolean verifyWebhookSignature(Map<String, Object> body, String wompiSignature) {
@@ -184,22 +152,19 @@ public class WompiService {
                 return true;
             }
 
-            // Extraer campos de la transacción
             Map<String, Object> data = (Map<String, Object>) body.get("data");
             if (data == null) return false;
             Map<String, Object> tx = (Map<String, Object>) data.get("transaction");
             if (tx == null) return false;
 
-            String id            = String.valueOf(tx.getOrDefault("id",             ""));
-            String status        = String.valueOf(tx.getOrDefault("status",         ""));
-            String amountCents   = String.valueOf(tx.getOrDefault("amount_in_cents",""));
-            String currency      = String.valueOf(tx.getOrDefault("currency",       ""));
-            String createdAt     = String.valueOf(tx.getOrDefault("created_at",     ""));
+            String id          = String.valueOf(tx.getOrDefault("id",             ""));
+            String status      = String.valueOf(tx.getOrDefault("status",         ""));
+            String amountCents = String.valueOf(tx.getOrDefault("amount_in_cents",""));
+            String currency    = String.valueOf(tx.getOrDefault("currency",       ""));
+            String createdAt   = String.valueOf(tx.getOrDefault("created_at",     ""));
 
-            // Concatenar exactamente como lo hace Wompi
             String concatenated = id + status + amountCents + currency + createdAt + eventsSecret;
 
-            // SHA-256 en hexadecimal (minúsculas)
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hashBytes = digest.digest(concatenated.getBytes(StandardCharsets.UTF_8));
             StringBuilder sb = new StringBuilder();
@@ -207,9 +172,7 @@ public class WompiService {
             String computed = sb.toString();
 
             boolean valid = computed.equalsIgnoreCase(wompiSignature);
-            if (!valid) {
-                log.warn("Firma Wompi inválida. computed={} received={}", computed, wompiSignature);
-            }
+            if (!valid) log.warn("Firma Wompi inválida. computed={} received={}", computed, wompiSignature);
             return valid;
 
         } catch (Exception e) {
@@ -220,25 +183,44 @@ public class WompiService {
 
     // ── Helpers ───────────────────────────────────────────────
 
+    /**
+     * Obtiene el acceptance_token vigente del merchant (llamada pública, sin auth).
+     * Este token es requerido en la URL del widget y expira periódicamente.
+     */
     private String getAcceptanceToken() throws Exception {
         HttpRequest req = HttpRequest.newBuilder()
-            .uri(URI.create(WOMPI_API + "/merchants/" + publicKey))
+            .uri(URI.create(WOMPI_API + "/merchants/" + cleanKey(publicKey)))
             .GET().build();
         HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
         JsonNode root = mapper.readTree(resp.body());
-        return root.path("data").path("presigned_acceptance").path("acceptance_token").asText("");
+        String token = root.path("data").path("presigned_acceptance").path("acceptance_token").asText("");
+        if (token.isBlank()) {
+            log.error("No se pudo obtener acceptance_token. Respuesta Wompi: {}", resp.body());
+            throw new RuntimeException("No se pudo obtener acceptance_token de Wompi");
+        }
+        return token;
     }
 
+    /**
+     * Construye la URL del widget de Wompi.
+     * El usuario elige el método de pago (Tarjeta, Nequi, PSE, Bancolombia,
+     * Efecty, Daviplata) directamente en la interfaz de Wompi.
+     */
     private String buildWompiWidgetUrl(String pubKey, long amountCents, String reference,
                                         String email, String acceptanceToken, String redirectUrl) {
-        return "https://checkout.wompi.co/p/?" +
-            "public-key=" + pubKey +
-            "&currency=COP" +
-            "&amount-in-cents=" + amountCents +
-            "&reference=" + reference +
-            (email != null && !email.isBlank() ? "&customer-email=" + email : "") +
-            "&acceptance-token=" + acceptanceToken +
-            "&redirect-url=" + java.net.URLEncoder.encode(redirectUrl, StandardCharsets.UTF_8);
+        StringBuilder url = new StringBuilder("https://checkout.wompi.co/p/?");
+        url.append("public-key=").append(pubKey);
+        url.append("&currency=COP");
+        url.append("&amount-in-cents=").append(amountCents);
+        url.append("&reference=").append(reference);
+        if (email != null && !email.isBlank()) {
+            url.append("&customer-email=").append(
+                java.net.URLEncoder.encode(email, StandardCharsets.UTF_8));
+        }
+        url.append("&acceptance-token=").append(acceptanceToken);
+        url.append("&redirect-url=").append(
+            java.net.URLEncoder.encode(redirectUrl, StandardCharsets.UTF_8));
+        return url.toString();
     }
 
     private String extractWompiError(String body) {
