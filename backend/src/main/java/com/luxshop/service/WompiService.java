@@ -34,6 +34,11 @@ public class WompiService {
     @Value("${wompi.private.key:}")
     private String privateKey;
 
+    // Limpia saltos de línea/espacios que pueden colarse al copiar la key en Render/env
+    private String cleanKey(String key) {
+        return key == null ? "" : key.strip().replaceAll("[\\r\\n\\t]", "");
+    }
+
     @Value("${wompi.events.secret:}")
     private String eventsSecret;
 
@@ -48,7 +53,8 @@ public class WompiService {
     private final ObjectMapper mapper = new ObjectMapper();
 
     private boolean isConfigured() {
-        return privateKey != null && !privateKey.isBlank() && !privateKey.equals("prv_test_placeholder");
+        String key = cleanKey(privateKey);
+        return !key.isBlank() && !key.equals("prv_test_placeholder");
     }
 
     /**
@@ -99,7 +105,7 @@ public class WompiService {
 
         HttpRequest req = HttpRequest.newBuilder()
             .uri(URI.create(WOMPI_API + "/transactions"))
-            .header("Authorization", "Bearer " + privateKey)
+            .header("Authorization", "Bearer " + cleanKey(privateKey))
             .header("Content-Type", "application/json")
             .POST(HttpRequest.BodyPublishers.ofString(bodyJson))
             .build();
@@ -133,7 +139,7 @@ public class WompiService {
         try {
             HttpRequest req = HttpRequest.newBuilder()
                 .uri(URI.create(WOMPI_API + "/transactions/" + transactionId))
-                .header("Authorization", "Bearer " + privateKey)
+                .header("Authorization", "Bearer " + cleanKey(privateKey))
                 .GET().build();
 
             HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
