@@ -88,20 +88,25 @@ public class WompiService {
         // Obtener token de aceptación vigente
         String acceptanceToken = getAcceptanceToken();
 
-        String bodyJson = mapper.writeValueAsString(Map.of(
-            "amount_in_cents",   amountInCents,
-            "currency",          "COP",
-            "customer_email",    customerEmail != null ? customerEmail : "cliente@kosmica.com.co",
-            "payment_method",    Map.of("installments", 1),
-            "reference",         reference,
-            "acceptance_token",  acceptanceToken,
-            "redirect_url",      redirectFinal,
-            "customer_data",     Map.of(
-                "full_name",          customerName != null ? customerName : "Cliente",
-                "phone_number",       customerPhone != null ? customerPhone.replaceAll("[^0-9]","") : "3000000000",
-                "phone_number_prefix","+57"
-            )
+        // NOTA: No se incluye "payment_method" aquí.
+        // El flujo de Wompi Widget (checkout.wompi.co) permite que el usuario
+        // elija el método de pago directamente en el widget (Nequi, PSE, Tarjeta,
+        // Bancolombia, Efecty, Daviplata). Incluir payment_method en la creación
+        // de la transacción solo aplica cuando se cobra un método específico
+        // programáticamente (ej. cobro directo a tarjeta tokenizada).
+        Map<String, Object> txBody = new java.util.LinkedHashMap<>();
+        txBody.put("amount_in_cents",  amountInCents);
+        txBody.put("currency",         "COP");
+        txBody.put("customer_email",   customerEmail != null ? customerEmail : "cliente@kosmica.com.co");
+        txBody.put("reference",        reference);
+        txBody.put("acceptance_token", acceptanceToken);
+        txBody.put("redirect_url",     redirectFinal);
+        txBody.put("customer_data",    Map.of(
+            "full_name",           customerName  != null ? customerName  : "Cliente",
+            "phone_number",        customerPhone != null ? customerPhone.replaceAll("[^0-9]","") : "3000000000",
+            "phone_number_prefix", "+57"
         ));
+        String bodyJson = mapper.writeValueAsString(txBody);
 
         HttpRequest req = HttpRequest.newBuilder()
             .uri(URI.create(WOMPI_API + "/transactions"))
