@@ -11,7 +11,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.time.Instant;
 import java.util.Map;
 import java.util.HashMap;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -152,12 +151,56 @@ public class WompiService {
         }
     }
 
-    /** Verifica la firma del webhook de Wompi */
-    public boolean verifyWebhookSignature(String payload, String wompiSignature) {
+    /**
+     * Verifica la firma del webhook de Wompi.
+     *
+     * Wompi construye el checksum así:
+     *   SHA256( id + status + amount_in_cents + currency + created_at + events_secret )
+     *
+     * El hash resultante (hex en minúsculas) debe coincidir con el header X-Wompi-Signature.
+     *
+     * Si WOMPI_EVENTS_SECRET no está configurado en el entorno, se omite la verificación
+     * (útil en desarrollo) pero se registra una advertencia.
+     *
+     * @param body            Mapa con el body completo del webhook (ya deserializado)
+     * @param wompiSignature  Valor del header X-Wompi-Signature enviado por Wompi
+     */
+    @SuppressWarnings("unchecked")
+    public boolean verifyWebhookSignature(Map<String, Object> body, String wompiSignature) {
         try {
-            if (eventsSecret == null || eventsSecret.isBlank()) return true; // Sin secreto configurado
-            String checksum = hmacSha256(eventsSecret, payload);
-            return checksum.equalsIgnoreCase(wompiSignature);
+            if (eventsSecret == null || eventsSecret.isBlank()) {
+                log.warn("⚠️  WOMPI_EVENTS_SECRET no configurado. Verificación de firma omitida.");
+                return true;
+            }
+
+            // Extraer campos de la transacción
+            Map<String, Object> data = (Map<String, Object>) body.get("data");
+            if (data == null) return false;
+            Map<String, Object> tx = (Map<String, Object>) data.get("transaction");
+            if (tx == null) return false;
+
+            String id            = String.valueOf(tx.getOrDefault("id",             ""));
+            String status        = String.valueOf(tx.getOrDefault("status",         ""));
+            String amountCents   = String.valueOf(tx.getOrDefault("amount_in_cents",""));
+            String currency      = String.valueOf(tx.getOrDefault("currency",       ""));
+            String createdAt     = String.valueOf(tx.getOrDefault("created_at",     ""));
+
+            // Concatenar exactamente como lo hace Wompi
+            String concatenated = id + status + amountCents + currency + createdAt + eventsSecret;
+
+            // SHA-256 en hexadecimal (minúsculas)
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = digest.digest(concatenated.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (byte b : hashBytes) sb.append(String.format("%02x", b));
+            String computed = sb.toString();
+
+            boolean valid = computed.equalsIgnoreCase(wompiSignature);
+            if (!valid) {
+                log.warn("Firma Wompi inválida. computed={} received={}", computed, wompiSignature);
+            }
+            return valid;
+
         } catch (Exception e) {
             log.error("Error verificando firma Wompi: {}", e.getMessage());
             return false;
@@ -194,14 +237,5 @@ public class WompiService {
             if (!errors.isMissingNode()) return errors.path("reason").asText(body);
             return body.length() > 200 ? body.substring(0, 200) : body;
         } catch (Exception e) { return body; }
-    }
-
-    private String hmacSha256(String key, String data) throws Exception {
-        javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
-        mac.init(new javax.crypto.spec.SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-        byte[] bytes = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
-        StringBuilder sb = new StringBuilder();
-        for (byte b : bytes) sb.append(String.format("%02x", b));
-        return sb.toString();
     }
 }
