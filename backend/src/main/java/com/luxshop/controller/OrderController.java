@@ -254,9 +254,9 @@ public class OrderController {
                         OrderItem first = order.getItems().get(0);
                         if (first.getProduct() != null) {
                             productName = first.getProduct().getName();
-                            if (first.getProduct().getCategory() != null) {
-                                category = first.getProduct().getCategory().name();
-                            }
+                            // ✅ FIX: category es String (ya no es enum)
+                            category = first.getProduct().getCategory() != null
+                                ? first.getProduct().getCategory() : "";
                         }
                     }
                     event.put("product", productName);

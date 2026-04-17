@@ -29,17 +29,20 @@ public class ProductService {
     private String cloudinaryUrl;
 
     // ── Consultas ────────────────────────────────────────
+    // ✅ FIX: recibe Category enum y lo convierte a String para el repositorio
     public Page<Product> getByCategory(Category category, int page, int size) {
         return productRepo.findByCategoryAndActiveTrue(
-            category, PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "reviewCount")));
+            category.toDbValue(),
+            PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
     }
 
     public List<Product> getAll() {
         return productRepo.findByActiveTrue();
     }
 
+    // ✅ FIX: usa createdAt en lugar de reviewCount (columna eliminada)
     public List<Product> getFeatured() {
-        return productRepo.findTop8ByActiveTrueOrderByReviewCountDesc();
+        return productRepo.findTop8ByActiveTrueOrderByCreatedAtDesc();
     }
 
     public Page<Product> search(String query, int page, int size) {
@@ -62,8 +65,6 @@ public class ProductService {
     }
 
     // ── Subir archivo a Cloudinary ────────────────────────
-    // La URL permanente queda guardada en la base de datos.
-    // Nunca se pierde aunque Render reinicie.
     public String uploadFile(MultipartFile file) throws IOException {
         if (cloudinaryUrl == null || cloudinaryUrl.isBlank()) {
             throw new IOException(
@@ -76,16 +77,15 @@ public class ProductService {
             Cloudinary cloudinary = new Cloudinary(cloudinaryUrl);
             cloudinary.config.secure = true;
 
-            // Detectar si es video o imagen
             String contentType = file.getContentType() != null ? file.getContentType() : "";
             boolean isVideo = contentType.startsWith("video/");
 
             Map<?, ?> result = cloudinary.uploader().upload(
                 file.getBytes(),
                 ObjectUtils.asMap(
-                    "folder",       "kosmica",
+                    "folder",        "kosmica",
                     "resource_type", isVideo ? "video" : "image",
-                    "public_id",     "kosmica_" + UUID.randomUUID().toString().replace("-","").substring(0,12)
+                    "public_id",     "kosmica_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12)
                 )
             );
 
