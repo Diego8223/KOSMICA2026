@@ -37,10 +37,12 @@ public class User {
 
     // ── Puntos Kosmica ────────────────────────────────────
     @Column(name = "points", columnDefinition = "INT NOT NULL DEFAULT 0")
+    @Builder.Default
     private Integer points = 0;
 
     // ── Racha de check-in diario ──────────────────────────
     @Column(name = "checkin_streak", columnDefinition = "INT NOT NULL DEFAULT 0")
+    @Builder.Default
     private Integer checkinStreak = 0;
 
     @Column(name = "last_checkin_date")
@@ -48,6 +50,7 @@ public class User {
 
     // ── Racha de compras ──────────────────────────────────
     @Column(name = "purchase_streak", columnDefinition = "INT NOT NULL DEFAULT 0")
+    @Builder.Default
     private Integer purchaseStreak = 0;
 
     @Column(name = "last_purchase_date")

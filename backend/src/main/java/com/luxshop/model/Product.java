@@ -24,52 +24,44 @@ public class Product {
 
     @NotNull
     @DecimalMin("0.01")
-    @Column(nullable = false, precision = 12, scale = 2)
+    @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal price;
 
-    @Column(name = "original_price", precision = 12, scale = 2)
+    @Column(name = "original_price", precision = 10, scale = 2)
     private BigDecimal originalPrice;
 
-    // ✅ FIX: String en lugar de @Enumerated — la BD tiene VARCHAR(100), no un tipo enum de Postgres
-    @Column(nullable = false, length = 100)
-    private String category = "";
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Category category;
 
-    // ✅ FIX: eliminados badge, gallery, rating, reviewCount — no existen en la tabla SQL
-    // Si los necesitas en el futuro, agrégalos primero en la BD con una migración ALTER TABLE
+    @Column(length = 50)
+    private String badge;
 
     @Column(name = "image_url", length = 500)
     private String imageUrl;
 
-    @Column(name = "image_url2", length = 500)
-    private String imageUrl2;
-
-    @Column(name = "image_url3", length = 500)
-    private String imageUrl3;
-
     @Column(name = "video_url", length = 500)
     private String videoUrl;
 
+    // ✅ FIX: TEXT en vez de JSON — evita error "no equality operator for json"
+    @Column(columnDefinition = "TEXT")
+    private String gallery;
+
+    @DecimalMin("0.0") @DecimalMax("5.0")
+    @Builder.Default
+    private Double rating = 0.0;
+
+    @Column(name = "review_count")
+    @Builder.Default
+    private Integer reviewCount = 0;
+
     @Min(0)
-    @Column(nullable = false)
+    @Builder.Default
     private Integer stock = 0;
 
-    @Column(nullable = false)
-    private Boolean featured = false;
-
-    @Column(nullable = false)
+    @Builder.Default
     private Boolean active = true;
-
-    @Column(length = 100)
-    private String brand;
-
-    @Column(length = 50, unique = true)
-    private String sku;
-
-    @Column(name = "weight_grams")
-    private Integer weightGrams;
-
-    @Column(columnDefinition = "TEXT")
-    private String tags;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
