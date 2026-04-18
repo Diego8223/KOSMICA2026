@@ -29,43 +29,19 @@ public class WompiService {
 
     private final OrderRepository orderRepository;
 
-    // ─────────────────────────────────────────────────────────────────
-    // VERIFICACIÓN DE FIRMA DEL WEBHOOK
-    // Documentación oficial Wompi:
-    // checksum = SHA256( transactionId + statusChangedAt + amountInCents + currency + eventsSecret )
-    // ─────────────────────────────────────────────────────────────────
-
-    /**
-     * Verifica que el webhook proviene realmente de Wompi.
-     * Wompi construye el checksum así:
-     *   SHA256( data.transaction.id
-     *         + data.transaction.status_changed_at
-     *         + data.transaction.amount_in_cents
-     *         + data.transaction.currency
-     *         + EVENTS_SECRET )
-     */
     public boolean isValidWebhookSignature(JsonNode event, String receivedSignature) {
         try {
             JsonNode transaction = event.path("data").path("transaction");
+            String transactionId   = transaction.path("id").asText();
+            String statusChangedAt = transaction.path("status_changed_at").asText();
+            String amountInCents   = transaction.path("amount_in_cents").asText();
+            String currency        = transaction.path("currency").asText();
 
-            String transactionId     = transaction.path("id").asText();
-            String statusChangedAt   = transaction.path("status_changed_at").asText();
-            String amountInCents     = transaction.path("amount_in_cents").asText();
-            String currency          = transaction.path("currency").asText();
-
-            String concatenated = transactionId
-                    + statusChangedAt
-                    + amountInCents
-                    + currency
-                    + wompiEventsSecret;
-
+            String concatenated = transactionId + statusChangedAt + amountInCents + currency + wompiEventsSecret;
             String computed = sha256Hex(concatenated);
 
-            log.info("🔐 Wompi firma | computed={} | received={}",
-                    computed, receivedSignature);
-
+            log.info("🔐 Wompi firma | computed={} | received={}", computed, receivedSignature);
             return computed.equalsIgnoreCase(receivedSignature);
-
         } catch (Exception e) {
             log.error("❌ Error verificando firma Wompi", e);
             return false;
@@ -78,56 +54,35 @@ public class WompiService {
         return HexFormat.of().formatHex(hash);
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    // PROCESAMIENTO DEL EVENTO
-    // ─────────────────────────────────────────────────────────────────
-
     @Transactional
     public void processWebhookEvent(JsonNode event) {
         String eventType = event.path("event").asText();
-
         if ("transaction.updated".equals(eventType)) {
             JsonNode transaction = event.path("data").path("transaction");
             String reference = transaction.path("reference").asText();
             String status    = transaction.path("status").asText();
 
-            log.info("💳 Wompi transacción actualizada | ref={} | status={}", reference, status);
+            log.info("💳 Wompi transacción | ref={} | status={}", reference, status);
 
-            // Buscar el pedido por referencia (elimina el prefijo "KOSMICA-" si aplica)
-            String orderId = reference.replace("KOSMICA-", "").trim();
-
-            orderRepository.findByReference(orderId).ifPresentOrElse(order -> {
+            orderRepository.findByOrderNumber(reference).ifPresentOrElse(order -> {
                 switch (status) {
                     case "APPROVED" -> {
-                        order.setStatus(Order.Status.PAGADO);
-                        log.info("✅ Pedido APROBADO: {}", orderId);
+                        order.setStatus(Order.Status.PAID);
+                        log.info("✅ Pedido APROBADO: {}", reference);
                     }
-                    case "DECLINED" -> {
-                        order.setStatus(Order.Status.CANCELADO);
-                        log.info("❌ Pedido RECHAZADO: {}", orderId);
+                    case "DECLINED", "VOIDED", "ERROR" -> {
+                        order.setStatus(Order.Status.CANCELLED);
+                        log.info("❌ Pedido {}: {}", status, reference);
                     }
-                    case "VOIDED" -> {
-                        order.setStatus(Order.Status.CANCELADO);
-                        log.info("🚫 Pedido ANULADO: {}", orderId);
-                    }
-                    case "ERROR" -> {
-                        order.setStatus(Order.Status.CANCELADO);
-                        log.info("⚠️ Pedido ERROR: {}", orderId);
-                    }
-                    default -> log.info("ℹ️ Estado no manejado: {} para pedido {}", status, orderId);
+                    default -> log.info("ℹ️ Estado no manejado: {} | ref={}", status, reference);
                 }
                 orderRepository.save(order);
-            }, () -> log.warn("⚠️ Pedido no encontrado para referencia: {}", orderId));
+            }, () -> log.warn("⚠️ Pedido no encontrado para ref Wompi: {}", reference));
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    // GENERACIÓN DE URL DEL WIDGET
-    // ─────────────────────────────────────────────────────────────────
-
-    public String generateWidgetUrl(String orderId, long amountCents) {
-        String ref = "KOSMICA-" + orderId + "-" + System.currentTimeMillis();
-        log.info("Wompi widget URL generada: ref={} amountCents={}", ref, amountCents);
-        return ref;
+    public String generateWidgetUrl(String orderNumber, long amountCents) {
+        log.info("Wompi widget URL generada: ref={} amountCents={}", orderNumber, amountCents);
+        return orderNumber;
     }
 }

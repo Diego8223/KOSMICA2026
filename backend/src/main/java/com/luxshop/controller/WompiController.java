@@ -1,91 +1,73 @@
-package com.luxshop.service;
+package com.luxshop.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.luxshop.model.Order;
-import com.luxshop.repository.OrderRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.luxshop.service.WompiService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.util.HexFormat;
+import java.util.stream.Collectors;
 
 @Slf4j
-@Service
+@RestController
+@RequestMapping("/api/wompi")
 @RequiredArgsConstructor
-public class WompiService {
+public class WompiController {
 
-    @Value("${wompi.events.secret}")
-    private String wompiEventsSecret;
+    private final WompiService wompiService;
+    private final ObjectMapper objectMapper;
 
-    @Value("${wompi.public.key}")
-    private String wompiPublicKey;
+    @PostMapping("/webhook")
+    public ResponseEntity<Void> handleWebhook(HttpServletRequest request) {
 
-    @Value("${wompi.private.key}")
-    private String wompiPrivateKey;
-
-    private final OrderRepository orderRepository;
-
-    public boolean isValidWebhookSignature(JsonNode event, String receivedSignature) {
+        String rawBody;
         try {
-            JsonNode transaction = event.path("data").path("transaction");
-
-            String transactionId   = transaction.path("id").asText();
-            String statusChangedAt = transaction.path("status_changed_at").asText();
-            String amountInCents   = transaction.path("amount_in_cents").asText();
-            String currency        = transaction.path("currency").asText();
-
-            String concatenated = transactionId + statusChangedAt + amountInCents + currency + wompiEventsSecret;
-            String computed = sha256Hex(concatenated);
-
-            log.info("🔐 Wompi firma | computed={} | received={}", computed, receivedSignature);
-
-            return computed.equalsIgnoreCase(receivedSignature);
+            rawBody = new BufferedReader(
+                new InputStreamReader(request.getInputStream(), StandardCharsets.UTF_8))
+                .lines()
+                .collect(Collectors.joining("\n"));
         } catch (Exception e) {
-            log.error("❌ Error verificando firma Wompi", e);
-            return false;
+            log.error("❌ Error leyendo body del webhook Wompi", e);
+            return ResponseEntity.badRequest().build();
         }
-    }
 
-    private String sha256Hex(String input) throws Exception {
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
-        return HexFormat.of().formatHex(hash);
-    }
+        String signature = request.getHeader("x-event-checksum");
+        log.info("📨 Webhook Wompi recibido | signature={} | body_length={}", signature, rawBody.length());
 
-    @Transactional
-    public void processWebhookEvent(JsonNode event) {
+        if (signature == null || signature.isBlank()) {
+            log.warn("⛔ Webhook Wompi rechazado: header x-event-checksum ausente");
+            return ResponseEntity.status(401).build();
+        }
+
+        JsonNode event;
+        try {
+            event = objectMapper.readTree(rawBody);
+        } catch (Exception e) {
+            log.error("❌ Error parseando JSON del webhook Wompi", e);
+            return ResponseEntity.badRequest().build();
+        }
+
         String eventType = event.path("event").asText();
+        log.info("📨 Webhook Wompi event={}", eventType);
 
-        if ("transaction.updated".equals(eventType)) {
-            JsonNode transaction = event.path("data").path("transaction");
-            String reference = transaction.path("reference").asText();
-            String status    = transaction.path("status").asText();
-
-            log.info("💳 Wompi transacción | ref={} | status={}", reference, status);
-
-            orderRepository.findByOrderNumber(reference).ifPresentOrElse(order -> {
-                switch (status) {
-                    case "APPROVED" -> {
-                        order.setStatus(Order.Status.PAID);
-                        log.info("✅ Pedido APROBADO: {}", reference);
-                    }
-                    case "DECLINED", "VOIDED", "ERROR" -> {
-                        order.setStatus(Order.Status.CANCELLED);
-                        log.info("❌ Pedido {}: {}", status, reference);
-                    }
-                    default -> log.info("ℹ️ Estado no manejado: {} | ref={}", status, reference);
-                }
-                orderRepository.save(order);
-            }, () -> log.warn("⚠️ Pedido no encontrado para ref Wompi: {}", reference));
+        if (!wompiService.isValidWebhookSignature(event, signature)) {
+            log.warn("⛔ Webhook Wompi rechazado: firma inválida. signature={}", signature);
+            return ResponseEntity.status(401).build();
         }
-    }
 
-    public String generateWidgetUrl(String orderNumber, long amountCents) {
-        log.info("Wompi widget URL generada: ref={} amountCents={}", orderNumber, amountCents);
-        return orderNumber;
+        try {
+            wompiService.processWebhookEvent(event);
+        } catch (Exception e) {
+            log.error("❌ Error procesando webhook Wompi: event={}", eventType, e);
+            return ResponseEntity.internalServerError().build();
+        }
+
+        return ResponseEntity.ok().build();
     }
 }
