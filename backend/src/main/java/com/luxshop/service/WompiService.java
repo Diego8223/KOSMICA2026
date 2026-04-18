@@ -18,13 +18,13 @@ import java.util.HexFormat;
 @RequiredArgsConstructor
 public class WompiService {
 
-    @Value("${wompi.events-secret}")
+    @Value("${wompi.events.secret}")
     private String wompiEventsSecret;
 
-    @Value("${wompi.public-key}")
+    @Value("${wompi.public.key}")
     private String wompiPublicKey;
 
-    @Value("${wompi.private-key}")
+    @Value("${wompi.private.key}")
     private String wompiPrivateKey;
 
     private final OrderRepository orderRepository;
