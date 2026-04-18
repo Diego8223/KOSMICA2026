@@ -13,16 +13,51 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.List;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 
 /**
  * WompiService — Integración con Wompi (Bancolombia) para Colombia
  *
- * Wompi usa la API REST directa (sin SDK Java oficial).
- * Flujo: crear transacción → redirigir a widget Wompi → recibir webhook con resultado.
+ * Flujo correcto para checkout multi-método (Widget):
+ *   1. Backend obtiene acceptance_token y genera una referencia única
+ *   2. Backend construye la URL de checkout.wompi.co con parámetros en query string
+ *   3. Frontend redirige al usuario a esa URL
+ *   4. Wompi crea la transacción internamente cuando el usuario confirma el pago
+ *   5. Wompi notifica el resultado vía webhook POST /api/wompi/webhook
  *
- * Documentación: https://docs.wompi.co/docs/colombia/
+ * NO se hace POST /v1/transactions desde el backend.
+ * Eso es para cobros directos (tarjeta tokenizada) y exige payment_method.type.
+ *
+ * Documentación: https://docs.wompi.co/docs/colombia/widget-de-pago/
+ *
+ * ── Verificación de firma del webhook ──────────────────────────────────────
+ * Wompi NO usa el header X-Wompi-Signature.
+ * La firma viaja DENTRO del body JSON en: body.signature.checksum
+ *
+ * El checksum se calcula así:
+ *   SHA256( valor1 + valor2 + ... + events_secret )
+ *
+ * Donde los valores provienen de los campos indicados en body.signature.properties,
+ * en el orden exacto en que aparecen en ese array.
+ *
+ * Ejemplo de body real de Wompi:
+ * {
+ *   "event": "transaction.updated",
+ *   "data": { "transaction": { "id": "...", "status": "APPROVED", ... } },
+ *   "signature": {
+ *     "properties": ["transaction.id", "transaction.status", "transaction.amount_in_cents"],
+ *     "checksum": "abc123..."
+ *   },
+ *   "timestamp": 1713300000,
+ *   "sent_at": "2024-04-17T00:00:00.000Z"
+ * }
+ *
+ * Concatenación: value(transaction.id) + value(transaction.status) +
+ *                value(transaction.amount_in_cents) + timestamp + events_secret
+ *
+ * Documentación oficial: https://docs.wompi.co/docs/colombia/eventos/
  */
 @Slf4j
 @Service
@@ -34,9 +69,11 @@ public class WompiService {
     @Value("${wompi.private.key:}")
     private String privateKey;
 
-    // Esta llave es la de INTEGRIDAD (no la de eventos/webhooks).
-    // En el dashboard de Wompi: Desarrolladores → Llaves → "Llave de integridad"
-    // Variable de entorno en Render: WOMPI_EVENTS_SECRET
+    // Limpia saltos de línea/espacios que pueden colarse al copiar la key en Render/env
+    private String cleanKey(String key) {
+        return key == null ? "" : key.strip().replaceAll("[\\r\\n\\t]", "");
+    }
+
     @Value("${wompi.events.secret:}")
     private String eventsSecret;
 
@@ -51,17 +88,12 @@ public class WompiService {
     private final ObjectMapper mapper = new ObjectMapper();
 
     private boolean isConfigured() {
-        return privateKey != null && !privateKey.isBlank() && !privateKey.equals("prv_test_placeholder");
+        String key = cleanKey(publicKey);
+        return !key.isBlank() && !key.equals("pub_test_placeholder");
     }
 
     /**
-     * Crea una transacción en Wompi y retorna la URL del widget de pago.
-     * El cliente es redirigido a esa URL para completar el pago con:
-     * - Tarjeta crédito/débito (Visa, Mastercard, Amex, Diners)
-     * - Nequi (push notification)
-     * - PSE (débito bancario)
-     * - Bancolombia (botón de pago)
-     * - Efectivo (Efecty, baloto)
+     * Genera la URL del widget de Wompi para que el usuario complete el pago.
      */
     public Map<String, String> createTransaction(
             BigDecimal amountCOP,
@@ -73,74 +105,36 @@ public class WompiService {
 
         if (!isConfigured()) {
             throw new RuntimeException(
-                "Wompi no está configurado. Agrega WOMPI_PUBLIC_KEY y WOMPI_PRIVATE_KEY en las variables de entorno.");
+                "Wompi no está configurado. Agrega WOMPI_PUBLIC_KEY en las variables de entorno.");
         }
 
-        // Wompi maneja centavos (COP * 100)
         long amountInCents = amountCOP.multiply(BigDecimal.valueOf(100)).longValueExact();
         String reference   = "KOSMICA-" + orderId + "-" + System.currentTimeMillis();
         String redirectFinal = (redirectUrl != null && !redirectUrl.isBlank())
             ? redirectUrl : storeUrl + "/?pago=exitoso&metodo=wompi";
 
-        // Obtener token de aceptación vigente
         String acceptanceToken = getAcceptanceToken();
 
-        // Generar firma de integridad (REQUERIDA por Wompi)
-        String integritySignature = generateIntegritySignature(reference, amountInCents, "COP");
-
-        String bodyJson = mapper.writeValueAsString(Map.of(
-            "amount_in_cents",   amountInCents,
-            "currency",          "COP",
-            "customer_email",    customerEmail != null ? customerEmail : "cliente@kosmica.com.co",
-            "payment_method",    Map.of("installments", 1),
-            "reference",         reference,
-            "acceptance_token",  acceptanceToken,
-            "signature",         Map.of("integrity", integritySignature),
-            "redirect_url",      redirectFinal,
-            "customer_data",     Map.of(
-                "full_name",          customerName != null ? customerName : "Cliente",
-                "phone_number",       customerPhone != null ? customerPhone.replaceAll("[^0-9]","") : "3000000000",
-                "phone_number_prefix","+57"
-            )
-        ));
-
-        HttpRequest req = HttpRequest.newBuilder()
-            .uri(URI.create(WOMPI_API + "/transactions"))
-            .header("Authorization", "Bearer " + privateKey)
-            .header("Content-Type", "application/json")
-            .POST(HttpRequest.BodyPublishers.ofString(bodyJson))
-            .build();
-
-        HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
-        log.info("Wompi createTransaction status={}", resp.statusCode());
-
-        if (resp.statusCode() != 200 && resp.statusCode() != 201) {
-            log.error("Wompi error: {}", resp.body());
-            throw new RuntimeException("Error Wompi [" + resp.statusCode() + "]: " + extractWompiError(resp.body()));
-        }
-
-        JsonNode root = mapper.readTree(resp.body());
-        String transactionId = root.path("data").path("id").asText();
-        String status        = root.path("data").path("status").asText("PENDING");
-
-        // URL del widget de pago Wompi (incluye firma de integridad)
-        String paymentUrl = buildWompiWidgetUrl(publicKey, amountInCents, reference, customerEmail, acceptanceToken, redirectFinal, integritySignature);
+        String paymentUrl = buildWompiWidgetUrl(
+            cleanKey(publicKey), amountInCents, reference,
+            customerEmail, acceptanceToken, redirectFinal
+        );
 
         Map<String, String> result = new HashMap<>();
-        result.put("transactionId", transactionId);
+        result.put("transactionId", "pending-" + reference);
         result.put("reference",     reference);
-        result.put("status",        status);
+        result.put("status",        "PENDING");
         result.put("checkoutUrl",   paymentUrl);
-        log.info("Wompi transacción creada: id={} ref={} status={}", transactionId, reference, status);
+        log.info("Wompi widget URL generada: ref={} amountCents={}", reference, amountInCents);
         return result;
     }
 
-    /** Consulta el estado de una transacción Wompi */
+    /** Consulta el estado de una transacción Wompi por su ID */
     public Map<String, String> getTransactionStatus(String transactionId) {
         try {
             HttpRequest req = HttpRequest.newBuilder()
                 .uri(URI.create(WOMPI_API + "/transactions/" + transactionId))
-                .header("Authorization", "Bearer " + privateKey)
+                .header("Authorization", "Bearer " + cleanKey(privateKey))
                 .GET().build();
 
             HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
@@ -161,50 +155,67 @@ public class WompiService {
     /**
      * Verifica la firma del webhook de Wompi.
      *
-     * Wompi construye el checksum así:
-     *   SHA256( id + status + amount_in_cents + currency + created_at + events_secret )
+     * ✅ CORRECCIÓN: Wompi NO usa el header X-Wompi-Signature.
+     * La firma viene DENTRO del body JSON en body.signature.checksum.
      *
-     * El hash resultante (hex en minúsculas) debe coincidir con el header X-Wompi-Signature.
+     * El checksum se construye así:
+     *   1. Tomar los campos de body.signature.properties (en ese orden)
+     *   2. Resolver cada campo en body.data.transaction (ej: "transaction.id" → body.data.transaction.id)
+     *   3. Concatenar: valor1 + valor2 + ... + timestamp + events_secret
+     *   4. SHA-256 de esa cadena (hex en minúsculas)
      *
-     * Si WOMPI_EVENTS_SECRET no está configurado en el entorno, se omite la verificación
-     * (útil en desarrollo) pero se registra una advertencia.
-     *
-     * @param body            Mapa con el body completo del webhook (ya deserializado)
-     * @param wompiSignature  Valor del header X-Wompi-Signature enviado por Wompi
+     * Documentación: https://docs.wompi.co/docs/colombia/eventos/
      */
     @SuppressWarnings("unchecked")
-    public boolean verifyWebhookSignature(Map<String, Object> body, String wompiSignature) {
+    public boolean verifyWebhookSignature(Map<String, Object> body) {
         try {
             if (eventsSecret == null || eventsSecret.isBlank()) {
                 log.warn("⚠️  WOMPI_EVENTS_SECRET no configurado. Verificación de firma omitida.");
                 return true;
             }
 
-            // Extraer campos de la transacción
+            // Leer la firma y las propiedades desde el body
+            Map<String, Object> signatureBlock = (Map<String, Object>) body.get("signature");
+            if (signatureBlock == null) {
+                log.warn("Webhook Wompi: campo 'signature' ausente en el body");
+                return false;
+            }
+
+            String receivedChecksum = String.valueOf(signatureBlock.getOrDefault("checksum", ""));
+            List<String> properties = (List<String>) signatureBlock.get("properties");
+            if (properties == null || properties.isEmpty()) {
+                log.warn("Webhook Wompi: 'signature.properties' ausente o vacío");
+                return false;
+            }
+
+            // Timestamp del evento (campo de primer nivel en el body)
+            String timestamp = String.valueOf(body.getOrDefault("timestamp", ""));
+
+            // Resolver los valores de cada propiedad desde body.data.transaction
             Map<String, Object> data = (Map<String, Object>) body.get("data");
             if (data == null) return false;
             Map<String, Object> tx = (Map<String, Object>) data.get("transaction");
             if (tx == null) return false;
 
-            String id            = String.valueOf(tx.getOrDefault("id",             ""));
-            String status        = String.valueOf(tx.getOrDefault("status",         ""));
-            String amountCents   = String.valueOf(tx.getOrDefault("amount_in_cents",""));
-            String currency      = String.valueOf(tx.getOrDefault("currency",       ""));
-            String createdAt     = String.valueOf(tx.getOrDefault("created_at",     ""));
+            StringBuilder concatenated = new StringBuilder();
+            for (String prop : properties) {
+                // prop tiene forma "transaction.field_name" → extraer "field_name"
+                String field = prop.contains(".") ? prop.substring(prop.indexOf('.') + 1) : prop;
+                concatenated.append(String.valueOf(tx.getOrDefault(field, "")));
+            }
+            // Agregar timestamp y events_secret al final
+            concatenated.append(timestamp);
+            concatenated.append(eventsSecret);
 
-            // Concatenar exactamente como lo hace Wompi
-            String concatenated = id + status + amountCents + currency + createdAt + eventsSecret;
-
-            // SHA-256 en hexadecimal (minúsculas)
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hashBytes = digest.digest(concatenated.getBytes(StandardCharsets.UTF_8));
+            byte[] hashBytes = digest.digest(concatenated.toString().getBytes(StandardCharsets.UTF_8));
             StringBuilder sb = new StringBuilder();
             for (byte b : hashBytes) sb.append(String.format("%02x", b));
             String computed = sb.toString();
 
-            boolean valid = computed.equalsIgnoreCase(wompiSignature);
+            boolean valid = computed.equalsIgnoreCase(receivedChecksum);
             if (!valid) {
-                log.warn("Firma Wompi inválida. computed={} received={}", computed, wompiSignature);
+                log.warn("Firma Wompi inválida. computed={} received={}", computed, receivedChecksum);
             }
             return valid;
 
@@ -217,64 +228,39 @@ public class WompiService {
     // ── Helpers ───────────────────────────────────────────────
 
     /**
-     * Genera la firma de integridad requerida por Wompi para cada transacción.
-     *
-     * Fórmula: SHA256( reference + amount_in_cents + currency + integrity_secret )
-     *
-     * La "integrity_secret" es la llave de integridad del dashboard de Wompi.
-     * En este proyecto se reutiliza la variable WOMPI_EVENTS_SECRET para almacenarla.
+     * Obtiene el acceptance_token vigente del merchant (llamada pública, sin auth).
      */
-    private String generateIntegritySignature(String reference, long amountInCents, String currency) throws Exception {
-        if (eventsSecret == null || eventsSecret.isBlank()) {
-            log.warn("⚠️  WOMPI_EVENTS_SECRET (llave de integridad) no configurada. La firma de integridad estará vacía.");
-            return "";
-        }
-        String data = reference + amountInCents + currency + eventsSecret;
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        byte[] hash = digest.digest(data.getBytes(StandardCharsets.UTF_8));
-        StringBuilder sb = new StringBuilder();
-        for (byte b : hash) sb.append(String.format("%02x", b));
-        return sb.toString();
-    }
-
     private String getAcceptanceToken() throws Exception {
         HttpRequest req = HttpRequest.newBuilder()
-            .uri(URI.create(WOMPI_API + "/merchants/" + publicKey))
+            .uri(URI.create(WOMPI_API + "/merchants/" + cleanKey(publicKey)))
             .GET().build();
         HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
         JsonNode root = mapper.readTree(resp.body());
-        return root.path("data").path("presigned_acceptance").path("acceptance_token").asText("");
+        String token = root.path("data").path("presigned_acceptance").path("acceptance_token").asText("");
+        if (token.isBlank()) {
+            log.error("No se pudo obtener acceptance_token. Respuesta Wompi: {}", resp.body());
+            throw new RuntimeException("No se pudo obtener acceptance_token de Wompi");
+        }
+        return token;
     }
 
     /**
-     * Construye la URL del widget de pago de Wompi incluyendo la firma de integridad.
-     * El parámetro "signature:integrity" es obligatorio desde 2024.
+     * Construye la URL del widget de Wompi.
      */
     private String buildWompiWidgetUrl(String pubKey, long amountCents, String reference,
-                                        String email, String acceptanceToken, String redirectUrl,
-                                        String integritySignature) {
+                                        String email, String acceptanceToken, String redirectUrl) {
         StringBuilder url = new StringBuilder("https://checkout.wompi.co/p/?");
         url.append("public-key=").append(pubKey);
         url.append("&currency=COP");
         url.append("&amount-in-cents=").append(amountCents);
         url.append("&reference=").append(reference);
         if (email != null && !email.isBlank()) {
-            url.append("&customer-email=").append(email);
+            url.append("&customer-email=").append(
+                java.net.URLEncoder.encode(email, StandardCharsets.UTF_8));
         }
         url.append("&acceptance-token=").append(acceptanceToken);
-        url.append("&redirect-url=").append(java.net.URLEncoder.encode(redirectUrl, StandardCharsets.UTF_8));
-        if (integritySignature != null && !integritySignature.isBlank()) {
-            url.append("&signature:integrity=").append(integritySignature);
-        }
+        url.append("&redirect-url=").append(
+            java.net.URLEncoder.encode(redirectUrl, StandardCharsets.UTF_8));
         return url.toString();
-    }
-
-    private String extractWompiError(String body) {
-        try {
-            JsonNode root = mapper.readTree(body);
-            JsonNode errors = root.path("error");
-            if (!errors.isMissingNode()) return errors.path("reason").asText(body);
-            return body.length() > 200 ? body.substring(0, 200) : body;
-        } catch (Exception e) { return body; }
     }
 }

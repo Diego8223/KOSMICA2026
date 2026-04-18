@@ -68,29 +68,26 @@ public class WompiController {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // POST /api/wompi/webhook   ← URL CORRECTA para configurar en Wompi
+    // POST /api/wompi/webhook   ← URL para configurar en el panel de Wompi
     //
     // Wompi envía notificaciones de pago a esta URL.
-    // En el panel de Wompi → Desarrolladores → URL de eventos, pon:
+    // Panel Wompi → Desarrolladores → URL de eventos:
     //   https://kosmica-backend.onrender.com/api/wompi/webhook
     //
-    // Wompi incluye la firma en el header: X-Wompi-Signature
+    // ✅ CORRECCIÓN: Wompi NO usa el header X-Wompi-Signature.
+    // La firma viene DENTRO del body JSON en: body.signature.checksum
+    // Ver: https://docs.wompi.co/docs/colombia/eventos/
     // ─────────────────────────────────────────────────────────────────────────
     @PostMapping("/webhook")
-    public ResponseEntity<Void> webhook(
-            @RequestBody Map<String, Object> body,
-            @RequestHeader(value = "X-Wompi-Signature", required = false) String wompiSignature) {
+    public ResponseEntity<Void> webhook(@RequestBody Map<String, Object> body) {
 
         try {
             String event = String.valueOf(body.getOrDefault("event", ""));
             log.info("📨 Webhook Wompi recibido: event={}", event);
 
-            // ── 1. Verificar firma (evita webhooks falsos) ──────────────────
-            // Requiere WOMPI_EVENTS_SECRET en las variables de entorno de Render.
-            // Si el secreto no está configurado, WompiService.verifyWebhookSignature
-            // retorna true automáticamente para no bloquear en ambientes de prueba.
-            if (!wompiService.verifyWebhookSignature(body, wompiSignature)) {
-                log.warn("⛔ Webhook Wompi rechazado: firma inválida. signature={}", wompiSignature);
+            // ── 1. Verificar firma desde body.signature.checksum ────────────
+            if (!wompiService.verifyWebhookSignature(body)) {
+                log.warn("⛔ Webhook Wompi rechazado: firma inválida.");
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
 
