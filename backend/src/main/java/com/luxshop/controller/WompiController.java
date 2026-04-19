@@ -32,7 +32,6 @@ public class WompiController {
     @Value("${wompi.public.key:pub_test_placeholder}")
     private String wompiPublicKey;
 
-    // ✅ FIX: Llave de integridad — obligatoria en producción
     @Value("${wompi.integrity.secret:integrity_placeholder}")
     private String wompiIntegritySecret;
 
@@ -56,21 +55,28 @@ public class WompiController {
             log.info("🏦 Creando transacción Wompi | ref={} | amount={} COP | email={}",
                     orderId, amountCop, email);
 
-            // ✅ FIX: Calcular firma de integridad (OBLIGATORIA en producción)
-            // Fórmula: SHA256(reference + amountInCents + currency + integritySecret)
-            String toHash    = orderId + amountCents + "COP" + wompiIntegritySecret;
+            // ══════════════════════════════════════════════════════
+            // DEBUG — muestra el string exacto que se hashea y la
+            // longitud del secret para detectar espacios o caracteres
+            // extra copiados desde el panel de Wompi.
+            // Eliminar este bloque una vez resuelto el problema.
+            // ══════════════════════════════════════════════════════
+            String secretTrimmed = wompiIntegritySecret.trim();
+            String toHash = orderId + amountCents + "COP" + secretTrimmed;
+            log.info("🔍 DEBUG | secretLen={} | secretTrimmedLen={} | secretPrefix={}",
+                    wompiIntegritySecret.length(),
+                    secretTrimmed.length(),
+                    wompiIntegritySecret.substring(0, Math.min(20, wompiIntegritySecret.length())));
+            log.info("🔍 DEBUG | toHash=[{}]", toHash);
+
             String integrity = sha256Hex(toHash);
+            log.info("🔑 Firma calculada | ref={} | hash={}", orderId, integrity);
 
-            log.info("🔑 Firma de integridad calculada | ref={} | hash={}", orderId, integrity);
-
-            // ✅ FIX: Dominio correcto es checkout.wompi.co (no .io)
             StringBuilder url = new StringBuilder("https://checkout.wompi.co/p/");
             url.append("?public-key=").append(encode(wompiPublicKey));
             url.append("&currency=COP");
             url.append("&amount-in-cents=").append(amountCents);
             url.append("&reference=").append(encode(orderId));
-
-            // ✅ FIX: Firma de integridad en la URL
             url.append("&signature:integrity=").append(integrity);
 
             if (!redirectUrl.isBlank()) {
@@ -95,7 +101,7 @@ public class WompiController {
             }
 
             String checkoutUrl = url.toString();
-            log.info("✅ URL Wompi generada con firma | ref={}", orderId);
+            log.info("✅ URL Wompi generada | ref={} | url={}", orderId, checkoutUrl);
 
             Map<String, Object> response = new HashMap<>();
             response.put("checkoutUrl", checkoutUrl);
@@ -229,7 +235,6 @@ public class WompiController {
         }
     }
 
-    // ✅ FIX: SHA-256 para calcular la firma de integridad
     private String sha256Hex(String input) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
