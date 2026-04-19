@@ -1778,10 +1778,11 @@ export default function App() {
     const pago = params.get("pago");
     if (pago === "exitoso") {
       try {
-        // Mostrar pantalla de éxito
+        // Mostrar pantalla de éxito (funciona tanto para MP como Wompi)
         const pendingOrder = localStorage.getItem("kosmica_pending_order") || "";
         if (pendingOrder) {
           setOrderSuccess({ orderNumber: pendingOrder });
+          setCheckoutOpen(true);
           localStorage.removeItem("kosmica_pending_order");
         }
         // Acreditar puntos
@@ -2354,7 +2355,8 @@ export default function App() {
           value: grandTotal, currency: 'COP',
         });
       }
-      // Limpiar carrito ANTES de redirigir
+      if (!result.initPoint) throw new Error("No se pudo obtener el enlace de pago. Intenta de nuevo.");
+      // Limpiar carrito solo cuando tenemos el link de pago confirmado
       setCart([]); setAppliedCoupon(null); setSelectedShippingMethod(null); setCheckoutOpen(false);
       try { localStorage.removeItem("kosmica_cart"); } catch(_) {}
       // Redirigir a MP — el éxito se muestra al volver con ?pago=exitoso
@@ -2406,17 +2408,18 @@ export default function App() {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      // 3. Guardar puntos pendientes y limpiar
-      setCart([]); setAppliedCoupon(null); setSelectedShippingMethod(null); setCheckoutOpen(false);
-      try { localStorage.removeItem("kosmica_cart"); } catch(_) {}
+      // 3. Guardar puntos pendientes y orderNumber — limpiar carrito
       try {
         localStorage.setItem("kosmica_pending_pts", String(Math.floor(grandTotal/36)));
         localStorage.setItem("kosmica_pending_order_total", String(grandTotal));
+        localStorage.setItem("kosmica_pending_order", orderResp?.orderNumber || orderResp?.id || "");
         if (currentUser) localStorage.setItem("kosmica_pending_pts_user", currentUser.email);
       } catch(_) {}
+      setCart([]); setAppliedCoupon(null); setSelectedShippingMethod(null); setCheckoutOpen(false);
+      try { localStorage.removeItem("kosmica_cart"); } catch(_) {}
       // 4. Redirigir al widget de pago Wompi
       if (data.checkoutUrl) {
-        window.open(data.checkoutUrl, '_blank');
+        window.location.href = data.checkoutUrl;
       } else {
         showToast("✅ Pedido registrado. Redirigiendo a Wompi...");
       }
@@ -2431,7 +2434,30 @@ export default function App() {
     // Trackear con Meta Pixel y TikTok
     if(typeof window.fbq==="function") window.fbq("track","Lead",{content_name:"newsletter"});
     if(typeof window.ttq==="object") window.ttq.track("Subscribe");
-    showToast("💜 ¡Gracias por suscribirte!");
+    // Registrar suscriptor en el backend y regalar 20 puntos si está logueada
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || "https://kosmica-backend.onrender.com";
+      // Registrar usuario básico (newsletter) o sumar puntos si ya existe
+      await fetch(`${API_URL}/api/users/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Suscriptora", email: newsletterEmail.trim().toLowerCase(), phone: "" }),
+      });
+      if (currentUser?.email) {
+        await fetch(`${API_URL}/api/users/${encodeURIComponent(currentUser.email)}/add-points`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ points: 20 }),
+        });
+        const updatedUser = { ...currentUser, points: (parseInt(currentUser.points||0,10) + 20) };
+        setCurrentUser(updatedUser);
+        showToast("💜 ¡Gracias! +20 puntos por suscribirte 💎");
+      } else {
+        showToast("💜 ¡Gracias por suscribirte!");
+      }
+    } catch(_) {
+      showToast("💜 ¡Gracias por suscribirte!");
+    }
     setNewsletterOpen(false);
     localStorage.setItem("kosmica_nl_seen","1");
   };
