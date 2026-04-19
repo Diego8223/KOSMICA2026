@@ -177,7 +177,7 @@ export default function OrderTracking({ onBack }) {
               <div className="ot-info-grid">
                 <div className="ot-info-box">
                   <div className="ot-info-label">Total pagado</div>
-                  <div className="ot-info-val purple">${Number(order.total || 0).toFixed(2)}</div>
+                  <div className="ot-info-val purple">${Number(order.total || 0).toLocaleString("es-CO")}</div>
                 </div>
                 <div className="ot-info-box">
                   <div className="ot-info-label">Fecha del pedido</div>

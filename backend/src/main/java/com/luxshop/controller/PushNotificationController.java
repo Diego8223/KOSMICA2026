@@ -1,11 +1,13 @@
 package com.luxshop.controller;
 
+import com.luxshop.model.PushSubscription;
 import com.luxshop.service.PushNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -14,6 +16,7 @@ import java.util.Map;
  * POST /api/push/subscribe     — guarda suscripción del cliente
  * POST /api/push/send          — envía notificación (solo admin)
  * GET  /api/push/count         — cuántos suscriptores activos hay
+ * GET  /api/push/subscribers   — lista de suscriptores (panel admin) ← NUEVO
  */
 @Slf4j
 @RestController
@@ -70,5 +73,11 @@ public class PushNotificationController {
         return ResponseEntity.ok(Map.of(
             "active", pushService.countActive()
         ));
+    }
+
+    // ── Lista completa de suscriptores activos (panel admin) ──
+    @GetMapping("/subscribers")
+    public ResponseEntity<List<Map<String, Object>>> subscribers() {
+        return ResponseEntity.ok(pushService.getSubscriberList());
     }
 }

@@ -219,7 +219,7 @@ public class ReferralService {
         String code;
         int attempts = 0;
         do {
-            code = "LUX-" + randomSegment(6);
+            code = "KOS-" + randomSegment(6);
             attempts++;
             if (attempts > 20) throw new RuntimeException("No se pudo generar código único");
         } while (referralRepo.findByCode(code).isPresent());

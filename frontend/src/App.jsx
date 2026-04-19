@@ -2090,10 +2090,15 @@ export default function App() {
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       });
+      // Incluir email del usuario logueado para identificarlo en el panel admin
+      const subPayload = {
+        ...subscription.toJSON(),
+        email: currentUser?.email || null,
+      };
       await fetch(`${API}/api/push/subscribe`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(subscription),
+        body: JSON.stringify(subPayload),
       });
       new Notification("¡Bienvenida a Kosmica! 💜", {
         body: "Te avisaremos de ofertas y nuevos productos 🎁",

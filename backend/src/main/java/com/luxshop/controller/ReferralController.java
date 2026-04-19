@@ -109,7 +109,7 @@ public class ReferralController {
     // ── 3. VALIDAR código antes de pagar ─────────────────────────────
     /**
      * El receptor valida el código antes de aplicarlo al carrito.
-     * GET /api/referrals/validate/LUX-A3F9K2?redeemerEmail=comprador@gmail.com
+     * GET /api/referrals/validate/KOS-A3F9K2?redeemerEmail=comprador@gmail.com
      */
     @GetMapping("/validate/{code}")
     public ResponseEntity<Map<String, Object>> validate(

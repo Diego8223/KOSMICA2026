@@ -10,7 +10,7 @@ import java.util.Optional;
 @Repository
 public interface ReferralCodeRepository extends JpaRepository<ReferralCode, Long> {
 
-    /** Buscar código por su valor (ej: LUX-A3F9K2) */
+    /** Buscar código por su valor (ej: KOS-A3F9K2) */
     Optional<ReferralCode> findByCode(String code);
 
     /** Buscar el código activo de un usuario (no usado) */

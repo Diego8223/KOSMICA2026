@@ -5,11 +5,11 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 /**
- * Sistema "Invita y Gana" — LuxShop
+ * Sistema "Invita y Gana" — Kosmica
  *
  * Reglas de negocio:
  *  1. Solo usuarios REGISTRADOS pueden obtener su código.
- *  2. El código se genera automáticamente (LUX-XXXXXX) al registrarse o pedirlo.
+ *  2. El código se genera automáticamente (KOS-XXXXXX) al registrarse o pedirlo.
  *  3. Solo lo puede redimir quien LO RECIBIÓ (el receptor), no el dueño del código.
  *  4. Cada código es de USO ÚNICO — no se puede reutilizar.
  *  5. Se lleva control de: quién envió, quién redimió, en qué orden y cuándo.
@@ -27,7 +27,7 @@ public class ReferralCode {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** Código único: LUX-A3F9K2 */
+    /** Código único: KOS-A3F9K2 */
     @Column(nullable = false, unique = true, length = 20)
     private String code;
 

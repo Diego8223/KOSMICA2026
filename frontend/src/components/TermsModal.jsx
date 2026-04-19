@@ -132,7 +132,7 @@ function ReferralTerms() {
       <div className="tm-section">
         <div className="tm-section-title">🎁 Cómo funciona</div>
         <ul className="tm-list">
-          <li>Regístrate en Kosmica y obtén tu código personal <strong>LUX-XXXXXX</strong> de forma automática.</li>
+          <li>Regístrate en Kosmica y obtén tu código personal <strong>KOS-XXXXXX</strong> de forma automática.</li>
           <li>Comparte tu código con quien quieras — por WhatsApp, redes sociales o directamente.</li>
           <li>Tu amiga ingresa el código al momento de pagar su primera compra y obtiene un <strong>descuento inmediato</strong>.</li>
           <li>Una vez confirmado el pago, tú recibes automáticamente un <strong>cupón de 15% de descuento</strong> para tu próxima compra.</li>
@@ -176,7 +176,7 @@ function ReferralTerms() {
 
       <div className="tm-highlight">
         <p>
-          Al obtener tu código <strong>LUX-XXXXXX</strong> aceptas el tratamiento de tus datos
+          Al obtener tu código <strong>KOS-XXXXXX</strong> aceptas el tratamiento de tus datos
           personales conforme a la <strong>Ley 1581 de 2012</strong> (Colombia) únicamente para
           gestionar el programa de referidos. Tus datos no serán compartidos con terceros.
         </p>

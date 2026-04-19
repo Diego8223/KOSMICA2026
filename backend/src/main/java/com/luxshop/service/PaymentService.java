@@ -31,7 +31,7 @@ public class PaymentService {
     @Value("${store.url:http://localhost:3000}")
     private String storeUrl;
 
-    @Value("${store.name:LuxShop}")
+    @Value("${store.name:Kosmica}")
     private String storeName;
 
     // ══════════════════════════════════════════════════════════════

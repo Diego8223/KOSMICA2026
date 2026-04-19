@@ -106,6 +106,8 @@ export const referralAPI = {
   getMyCode:    (email)              => api.get(`/referrals/my-code/${encodeURIComponent(email)}`).then(r => r.data),
   /** Validar si un código puede ser usado por el receptor */
   validate:     (code, redeemerEmail)=> api.get(`/referrals/validate/${code}?redeemerEmail=${encodeURIComponent(redeemerEmail)}`).then(r => r.data),
+  /** Validar cupón de recompensa (REF15-XXXXXX) */
+  validateReward: (code, ownerEmail) => api.get(`/referrals/reward/validate/${code}?ownerEmail=${encodeURIComponent(ownerEmail)}`).then(r => r.data),
   /** Historial de uso del código de un usuario */
   history:      (email)              => api.get(`/referrals/history/${encodeURIComponent(email)}`).then(r => r.data),
 };
@@ -153,16 +155,17 @@ export const reviewAPI = {
 export const pushAPI = {
   subscribe:   (sub)              => api.post('/push/subscribe', sub).then(r => r.data),
   send:        (title, body, url) => api.post('/push/send', { title, body, url }).then(r => r.data),
-  countActive: ()                 => api.get('/push/count').then(r => r.data),
+  countActive:   ()                 => api.get('/push/count').then(r => r.data),
+  getSubscribers: ()                => api.get('/push/subscribers').then(r => r.data),
 };
 
 // ── Gift Cards ────────────────────────────────────────────
 export const giftCardAPI = {
-  create:   (data)  => api.post('/gift-cards', data).then(r => r.data),
+  create:   (data)  => api.post('/gift-cards/purchase', data).then(r => r.data),
   validate: (code)  => api.get(`/gift-cards/validate/${encodeURIComponent(code)}`).then(r => r.data),
-  getAll:   ()      => api.get('/gift-cards').then(r => r.data),
+  getAll:   ()      => api.get('/gift-cards/all').then(r => r.data),
   bySender: (email) => api.get(`/gift-cards/by-sender/${encodeURIComponent(email)}`).then(r => r.data),
-  reload:   (code, amount) => api.post(`/gift-cards/${code}/reload`, { amount }).then(r => r.data),
+  reload:   (code, amount) => api.post(`/gift-cards/reload`, { code, amount }).then(r => r.data),
 };
 
 export default api;

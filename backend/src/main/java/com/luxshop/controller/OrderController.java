@@ -174,7 +174,7 @@ public class OrderController {
                             // ── 3. ✅ NUEVO: Redimir código referido y generar cupón 15% ──
                             String referralCode = order.getReferralCode();
                             if (referralCode != null && !referralCode.isBlank()
-                                    && referralCode.startsWith("LUX-")) {
+                                    && referralCode.startsWith("KOS-")) {
                                 try {
                                     boolean redeemed = referralService.redeemCode(
                                         referralCode,

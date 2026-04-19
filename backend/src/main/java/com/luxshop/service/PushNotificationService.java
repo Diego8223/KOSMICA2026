@@ -12,6 +12,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.security.Security;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -31,7 +33,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class PushNotificationService {
 
     static {
-        // Garantizar que BouncyCastle esté registrado antes de cualquier operación push
         if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
             Security.addProvider(new BouncyCastleProvider());
         }
@@ -49,24 +50,37 @@ public class PushNotificationService {
     @Value("${store.url:https://www.kosmica.com.co}")
     private String storeUrl;
 
-    // ── Verificar si el servicio está configurado ──────────────
     private boolean isConfigured() {
         return vapidPublicKey != null && !vapidPublicKey.isBlank()
             && vapidPrivateKey != null && !vapidPrivateKey.isBlank();
     }
 
     // ── Guardar o actualizar suscripción ───────────────────────
+    // FIX: ahora también guarda el email si viene en el payload
+    @SuppressWarnings("unchecked")
     public PushSubscription saveSubscription(Map<String, Object> payload) {
         String endpoint = (String) payload.get("endpoint");
 
-        @SuppressWarnings("unchecked")
-        Map<String, String> keys = (Map<String, String>)
-            ((Map<String, Object>) payload.get("keys")).get("keys") != null
-                ? (Map<String, String>) ((Map<String, Object>) payload.get("keys")).get("keys")
-                : (Map<String, String>) payload.get("keys");
+        // El browser envía { endpoint, keys: { p256dh, auth } }
+        // Algunos wrappers anidan las keys en payload.keys.keys — lo manejamos
+        Map<String, String> keys;
+        Object rawKeys = payload.get("keys");
+        if (rawKeys instanceof Map) {
+            Map<String, Object> keysMap = (Map<String, Object>) rawKeys;
+            if (keysMap.containsKey("keys")) {
+                keys = (Map<String, String>) keysMap.get("keys");
+            } else {
+                keys = (Map<String, String>) rawKeys;
+            }
+        } else {
+            throw new IllegalArgumentException("Payload push inválido: falta 'keys'");
+        }
 
         String p256dh = keys.get("p256dh");
         String auth   = keys.get("auth");
+
+        // Email opcional — el frontend lo puede enviar junto a la suscripción
+        String email = (String) payload.get("email");
 
         PushSubscription sub = subscriptionRepo.findByEndpoint(endpoint)
             .orElse(new PushSubscription());
@@ -76,8 +90,14 @@ public class PushNotificationService {
         sub.setAuth(auth);
         sub.setActive(true);
 
+        // Guardar email si viene y si no tenía uno ya
+        if (email != null && !email.isBlank()) {
+            sub.setEmail(email);
+        }
+
         PushSubscription saved = subscriptionRepo.save(sub);
-        log.info("✅ Suscripción push guardada. Total activas: {}",
+        log.info("✅ Suscripción push guardada. Email: {} | Total activas: {}",
+            email != null ? email : "anónimo",
             subscriptionRepo.findAllByActiveTrue().size());
         return saved;
     }
@@ -119,7 +139,6 @@ public class PushNotificationService {
 
             } catch (Exception e) {
                 String msg = e.getMessage() != null ? e.getMessage() : "";
-                // El navegador ya no tiene la suscripción activa
                 if (msg.contains("410") || msg.contains("404")) {
                     sub.setActive(false);
                     subscriptionRepo.save(sub);
@@ -137,5 +156,22 @@ public class PushNotificationService {
     // ── Contar suscriptores activos ────────────────────────────
     public int countActive() {
         return subscriptionRepo.findAllByActiveTrue().size();
+    }
+
+    // ── Lista de suscriptores para el panel admin ──────────────
+    public List<Map<String, Object>> getSubscriberList() {
+        List<PushSubscription> subs = subscriptionRepo.findAllByActiveTrue();
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (PushSubscription sub : subs) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", sub.getId());
+            item.put("email", sub.getEmail() != null ? sub.getEmail() : "Anónimo");
+            item.put("createdAt", sub.getCreatedAt() != null ? sub.getCreatedAt().toString() : "");
+            // Mostrar solo los primeros 40 chars del endpoint para identificarlo
+            String ep = sub.getEndpoint();
+            item.put("device", ep != null && ep.length() > 40 ? ep.substring(0, 40) + "..." : ep);
+            result.add(item);
+        }
+        return result;
     }
 }

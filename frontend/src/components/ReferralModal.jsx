@@ -8,7 +8,7 @@
 //
 //  REGLAS DE NEGOCIO:
 //    ✅ Solo usuarios registrados obtienen código
-//    ✅ Código generado automáticamente (LUX-XXXXXX)
+//    ✅ Código generado automáticamente (KOS-XXXXXX)
 //    ✅ Solo lo redime el RECEPTOR, nunca el dueño
 //    ✅ USO ÚNICO — una vez redimido queda bloqueado
 //    ✅ Control en backend: no hay forma de saltárselo

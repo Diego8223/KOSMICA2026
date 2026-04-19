@@ -830,23 +830,31 @@ function ReportsSection({ orders, products, registeredUsers = [] }) {
 
 // ── PUSH NOTIFICATIONS SECTION ────────────────────────────
 function PushNotificationsSection() {
-  const [title, setTitle]         = React.useState('');
-  const [body, setBody]           = React.useState('');
-  const [url, setUrl]             = React.useState('');
-  const [sending, setSending]     = React.useState(false);
-  const [result, setResult]       = React.useState(null);
-  const [subCount, setSubCount]   = React.useState(null);
-  const [templates]               = React.useState([
+  const [title, setTitle]           = React.useState('');
+  const [body, setBody]             = React.useState('');
+  const [url, setUrl]               = React.useState('');
+  const [sending, setSending]       = React.useState(false);
+  const [result, setResult]         = React.useState(null);
+  const [subCount, setSubCount]     = React.useState(null);
+  const [subscribers, setSubscribers] = React.useState([]);
+  const [loadingSubs, setLoadingSubs] = React.useState(true);
+  const [showSubs, setShowSubs]     = React.useState(false);
+  const [templates]                 = React.useState([
     { label:'🎁 Nueva colección', title:'¡Nueva colección en Kosmica! 💜', body:'Entra a ver los nuevos productos que tenemos para ti ✨' },
     { label:'🔥 Oferta especial', title:'¡Oferta exclusiva hoy! 🔥', body:'Descuentos especiales por tiempo limitado. ¡No te los pierdas!' },
     { label:'🚀 Nuevo producto', title:'¡Nuevo producto llegó! 🛍️', body:'Mira el nuevo producto que llegó a Kosmica. ¡Sé la primera en tenerlo!' },
     { label:'💎 Puntos dobles', title:'¡Puntos dobles hoy! 💎', body:'Compra hoy y gana el doble de puntos Kosmica. Oferta solo por hoy.' },
   ]);
 
+  // Cargar conteo y lista de suscriptores al montar
   React.useEffect(() => {
     pushAPI.countActive()
       .then(d => setSubCount(d.active || 0))
       .catch(() => setSubCount(0));
+
+    pushAPI.getSubscribers()
+      .then(list => { setSubscribers(Array.isArray(list) ? list : []); setLoadingSubs(false); })
+      .catch(() => { setSubscribers([]); setLoadingSubs(false); });
   }, []);
 
   const send = async () => {
@@ -863,19 +871,82 @@ function PushNotificationsSection() {
 
   return (
     <>
-      {/* KPI suscriptores */}
+      {/* KPI suscriptores + botón ver lista */}
       <div style={{background:'linear-gradient(135deg,#7C3AED,#9B72CF)',borderRadius:18,padding:'22px 24px',
-        marginBottom:20,display:'flex',alignItems:'center',gap:16}}>
-        <div style={{fontSize:'2.5rem'}}>🔔</div>
-        <div>
-          <div style={{fontSize:'2rem',fontWeight:900,color:'#fff',lineHeight:1}}>
-            {subCount === null ? '...' : subCount}
-          </div>
-          <div style={{color:'rgba(255,255,255,.8)',fontSize:'.85rem',marginTop:2}}>
-            suscriptores activos con notificaciones habilitadas
+        marginBottom:20,display:'flex',alignItems:'center',justifyContent:'space-between',gap:16,flexWrap:'wrap'}}>
+        <div style={{display:'flex',alignItems:'center',gap:16}}>
+          <div style={{fontSize:'2.5rem'}}>🔔</div>
+          <div>
+            <div style={{fontSize:'2rem',fontWeight:900,color:'#fff',lineHeight:1}}>
+              {subCount === null ? '...' : subCount}
+            </div>
+            <div style={{color:'rgba(255,255,255,.8)',fontSize:'.85rem',marginTop:2}}>
+              suscriptores activos con notificaciones habilitadas
+            </div>
           </div>
         </div>
+        <button onClick={()=>setShowSubs(s=>!s)}
+          style={{background:'rgba(255,255,255,.18)',border:'1.5px solid rgba(255,255,255,.35)',
+            borderRadius:50,padding:'8px 18px',color:'#fff',fontWeight:700,fontSize:'.82rem',
+            cursor:'pointer',flexShrink:0,transition:'all .2s'}}
+          onMouseOver={e=>e.currentTarget.style.background='rgba(255,255,255,.28)'}
+          onMouseOut={e=>e.currentTarget.style.background='rgba(255,255,255,.18)'}>
+          {showSubs ? '▲ Ocultar lista' : '▼ Ver suscriptores'}
+        </button>
       </div>
+
+      {/* ── LISTA DE SUSCRIPTORES ── */}
+      {showSubs && (
+        <div className="adm-card" style={{marginBottom:20}}>
+          <div className="adm-card-title" style={{marginBottom:14}}>
+            👥 Suscriptores activos
+            <span style={{background:'#7C3AED',color:'#fff',borderRadius:50,
+              padding:'2px 10px',fontSize:'.75rem',fontWeight:800,marginLeft:10}}>
+              {subscribers.length}
+            </span>
+          </div>
+
+          {loadingSubs ? (
+            <div style={{textAlign:'center',color:'#9CA3AF',padding:'20px 0'}}>Cargando...</div>
+          ) : subscribers.length === 0 ? (
+            <div style={{textAlign:'center',color:'#9CA3AF',padding:'20px 0',fontSize:'.9rem'}}>
+              No hay suscriptores registrados aún.
+            </div>
+          ) : (
+            <div style={{overflowX:'auto'}}>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:'.82rem'}}>
+                <thead>
+                  <tr style={{background:'#F5F0FF'}}>
+                    <th style={{padding:'10px 12px',textAlign:'left',color:'#6D28D9',fontWeight:800,borderRadius:'8px 0 0 0'}}>#</th>
+                    <th style={{padding:'10px 12px',textAlign:'left',color:'#6D28D9',fontWeight:800}}>Email</th>
+                    <th style={{padding:'10px 12px',textAlign:'left',color:'#6D28D9',fontWeight:800}}>Dispositivo</th>
+                    <th style={{padding:'10px 12px',textAlign:'left',color:'#6D28D9',fontWeight:800,borderRadius:'0 8px 0 0'}}>Desde</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {subscribers.map((sub, i) => (
+                    <tr key={sub.id || i}
+                      style={{borderBottom:'1px solid #F3F0FF',background: i%2===0?'#FDFBFF':'#fff'}}>
+                      <td style={{padding:'9px 12px',color:'#9CA3AF',fontWeight:600}}>{i+1}</td>
+                      <td style={{padding:'9px 12px',fontWeight:600,color:'#374151'}}>
+                        {sub.email === 'Anónimo'
+                          ? <span style={{color:'#9CA3AF',fontStyle:'italic'}}>Anónimo</span>
+                          : sub.email}
+                      </td>
+                      <td style={{padding:'9px 12px',color:'#6B7280',fontFamily:'monospace',fontSize:'.75rem'}}>
+                        {sub.device}
+                      </td>
+                      <td style={{padding:'9px 12px',color:'#6B7280'}}>
+                        {sub.createdAt ? new Date(sub.createdAt).toLocaleDateString('es-CO') : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Templates rápidos */}
       <div className="adm-card" style={{marginBottom:16}}>

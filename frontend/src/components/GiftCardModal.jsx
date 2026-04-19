@@ -3,7 +3,7 @@
 // ============================================================
 
 import { useState } from "react";
-import api from "../services/api";
+import { giftCardAPI } from "../services/api";
 
 const OCCASIONS = [
   { id: "birthday",    emoji: "🎂", label: "Cumpleaños",   color: "#C026D3" },
@@ -80,7 +80,7 @@ export default function GiftCardModal({ open, onClose }) {
     if (senderPhone.trim().length < 7) return setError("Ingresa tu número de WhatsApp");
     setLoading(true);
     try {
-      const data = await api.post("/gift-cards/purchase", {
+      const data = await giftCardAPI.create({
         occasion, occasionLabel: occ?.label,
         amount: finalAmount, message: message.trim(),
         recipientName: recipientName.trim(),
@@ -88,7 +88,7 @@ export default function GiftCardModal({ open, onClose }) {
         senderName: senderName.trim(),
         senderEmail: senderEmail.trim().toLowerCase(),
         senderPhone: senderPhone.trim(),
-      }).then(r => r.data);
+      });
 
       if (data.success) {
         setGiftCode(data.code);

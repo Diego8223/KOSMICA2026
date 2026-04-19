@@ -630,6 +630,7 @@ export default function ProductDetailModal({
   };
 
   const handleAdd = () => {
+    if (product.stock !== undefined && product.stock !== null && product.stock <= 0) return;
     onAddToCart(product, qty);
     setAdded(true);
     setCartOpen(true);
@@ -853,8 +854,16 @@ export default function ProductDetailModal({
                   </div>
                 </div>
 
-                <button className={`pdm-add${added?' popped':''}`} onClick={handleAdd}>
-                  {added ? '✓ ¡Agregado!' : '🛒 Agregar al carrito'}
+                <button
+                  className={`pdm-add${added?' popped':''}`}
+                  onClick={handleAdd}
+                  disabled={product.stock !== undefined && product.stock !== null && product.stock <= 0}
+                  style={product.stock !== undefined && product.stock !== null && product.stock <= 0
+                    ? {opacity:.45, cursor:'not-allowed', background:'#ccc'}
+                    : {}}>
+                  {product.stock !== undefined && product.stock !== null && product.stock <= 0
+                    ? '✖ Sin stock'
+                    : added ? '✓ ¡Agregado!' : '🛒 Agregar al carrito'}
                 </button>
 
                 <button className="pdm-wish" onClick={() => onToggleWishlist(product.id)}>

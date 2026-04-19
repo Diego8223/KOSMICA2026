@@ -360,7 +360,11 @@ export default function UserAuthModal({ open, onClose, onSuccess, initialTab = "
                   </div>
                 </div>
                 <div className="auth-forgot">
-                  <a href="#!" onClick={e=>{e.preventDefault();setTab("register");}}>¿No tienes cuenta? Regístrate</a>
+                  <a href="#!" onClick={e=>{
+                    e.preventDefault();
+                    setError("");
+                    setSuccess("Para recuperar tu contraseña escríbenos por WhatsApp al 3043927148 con tu correo registrado y te ayudamos 💜");
+                  }}>¿Olvidaste tu contraseña?</a>
                 </div>
                 {error && <div className="auth-error">⚠️ {error}</div>}
                 {success && <div className="auth-success">{success}</div>}
