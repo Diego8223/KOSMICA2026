@@ -3,7 +3,7 @@
 //  ✅ Optimizado: lazy loading, useMemo, Schema.org, CountdownTimer
 // ============================================================
 import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense, memo } from "react";
-import { productAPI, orderAPI, referralAPI, imgUrl, wompiAPI } from "./services/api";
+import { productAPI, orderAPI, referralAPI, imgUrl, wompiAPI, reviewAPI, giftCardAPI } from "./services/api";
 
 // ✅ LAZY LOADING — reduce bundle inicial ~160KB (mejora LCP en móvil)
 const ProductDetailModal = lazy(() => import("./components/ProductDetailModal"));
@@ -451,37 +451,6 @@ const CSS = `
   }
 
   /* ════════════════════════════════════════
-     TESTIMONIOS
-  ════════════════════════════════════════ */
-  .testimonials {
-    padding: 40px 14px;
-    background: linear-gradient(135deg,#2D1B4E 0%,#4A2D7A 60%,#6B3FA0 100%);
-  }
-  .test-eyebrow {
-    font-size: .82rem; font-weight: 700; letter-spacing: .18em;
-    text-transform: uppercase; color: var(--lila-light); margin-bottom: 6px;
-  }
-  .test-title {
-    font-family: 'Playfair Display', serif; font-size: 1.5rem;
-    font-weight: 700; color: #fff; margin-bottom: 18px;
-  }
-  .test-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
-  .test-card {
-    background: rgba(255,255,255,.08); backdrop-filter: blur(10px);
-    border: 1px solid rgba(255,255,255,.14); border-radius: 18px; padding: 20px 18px;
-  }
-  .test-stars { color: #F4A7C3; font-size: .95rem; margin-bottom: 9px; }
-  .test-text { color: rgba(255,255,255,.85); font-size: .95rem; line-height: 1.68; margin-bottom: 13px; }
-  .test-author { display: flex; align-items: center; gap: 10px; }
-  .test-avatar {
-    width: 38px; height: 38px; border-radius: 50%;
-    background: linear-gradient(135deg,var(--lila-light),var(--pink));
-    display: flex; align-items: center; justify-content: center;
-    color: #fff; font-weight: 700; font-size: .95rem; flex-shrink: 0;
-  }
-  .test-name { color: #fff; font-weight: 600; font-size: .95rem; }
-
-  /* ════════════════════════════════════════
      FEATURES
   ════════════════════════════════════════ */
   .features { padding: 30px 14px; background: #fff; }
@@ -797,7 +766,6 @@ const CSS = `
     .product-grid { gap: 14px; }
     .card-img-wrap { height: 220px; }
     .card-name { font-size: 1rem; }
-    .test-grid { grid-template-columns: repeat(2,1fr); }
     .cart-panel { max-width: 400px; }
     .modal-wrap { align-items: center; justify-content: center; padding: 22px; }
     .modal { border-radius: 24px; max-width: 500px; max-height: 90vh; }
@@ -859,9 +827,6 @@ const CSS = `
     .card-name { font-size: 1.02rem; }
     .card-price { font-size: 1.2rem; }
     .card-add { padding: 11px; font-size: .93rem; }
-    .testimonials { padding: 68px 5%; }
-    .test-grid { grid-template-columns: repeat(2,1fr); gap: 16px; }
-    .test-title { font-size: 2.1rem; }
     .features { padding: 56px 5%; }
     .feat-grid { grid-template-columns: repeat(4,1fr); gap: 20px; }
     .footer { padding: 55px 5% 24px; }
@@ -876,7 +841,6 @@ const CSS = `
     .hero-title { font-size: 4.2rem; }
     .product-grid { grid-template-columns: repeat(4,1fr); gap: 22px; }
     .card-img-wrap { height: 220px; }
-    .test-grid { grid-template-columns: repeat(4,1fr); }
     .footer-grid { grid-template-columns: 2fr 1fr 1fr 1fr; gap: 50px; }
   }
 
@@ -1193,7 +1157,7 @@ const CSS = `
   .ref-banner-sub { font-size: .78rem; color: var(--muted); margin-top: 2px; }
 
   /* ✅ RENDIMIENTO — content-visibility ahorra re-layouts en secciones off-screen */
-  .testimonials-section, .features-section, .footer {
+  .features-section, .footer {
     content-visibility: auto;
     contain-intrinsic-size: 0 400px;
   }
@@ -1500,12 +1464,7 @@ const CATEGORIES = [
   { key:"CUIDADO_PERSONAL", label:"🧴 Cuidado Personal",  ico:"🧴", color:"linear-gradient(135deg,#FFD6A5,#F4A261)" },
   { key:"ACCESORIOS",       label:"💍 Accesorios",         ico:"💍", color:"linear-gradient(135deg,#FFC8DD,#E07A9A)" },
 ];
-const TESTIMONIALS = [
-  { name:"Valentina R.", text:"¡Me llegó todo perfecto! La calidad es increíble, ya hice mi 3ra compra 💕", stars:5 },
-  { name:"Camila T.",    text:"El bolso es exactamente como en la foto. La galería me convenció de comprarlo 🛍️", stars:5 },
-  { name:"Sofía M.",     text:"El video del producto fue clave. Llegó igual y el maquillaje es increíble 💋", stars:5 },
-  { name:"Isabella V.",  text:"Envío rapidísimo y el empaque es hermoso. 100% recomendada 🌸", stars:5 },
-];
+
 
 // ✅ COUNTDOWN TIMER — urgencia en productos con descuento
 const CountdownTimer = memo(function CountdownTimer({ endHour = 23, endMin = 59 }) {
@@ -2522,11 +2481,10 @@ export default function App() {
     }
 
     // ── Tarjeta de regalo Kosmica (formato GIFT-XXXXXX) ──
-    // FIX: usar api (axios con baseURL absoluta) en lugar de fetch con ruta relativa
     if (code.startsWith("GIFT-")) {
       try {
         setCouponError("Validando tarjeta...");
-        const result = await api.get(`/gift-cards/validate/${code}`).then(r => r.data);
+        const result = await giftCardAPI.validate(code);
         if (result.valid) {
           setAppliedCoupon({
             code,
@@ -2547,7 +2505,7 @@ export default function App() {
     }
 
     // ── Cupón de recompensa de referido (formato REF15-XXXXXX) ──
-    // FIX: usar api (axios con baseURL absoluta) en lugar de fetch con ruta relativa
+    // ── Cupón de recompensa de referido (formato REF15-XXXXXX) ──
     if (code.startsWith("REF15-")) {
       const ownerEmail = form.email?.trim().toLowerCase();
       if (!ownerEmail) {
@@ -2556,9 +2514,7 @@ export default function App() {
       }
       try {
         setCouponError("Validando cupón de recompensa...");
-        const result = await api.get(
-          `/referrals/reward/validate/${code}?ownerEmail=${encodeURIComponent(ownerEmail)}`
-        ).then(r => r.data);
+        const result = await referralAPI.validateReward(code, ownerEmail);
         if (result.valid) {
           setAppliedCoupon({ code, pct: result.pct || 15, label: result.label || "15% recompensa referido 💜" });
           setCouponError("");
@@ -2594,10 +2550,21 @@ export default function App() {
     navigator.clipboard.writeText(url).then(()=>showToast("🔗 Link copiado al portapapeles"));
     setSharePopup(null);
   };
-  const submitReview = () => {
+  const submitReview = async () => {
     if(reviewStars===0){ showToast("⭐ Selecciona cuántas estrellas"); return; }
     if(!reviewText.trim()){ showToast("✍️ Escribe tu reseña"); return; }
-    showToast(`💜 ¡Gracias por tu reseña, ${form.name||"amiga"}!`);
+    try {
+      await reviewAPI.create(reviewModal.id, {
+        userName:  currentUser?.name  || form.name  || "Cliente",
+        userEmail: currentUser?.email || form.email || "",
+        rating:    reviewStars,
+        comment:   reviewText.trim(),
+      });
+      showToast(`💜 ¡Gracias por tu reseña, ${currentUser?.name?.split(" ")[0] || form.name || "amiga"}!`);
+    } catch {
+      // Fallo silencioso: igual agradecemos para no frustrar a la cliente
+      showToast(`💜 ¡Gracias por tu reseña, ${currentUser?.name?.split(" ")[0] || form.name || "amiga"}!`);
+    }
     setReviewModal(null); setReviewStars(0); setReviewText("");
     if(typeof window.fbq==="function") window.fbq("track","SubmitApplication",{content_name:"review"});
   };
@@ -2932,26 +2899,6 @@ export default function App() {
           </div>
         </div>
       </div>
-
-      {/* ── TESTIMONIOS ── */}
-      <section className="testimonials">
-        <div style={{maxWidth:1400,margin:"0 auto"}}>
-          <p className="test-eyebrow">Testimonios</p>
-          <h2 className="test-title">Lo que dicen nuestras clientas</h2>
-          <div className="test-grid">
-            {TESTIMONIALS.map((t,i)=>(
-              <div key={i} className="test-card">
-                <div className="test-stars">{"★".repeat(t.stars)}</div>
-                <p className="test-text">"{t.text}"</p>
-                <div className="test-author">
-                  <div className="test-avatar">{t.name[0]}</div>
-                  <div className="test-name">{t.name}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* ── FEATURES ── */}
       <section className="features">
