@@ -1,6 +1,7 @@
 // ── ProductRepository.java ───────────────────────────────
 package com.luxshop.repository;
 
+import com.luxshop.model.Category;
 import com.luxshop.model.Product;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -13,15 +14,14 @@ import java.util.List;
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
-    // ✅ FIX: category ahora es String — compatible con VARCHAR(100) en Postgres
-    Page<Product> findByCategoryAndActiveTrue(String category, Pageable pageable);
+    // FIX: category es enum Category en el modelo Product
+    Page<Product> findByCategoryAndActiveTrue(Category category, Pageable pageable);
 
     List<Product> findByActiveTrue();
 
-    // ✅ FIX: ordenar por createdAt ya que reviewCount fue eliminado del modelo
     List<Product> findTop8ByActiveTrueOrderByCreatedAtDesc();
 
-    // FIX: 'featured' no existe en Product — devuelve los 8 más recientes activos
+    // FIX: 'featured' no existe en Product — devuelve los más recientes activos
     @Query("SELECT p FROM Product p WHERE p.active = true ORDER BY p.createdAt DESC")
     List<Product> findByFeaturedTrueAndActiveTrue();
 

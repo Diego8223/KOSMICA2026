@@ -29,10 +29,10 @@ public class ProductService {
     private String cloudinaryUrl;
 
     // ── Consultas ────────────────────────────────────────
-    // ✅ FIX: recibe Category enum y lo convierte a String para el repositorio
+    // FIX: pasa el enum Category directamente al repositorio
     public Page<Product> getByCategory(Category category, int page, int size) {
         return productRepo.findByCategoryAndActiveTrue(
-            category.toDbValue(),
+            category,
             PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
     }
 
