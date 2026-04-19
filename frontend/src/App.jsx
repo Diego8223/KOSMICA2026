@@ -1534,173 +1534,6 @@ const CountdownTimer = memo(function CountdownTimer({ endHour = 23, endMin = 59 
 // ✅ SUSPENSE FALLBACK — spinner mientras carga componente lazy
 const SpinFallback = () => <div className="lazy-spinner" />;
 
-// ══════════════════════════════════════════════════════════
-//  COMPONENTE: Pantalla de espera Nequi con polling de estado
-// ══════════════════════════════════════════════════════════
-function NequiWaitingScreen({ data, onClose, onApproved }) {
-  const [pollStatus, setPollStatus] = useState("pending");
-  const [pollCount,  setPollCount]  = useState(0);
-  const [expired,    setExpired]    = useState(false);
-  const API_URL = process.env.REACT_APP_API_URL || "https://kosmica-backend.onrender.com";
-  const MAX_POLLS = 60; // 60 × 5s = 5 minutos
-
-  useEffect(() => {
-    if (!data?.paymentId) return;
-    let cancelled = false;
-
-    const poll = async () => {
-      if (cancelled) return;
-      try {
-        const res  = await fetch(`${API_URL}/api/orders/nequi-status/${data.paymentId}`);
-        const json = await res.json();
-        if (cancelled) return;
-        setPollStatus(json.status || "pending");
-        if (json.status === "approved") {
-          onApproved && onApproved(data.orderNumber);
-          return;
-        }
-        if (json.status === "rejected" || json.status === "cancelled") return;
-      } catch(_) {}
-
-      setPollCount(c => {
-        const next = c + 1;
-        if (next >= MAX_POLLS) { setExpired(true); return next; }
-        setTimeout(poll, 5000);
-        return next;
-      });
-    };
-
-    const timer = setTimeout(poll, 4000); // primer poll a los 4s
-    return () => { cancelled = true; clearTimeout(timer); };
-  }, [data?.paymentId]);
-
-  const approved  = pollStatus === "approved";
-  const rejected  = pollStatus === "rejected" || pollStatus === "cancelled";
-
-  return (
-    <>
-      <div className="overlay" onClick={!approved ? onClose : undefined}/>
-      <div className="modal-wrap">
-        <div className="modal" style={{maxWidth:440}}>
-          <div className="modal-header">
-            <h2 className="modal-title">🟣 Pago con Nequi</h2>
-            {!approved && <button className="close-btn" onClick={onClose}>✕</button>}
-          </div>
-          <div className="modal-body" style={{textAlign:"center",paddingBottom:36}}>
-
-            {/* ── APROBADO ── */}
-            {approved && (
-              <>
-                <div style={{width:80,height:80,borderRadius:"50%",margin:"0 auto 18px",
-                  background:"linear-gradient(135deg,#27AE60,#1a8a4a)",
-                  display:"flex",alignItems:"center",justifyContent:"center",fontSize:"2.4rem"}}>✅</div>
-                <h3 style={{fontFamily:"'Playfair Display',serif",fontSize:"1.5rem",color:"var(--dark)",marginBottom:10}}>
-                  ¡Pago aprobado!
-                </h3>
-                <p style={{color:"var(--brown)",fontSize:".95rem",marginBottom:22}}>Tu pedido está confirmado 💜</p>
-                <button onClick={()=>onApproved(data.orderNumber)} style={{
-                  width:"100%",padding:"14px",background:"linear-gradient(135deg,#27AE60,#1a8a4a)",
-                  border:"none",borderRadius:14,color:"#fff",fontWeight:800,fontSize:"1rem",cursor:"pointer"
-                }}>Ver mi pedido →</button>
-              </>
-            )}
-
-            {/* ── RECHAZADO / EXPIRADO ── */}
-            {(rejected || expired) && !approved && (
-              <>
-                <div style={{fontSize:"3rem",marginBottom:14}}>😔</div>
-                <h3 style={{fontFamily:"'Playfair Display',serif",fontSize:"1.3rem",color:"var(--dark)",marginBottom:10}}>
-                  {rejected ? "Pago no completado" : "Tiempo agotado"}
-                </h3>
-                <p style={{color:"var(--brown)",fontSize:".9rem",marginBottom:20}}>
-                  {rejected
-                    ? "El pago fue rechazado o cancelado en Nequi."
-                    : "La notificación expiró (5 min). Puedes intentar de nuevo."}
-                </p>
-                <a href={`https://wa.me/573043927148?text=Hola%20Kosmica%20💜%20Tuve%20un%20problema%20con%20el%20pago%20Nequi%20al%20número%20${data.phone}${data.orderNumber?"%2C%20pedido%20%23"+data.orderNumber:""}%20%C2%BFPueden%20ayudarme%3F`}
-                  target="_blank" rel="noreferrer"
-                  style={{display:"block",width:"100%",padding:"13px",borderRadius:50,
-                    background:"#25D366",color:"#fff",fontWeight:800,fontSize:"1rem",
-                    textDecoration:"none",textAlign:"center",marginBottom:10}}>
-                  💬 Pedir ayuda por WhatsApp
-                </a>
-                <button onClick={onClose} style={{width:"100%",padding:"11px",background:"none",
-                  border:"1.5px solid var(--lila-xlight)",borderRadius:50,
-                  color:"var(--brown)",fontWeight:600,cursor:"pointer",fontSize:".9rem"}}>
-                  Volver a la tienda
-                </button>
-              </>
-            )}
-
-            {/* ── ESPERANDO ── */}
-            {!approved && !rejected && !expired && (
-              <>
-                <div style={{width:80,height:80,borderRadius:"50%",margin:"0 auto 20px",
-                  background:"linear-gradient(135deg,#3B0764,#6D28D9)",
-                  display:"flex",alignItems:"center",justifyContent:"center",
-                  fontSize:"2.2rem",animation:"cartPulse 1.5s infinite"}}>🟣</div>
-                <h3 style={{fontFamily:"'Playfair Display',serif",fontSize:"1.4rem",color:"var(--dark)",marginBottom:10}}>
-                  ¡Notificación enviada!
-                </h3>
-                <p style={{color:"var(--brown)",fontSize:"1rem",lineHeight:1.7,marginBottom:18}}>
-                  Enviamos una notificación push a tu app Nequi al número<br/>
-                  <strong style={{color:"#3B0764",fontSize:"1.1rem",letterSpacing:".05em"}}>
-                    📱 {data.phone}
-                  </strong>
-                </p>
-                {/* Pasos */}
-                <div style={{background:"#F5F3FF",borderRadius:16,padding:"16px 18px",marginBottom:16,textAlign:"left"}}>
-                  <div style={{fontWeight:800,fontSize:".78rem",color:"#5B21B6",textTransform:"uppercase",
-                    letterSpacing:".1em",marginBottom:12}}>Pasos para aprobar</div>
-                  {[
-                    ["1️⃣","Abre tu app Nequi"],
-                    ["2️⃣","Busca la notificación de cobro pendiente"],
-                    ["3️⃣","Revisa el monto y confirma"],
-                    ["4️⃣","Ingresa tu PIN de Nequi"],
-                  ].map(([num, text]) => (
-                    <div key={num} style={{display:"flex",gap:10,alignItems:"center",marginBottom:8}}>
-                      <span style={{fontSize:"1.1rem",flexShrink:0}}>{num}</span>
-                      <span style={{fontSize:".88rem",color:"var(--dark)",fontWeight:600}}>{text}</span>
-                    </div>
-                  ))}
-                </div>
-                <div style={{background:"#FFF8DC",border:"1.5px solid #FFD700",borderRadius:12,
-                  padding:"9px 13px",fontSize:".8rem",color:"#7B4F00",marginBottom:16}}>
-                  ⏱️ <strong>La notificación expira en 5 minutos.</strong> Si no la ves, revisa notificaciones de Nequi.
-                </div>
-                {/* Indicador de polling */}
-                <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,
-                  marginBottom:16,fontSize:".8rem",color:"var(--muted)"}}>
-                  <div style={{width:10,height:10,borderRadius:"50%",background:"#27AE60",
-                    animation:"cartPulse 1.2s infinite"}}/>
-                  Verificando estado del pago... ({Math.min(pollCount * 5, 300)}s)
-                </div>
-                {data.orderNumber && (
-                  <div style={{fontSize:".8rem",color:"var(--muted)",marginBottom:14}}>
-                    Pedido: <strong style={{color:"var(--lila)"}}>{data.orderNumber}</strong>
-                  </div>
-                )}
-                <a href={`https://wa.me/573043927148?text=Hola%20Kosmica%20💜%20Hice%20un%20pedido%20con%20Nequi%20al%20número%20${data.phone}${data.orderNumber?"%2C%20pedido%20%23"+data.orderNumber:""}%20pero%20no%20llega%20la%20notificación.%20%C2%BFPueden%20ayudarme%3F`}
-                  target="_blank" rel="noreferrer"
-                  style={{display:"block",width:"100%",padding:"12px",borderRadius:50,
-                    background:"#25D366",color:"#fff",fontWeight:800,fontSize:".95rem",
-                    textDecoration:"none",textAlign:"center",marginBottom:10}}>
-                  💬 No me llega la notificación
-                </a>
-                <button onClick={onClose} style={{width:"100%",padding:"10px",background:"none",
-                  border:"1.5px solid var(--lila-xlight)",borderRadius:50,
-                  color:"var(--brown)",fontWeight:600,cursor:"pointer",fontSize:".88rem"}}>
-                  Volver a la tienda
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    </>
-  );
-}
-
 export default function App() {
   // ✅ FIX: persistir adminMode en URL hash para que refresh no saque del panel admin
   const [adminMode, setAdminModeRaw]          = useState(() => window.location.hash === "#admin");
@@ -1775,9 +1608,8 @@ export default function App() {
   const [scrolled,setScrolled]               = useState(false);
   const [toast,setToast]                     = useState("");
   const [paying,setPaying]                   = useState(false);
-  const [paymentMethod,setPaymentMethod]     = useState("mp"); // "mp" | "nequi" | "wompi"
-  const [nequiWaiting, setNequiWaiting]       = useState(null); // {paymentId, phone} cuando esperamos aprobación
-  const [nequiPhone,setNequiPhone]           = useState("");
+  const [paymentMethod,setPaymentMethod]     = useState("wompi"); // "mp" | "wompi"
+  const [nequiWaiting, setNequiWaiting]       = useState(null); // kept for safety
   const [selectedProduct,setSelectedProduct] = useState(null);
   const [drawerOpen,setDrawerOpen]           = useState(false);
   const [form,setForm] = useState({name:"",email:"",phone:"",document:"",city:"",neighborhood:"",address:"",notes:""});
@@ -2575,120 +2407,6 @@ export default function App() {
   const scrollTo=()=>ref.current?.scrollIntoView({behavior:"smooth"});
   const selectCat=cat=>{ setActiveCategory(cat); setSearch(""); setDrawerOpen(false); scrollTo(); };
 
-  const handleNequiCheckout = async e => {
-    e.preventDefault();
-    if (!selectedShippingMethod) { showToast("⚠️ Selecciona un método de envío"); return; }
-    const phone = nequiPhone.replace(/\D/g, "");
-    if (phone.length < 10) { showToast("⚠️ Ingresa tu número de celular Nequi (10 dígitos)"); return; }
-    if (!form.name?.trim())     { showToast("⚠️ Ingresa tu nombre completo"); return; }
-    if (!form.email?.trim())    { showToast("⚠️ Ingresa tu correo electrónico"); return; }
-    if (!form.document?.trim()) { showToast("⚠️ Ingresa tu número de cédula para pagar con Nequi"); return; }
-    setPaying(true);
-    try {
-      const API_URL = process.env.REACT_APP_API_URL || "https://kosmica-backend.onrender.com";
-
-      // ── 1. Crear pedido en el sistema ─────────────────────────────
-      const orderResp = await orderAPI.createOrder({
-        name:            form.name,
-        email:           form.email,
-        phone:           form.phone,
-        document:        form.document,
-        city:            form.city,
-        neighborhood:    form.neighborhood,
-        address:         form.address,
-        notes:           form.notes,
-        paymentMethod:   "NEQUI",
-        paymentIntentId: null,
-        shippingMethod:  selectedShippingMethod.id,
-        shippingCost:    selectedShippingMethod.cost,
-        items:           cart.map(i => ({ productId: i.id, quantity: i.qty })),
-        couponCode:      appliedCoupon && !appliedCoupon.code.startsWith("LUX-") && appliedCoupon.type !== "giftcard"
-                           ? appliedCoupon.code : null,
-        couponDiscount:  couponDiscount,
-        referralCode:    appliedCoupon?.code.startsWith("LUX-")
-                           ? appliedCoupon.code : (referralCode || null),
-        giftCardCode:    appliedCoupon?.type === "giftcard" ? appliedCoupon.code : null,
-        giftCardDiscount: appliedCoupon?.type === "giftcard" ? couponDiscount : 0,
-        nequiPhone:      phone,
-      });
-
-      // ── 2. Enviar notificación push Nequi vía MercadoPago ─────────
-      const res = await fetch(`${API_URL}/api/orders/nequi-payment`, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount:   grandTotal,
-          phone,
-          email:    form.email,
-          name:     form.name,
-          document: form.document,   // ✅ Cédula requerida por MercadoPago para Nequi push
-          orderId:  orderResp?.orderNumber || orderResp?.id,
-        }),
-      });
-
-      // El backend siempre devuelve 200 con campo "error" si algo falla
-      let data = {};
-      try { data = await res.json(); } catch (_) {}
-
-      if (!res.ok || data.error || data.status === "error") {
-        throw new Error(data.error || data.message || `Error ${res.status} al enviar notificación Nequi`);
-      }
-
-      // Verificar que venga el paymentId para poder hacer polling
-      if (!data.paymentId) {
-        throw new Error("No se recibió ID de pago de Nequi. Intenta de nuevo o usa MercadoPago.");
-      }
-
-      // ── 3. Limpiar carrito ────────────────────────────────────────
-      setCart([]);
-      setAppliedCoupon(null);
-      setSelectedShippingMethod(null);
-      setCheckoutOpen(false);
-      try { localStorage.removeItem("kosmica_cart"); } catch (_) {}
-      try {
-        localStorage.setItem("kosmica_pending_pts", String(Math.floor(grandTotal / 36)));
-        if (currentUser) localStorage.setItem("kosmica_pending_pts_user", currentUser.email);
-      } catch (_) {}
-
-      // ── 4. Mostrar pantalla de espera con polling automático ──────
-      setNequiWaiting({
-        paymentId:   data.paymentId,
-        phone,
-        orderNumber: orderResp?.orderNumber,
-      });
-
-    } catch (e) {
-      const msg = e.message || "Error al procesar el pago";
-
-      // Número no encontrado en Nequi (código 10102 de MercadoPago)
-      if (msg.includes("NEQUI_NOT_FOUND")) {
-        const badPhone = msg.split(":")[1] || nequiPhone;
-        showToast(`⚠️ El número ${badPhone} no tiene cuenta Nequi activa. Verifica el número e intenta de nuevo.`);
-        // NO hacemos fallback — dejamos que el usuario corrija el número
-      }
-      // Token sandbox / sin credenciales de producción → fallback a MP
-      else if (
-        msg.includes("producción") ||
-        msg.includes("TEST-")      ||
-        msg.includes("APP_USR")    ||
-        msg.includes("token")      ||
-        msg.includes("unauthorized")
-      ) {
-        showToast("⚠️ Nequi push no disponible. Te cambiamos a MercadoPago automáticamente.");
-        setPaymentMethod("mp");
-      }
-      // Error de número/teléfono
-      else if (msg.includes("celular") || msg.includes("teléfono") || msg.includes("10 dígitos") || msg.includes("registrado")) {
-        showToast("⚠️ " + msg);
-      }
-      // Error genérico
-      else {
-        showToast("⚠️ " + msg + " — También puedes pagar con MercadoPago.");
-      }
-    } finally {
-      setPaying(false);
-    }
-  };
 
   // ── WOMPI (Bancolombia) CHECKOUT ──────────────────────────
   const handleWompiCheckout = async e => {
@@ -3054,7 +2772,7 @@ export default function App() {
       </nav>
 
       {/* ── PROMO STRIP ── */}
-      <div className="promo-strip">💳 Nequi, PSE, Wompi &amp; tarjeta &nbsp;|&nbsp; 🔒 Pago 100% seguro &nbsp;|&nbsp; 🚚 Elige tu envío al finalizar compra ✦</div>
+      <div className="promo-strip">💳 PSE, Wompi &amp; tarjeta &nbsp;|&nbsp; 🔒 Pago 100% seguro &nbsp;|&nbsp; 🚚 Elige tu envío al finalizar compra ✦</div>
 
       {/* ── CATEGORÍAS BARRA HORIZONTAL ── */}
       <div className="cats-bar">
@@ -3412,29 +3130,6 @@ export default function App() {
         </>
       )}
 
-      {/* ── PANTALLA DE ESPERA NEQUI ── */}
-      {nequiWaiting && (
-        <NequiWaitingScreen
-          data={nequiWaiting}
-          onClose={()=>setNequiWaiting(null)}
-          onApproved={(orderNumber)=>{
-            setNequiWaiting(null);
-            // Acreditar puntos pendientes de Nequi
-            try {
-              const pending = parseInt(localStorage.getItem("kosmica_pending_pts") || "0", 10);
-              const orderTotal = parseInt(localStorage.getItem("kosmica_pending_order_total") || "0", 10);
-              if (pending > 0) {
-                awardLoyaltyPoints(orderTotal || pending * 36);
-                localStorage.removeItem("kosmica_pending_pts");
-                localStorage.removeItem("kosmica_pending_order_total");
-                showToast("💎 ¡Ganaste " + pending + " puntos Kosmica!");
-              }
-            } catch(_) {}
-            setOrderSuccess({orderNumber: orderNumber || nequiWaiting.orderNumber});
-          }}
-        />
-      )}
-
       {/* ── CHECKOUT ── */}
       {checkoutOpen&&!orderSuccess&&(
         <>
@@ -3617,18 +3312,8 @@ export default function App() {
                     onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/>
                 </div>
                 <p className="form-section">Método de Pago</p>
-                {/* Selector Nequi | MercadoPago | Wompi */}
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
-                  <button type="button"
-                    onClick={()=>setPaymentMethod("nequi")}
-                    style={{padding:"12px 6px",border:paymentMethod==="nequi"?"2.5px solid #3B0764":"2px solid #E9D5FF",borderRadius:14,
-                      background:paymentMethod==="nequi"?"linear-gradient(135deg,#3B0764,#6D28D9)":"#FDFCFF",
-                      color:paymentMethod==="nequi"?"#fff":"#6D28D9",fontWeight:700,fontSize:".8rem",cursor:"pointer",
-                      boxShadow:paymentMethod==="nequi"?"0 4px 14px rgba(109,40,217,.3)":"none",transition:"all .2s"}}>
-                    <div style={{fontSize:"1.3rem",marginBottom:3}}>🟣</div>
-                    <div>Nequi</div>
-                    <div style={{fontSize:".68rem",fontWeight:500,opacity:.8,marginTop:2}}>Sin redirigir</div>
-                  </button>
+                {/* Selector MercadoPago | Wompi */}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
                   <button type="button"
                     onClick={()=>setPaymentMethod("mp")}
                     style={{padding:"12px 6px",border:paymentMethod==="mp"?"2.5px solid #009EE3":"2px solid #BAE6FD",borderRadius:14,
@@ -3650,25 +3335,6 @@ export default function App() {
                     <div style={{fontSize:".68rem",fontWeight:500,opacity:.8,marginTop:2}}>Bancolombia</div>
                   </button>
                 </div>
-                {/* Nequi: solo pide el número */}
-                {paymentMethod==="nequi" && (
-                  <div style={{background:"linear-gradient(135deg,#F5F3FF,#EDE9FE)",border:"1.5px solid #C4B5FD",borderRadius:14,padding:"16px",marginBottom:12}}>
-                    <div style={{fontWeight:700,color:"#5B21B6",marginBottom:8,fontSize:".92rem"}}>🟣 Pagar con Nequi</div>
-                    <label className="form-label">Número celular Nequi *</label>
-                    <input type="tel" className="form-input" placeholder="3XX XXX XXXX" maxLength={10}
-                      value={nequiPhone} onChange={e=>setNequiPhone(e.target.value.replace(/\D/g,""))}
-                      style={{letterSpacing:".1em",fontWeight:700}}/>
-                    <div style={{fontSize:".76rem",color:"#7C3AED",marginTop:6}}>
-                      💡 Recibirás una notificación push en tu app Nequi para aprobar el pago
-                    </div>
-                    {!form.document?.trim() && (
-                      <div style={{marginTop:8,padding:"7px 10px",background:"#FEF3C7",border:"1.5px solid #FCD34D",
-                        borderRadius:8,fontSize:".76rem",color:"#92400E",fontWeight:600}}>
-                        ⚠️ Recuerda llenar el campo <strong>Cédula</strong> arriba para pagar con Nequi
-                      </div>
-                    )}
-                  </div>
-                )}
                 {paymentMethod==="wompi" && (
                   <div style={{background:"linear-gradient(135deg,#F4A100,#D4880A)",borderRadius:16,padding:"16px 18px",marginBottom:12}}>
                     <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
@@ -3706,23 +3372,20 @@ export default function App() {
                   </div>
                 )}
                 <div className="secure-note">
-                  🔒 {paymentMethod==="nequi" ? "Pago directo desde tu app Nequi, sin formularios"
-                    : paymentMethod==="wompi" ? "Serás redirigido a Wompi (Bancolombia) para completar tu pago"
+                  🔒 {paymentMethod==="wompi" ? "Serás redirigido a Wompi (Bancolombia) para completar tu pago"
                     : "Serás redirigido a MercadoPago para completar tu pago de forma segura"}
                 </div>
                 <button type="submit" className="pay-btn"
-                  onClick={paymentMethod==="nequi" ? handleNequiCheckout : paymentMethod==="wompi" ? handleWompiCheckout : undefined}
-                  disabled={paying || !selectedShippingMethod || (paymentMethod==="nequi" && nequiPhone.length < 10)}
+                  onClick={paymentMethod==="wompi" ? handleWompiCheckout : undefined}
+                  disabled={paying || !selectedShippingMethod}
                   style={{
                     background: paying||!selectedShippingMethod ? "#A0AEC0"
-                      : paymentMethod==="nequi" ? "linear-gradient(135deg,#3B0764,#6D28D9)"
                       : paymentMethod==="wompi" ? "linear-gradient(135deg,#F4A100,#D4880A)"
                       : "linear-gradient(135deg,#009EE3,#0070B8)",
-                    cursor: paying||!selectedShippingMethod||(paymentMethod==="nequi"&&nequiPhone.length<10) ? "not-allowed" : "pointer"
+                    cursor: paying||!selectedShippingMethod ? "not-allowed" : "pointer"
                   }}>
                   {paying ? "⏳ Procesando..."
                     : !selectedShippingMethod ? "Selecciona un método de envío"
-                    : paymentMethod==="nequi" ? `🟣 Pagar con Nequi ${fmtCOP(grandTotal)} COP`
                     : paymentMethod==="wompi" ? `🏦 Pagar con Wompi ${fmtCOP(grandTotal)} COP →`
                     : `Ir a pagar ${fmtCOP(grandTotal)} COP →`}
                 </button>
