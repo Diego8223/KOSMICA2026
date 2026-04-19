@@ -21,6 +21,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     // ✅ FIX: ordenar por createdAt ya que reviewCount fue eliminado del modelo
     List<Product> findTop8ByActiveTrueOrderByCreatedAtDesc();
 
+    // FIX: 'featured' no existe en Product — devuelve los 8 más recientes activos
+    @Query("SELECT p FROM Product p WHERE p.active = true ORDER BY p.createdAt DESC")
     List<Product> findByFeaturedTrueAndActiveTrue();
 
     @Query("SELECT p FROM Product p WHERE p.active = true AND " +
