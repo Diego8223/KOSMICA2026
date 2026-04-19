@@ -12,7 +12,7 @@ RUN mvn -B dependency:go-offline
 
 COPY src ./src
 
-RUN mvn -B clean package -DskipTests
+RUN mvn -B clean package -DskipTests 2>&1 || (echo "=== BUILD FAILED ===" && mvn -B clean package -DskipTests 2>&1 | grep -A 5 "ERROR" && exit 1)
 
 
 # -------- Runtime stage --------
