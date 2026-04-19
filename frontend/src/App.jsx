@@ -2739,7 +2739,7 @@ export default function App() {
       } catch(_) {}
       // 4. Redirigir al widget de pago Wompi
       if (data.checkoutUrl) {
-        window.location.href = data.checkoutUrl;
+        window.open(data.checkoutUrl, '_blank');
       } else {
         showToast("✅ Pedido registrado. Redirigiendo a Wompi...");
       }
