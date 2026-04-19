@@ -29,6 +29,7 @@ public class OrderService {
     private final ProductRepository productRepo;
     private final EmailService      emailService;
     private final ReferralService   referralService;
+    private final UserService       userService;
 
     // ════════════════════════════════════════════════════════════
     //  CREAR PEDIDO — estado PENDING (no descuenta stock todavía)
@@ -183,6 +184,22 @@ public class OrderService {
                 log.info("✉️ Confirmación enviada para pedido {}", saved.getOrderNumber());
             } catch (Exception e) {
                 log.warn("Email de confirmación no enviado para {}: {}", saved.getOrderNumber(), e.getMessage());
+            }
+
+            // 4. Acreditar puntos de fidelidad (1 pto = $36 COP)
+            if (saved.getCustomerEmail() != null && !saved.getCustomerEmail().isBlank()
+                    && saved.getTotal() != null) {
+                try {
+                    userService.awardPurchasePoints(
+                        saved.getCustomerEmail(),
+                        saved.getTotal().intValue()
+                    );
+                    log.info("💎 Puntos acreditados para pedido {} — cliente {}",
+                        saved.getOrderNumber(), saved.getCustomerEmail());
+                } catch (Exception e) {
+                    log.warn("No se pudieron acreditar puntos para {}: {}",
+                        saved.getCustomerEmail(), e.getMessage());
+                }
             }
 
         } else if (newStatus != Order.Status.PAID) {

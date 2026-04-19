@@ -1785,11 +1785,10 @@ export default function App() {
           setCheckoutOpen(true);
           localStorage.removeItem("kosmica_pending_order");
         }
-        // Acreditar puntos
-        const pending   = parseInt(localStorage.getItem("kosmica_pending_pts") || "0", 10);
-        const orderTotal= parseInt(localStorage.getItem("kosmica_pending_order_total") || "0", 10);
+        // ✅ Puntos acreditados en backend (OrderService → awardPurchasePoints).
+        // Solo limpiamos localStorage y mostramos el toast informativo.
+        const pending = parseInt(localStorage.getItem("kosmica_pending_pts") || "0", 10);
         if (pending > 0) {
-          awardLoyaltyPoints(orderTotal || pending * 36);
           localStorage.removeItem("kosmica_pending_pts");
           localStorage.removeItem("kosmica_pending_order_total");
           localStorage.removeItem("kosmica_pending_pts_user");
