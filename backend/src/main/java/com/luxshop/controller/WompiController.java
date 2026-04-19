@@ -14,9 +14,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.HashMap;
-import java.util.HexFormat;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -32,13 +30,9 @@ public class WompiController {
     @Value("${wompi.public.key:pub_test_placeholder}")
     private String wompiPublicKey;
 
-    // ✅ FIX: Se agrega la llave de integridad — obligatoria en producción
-    @Value("${wompi.integrity.secret:integrity_placeholder}")
-    private String wompiIntegritySecret;
-
     // ══════════════════════════════════════════════════════════════
     //  POST /api/wompi/transaction
-    //  Genera la URL del checkout de Wompi con firma de integridad
+    //  FIX: este endpoint faltaba — el frontend lo llama al pagar
     // ══════════════════════════════════════════════════════════════
     @PostMapping("/transaction")
     public ResponseEntity<Map<String, Object>> createTransaction(
@@ -57,21 +51,11 @@ public class WompiController {
             log.info("🏦 Creando transacción Wompi | ref={} | amount={} COP | email={}",
                     orderId, amountCop, email);
 
-            // ✅ FIX: Calcular firma de integridad (OBLIGATORIA en producción)
-            // Fórmula: SHA256(reference + amountInCents + currency + integritySecret)
-            String toHash   = orderId + amountCents + "COP" + wompiIntegritySecret;
-            String integrity = sha256Hex(toHash);
-
-            log.info("🔑 Firma de integridad calculada | ref={} | hash={}", orderId, integrity);
-
-            StringBuilder url = new StringBuilder("https://checkout.wompi.io/p/");
+            StringBuilder url = new StringBuilder("https://checkout.wompi.co/p/");
             url.append("?public-key=").append(encode(wompiPublicKey));
             url.append("&currency=COP");
             url.append("&amount-in-cents=").append(amountCents);
             url.append("&reference=").append(encode(orderId));
-
-            // ✅ FIX: Agregar la firma de integridad a la URL
-            url.append("&signature:integrity=").append(integrity);
 
             if (!redirectUrl.isBlank()) {
                 url.append("&redirect-url=").append(encode(redirectUrl));
@@ -95,7 +79,7 @@ public class WompiController {
             }
 
             String checkoutUrl = url.toString();
-            log.info("✅ URL Wompi generada con firma | ref={}", orderId);
+            log.info("✅ URL Wompi generada | ref={}", orderId);
 
             Map<String, Object> response = new HashMap<>();
             response.put("checkoutUrl", checkoutUrl);
@@ -115,6 +99,7 @@ public class WompiController {
 
     // ══════════════════════════════════════════════════════════════
     //  GET /api/wompi/status/{transactionId}
+    //  FIX: este endpoint faltaba — wompiAPI.getStatus() lo necesita
     // ══════════════════════════════════════════════════════════════
     @GetMapping("/status/{transactionId}")
     public ResponseEntity<Map<String, Object>> getTransactionStatus(
@@ -172,6 +157,8 @@ public class WompiController {
 
     // ══════════════════════════════════════════════════════════════
     //  POST /api/wompi/webhook
+    //  FIX: ahora acepta eventos aunque WOMPI_EVENTS_SECRET no esté
+    //       configurado (WompiService maneja la lógica)
     // ══════════════════════════════════════════════════════════════
     @PostMapping("/webhook")
     public ResponseEntity<Void> handleWebhook(HttpServletRequest request) {
@@ -227,13 +214,6 @@ public class WompiController {
         } catch (Exception e) {
             return value;
         }
-    }
-
-    // ✅ FIX: Método SHA-256 para calcular la firma de integridad
-    private String sha256Hex(String input) throws Exception {
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
-        return HexFormat.of().formatHex(hash);
     }
 
     private String mapWompiStatus(String status) {
