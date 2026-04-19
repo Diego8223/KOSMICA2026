@@ -2331,11 +2331,11 @@ export default function App() {
         shippingCost:selectedShippingMethod.cost,
         items:cart.map(i=>({productId:i.id,quantity:i.qty})),
         // ✅ CUPÓN Y REFERIDO — se guardan en la orden para el admin
-        // Si el código aplicado es de referido (LUX-), va en referralCode
+        // Si el código aplicado es de referido (KOS-), va en referralCode
         // Si es cupón normal, va solo en couponCode
-        couponCode:       appliedCoupon && !appliedCoupon.code.startsWith("LUX-") && appliedCoupon.type !== "giftcard" ? appliedCoupon.code : null,
+        couponCode:       appliedCoupon && !appliedCoupon.code.startsWith("KOS-") && appliedCoupon.type !== "giftcard" ? appliedCoupon.code : null,
         couponDiscount:   couponDiscount,
-        referralCode:     appliedCoupon?.code.startsWith("LUX-") ? appliedCoupon.code
+        referralCode:     appliedCoupon?.code.startsWith("KOS-") ? appliedCoupon.code
                           : (referralCode || null),
         giftCardCode:     appliedCoupon?.type === "giftcard" ? appliedCoupon.code : null,
         giftCardDiscount: appliedCoupon?.type === "giftcard" ? couponDiscount : 0,
@@ -2386,9 +2386,9 @@ export default function App() {
         shippingMethod:selectedShippingMethod.id,
         shippingCost:selectedShippingMethod.cost,
         items:cart.map(i=>({productId:i.id,quantity:i.qty})),
-        couponCode:       appliedCoupon && !appliedCoupon.code.startsWith("LUX-") && appliedCoupon.type !== "giftcard" ? appliedCoupon.code : null,
+        couponCode:       appliedCoupon && !appliedCoupon.code.startsWith("KOS-") && appliedCoupon.type !== "giftcard" ? appliedCoupon.code : null,
         couponDiscount:   couponDiscount,
-        referralCode:     appliedCoupon?.code.startsWith("LUX-") ? appliedCoupon.code : (referralCode || null),
+        referralCode:     appliedCoupon?.code.startsWith("KOS-") ? appliedCoupon.code : (referralCode || null),
         giftCardCode:     appliedCoupon?.type === "giftcard" ? appliedCoupon.code : null,
         giftCardDiscount: appliedCoupon?.type === "giftcard" ? couponDiscount : 0,
       });
@@ -2463,7 +2463,7 @@ export default function App() {
   };
 
   // ✅ VALIDAR Y APLICAR CUPÓN en el checkout
-  // Acepta cupones fijos Y códigos de referido del backend (LUX-XXXXXX)
+  // Acepta cupones fijos Y códigos de referido del backend (KOS-XXXXXX)
   const VALID_COUPONS = {
     "KOSMICA15":    { pct: 15, label: "15% especial" },
   };
@@ -2482,8 +2482,8 @@ export default function App() {
       return;
     }
 
-    // ── Código de referido del backend (formato LUX-XXXXXX) ──
-    if (code.startsWith("LUX-")) {
+    // ── Código de referido del backend (formato KOS-XXXXXX) ──
+    if (code.startsWith("KOS-")) {
       const redeemerEmail = form.email?.trim().toLowerCase();
       if (!redeemerEmail) {
         setCouponError("Ingresa tu email antes de aplicar el código de referido");
@@ -3133,7 +3133,7 @@ export default function App() {
                         <input
                           className="coupon-input"
                           type="text"
-                          placeholder="Cupón o código de referido (LUX-...)"
+                          placeholder="Cupón o código de referido (KOS-...)"
                           value={couponInput}
                           onChange={e=>{setCouponInput(e.target.value); setCouponError("");}}
                           onKeyDown={e=>e.key==="Enter"&&(e.preventDefault(),applyCoupon())}
