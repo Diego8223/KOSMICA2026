@@ -18,8 +18,9 @@ import java.util.HexFormat;
 @RequiredArgsConstructor
 public class WompiService {
 
-    // 🔧 FIX: defaultValue="secret_placeholder" evita que el backend
-    //         no arranque si WOMPI_EVENTS_SECRET no está configurado en Render.
+    // ✅ FIX: wompi.events.secret  → para validar webhooks  (WOMPI_EVENTS_SECRET  en Render)
+    //         wompi.integrity.secret → para firmar checkout (WOMPI_INTEGRITY_SECRET en Render)
+    //         Son llaves DISTINTAS en el panel de Wompi. No las mezcles.
     @Value("${wompi.events.secret:secret_placeholder}")
     private String wompiEventsSecret;
 
@@ -34,19 +35,18 @@ public class WompiService {
     // ══════════════════════════════════════════════════════════════
     //  VALIDACIÓN DE FIRMA DEL WEBHOOK
     //
-    //  Wompi firma cada evento con SHA-256(rawBody + eventsSecret).
-    //  Si el secret no está configurado (placeholder), se acepta el
-    //  evento de todas formas y se loguea una advertencia.
+    //  ✅ FIX: La fórmula oficial de Wompi para webhooks es:
     //
-    //  Para activar la validación real:
-    //    1. Ve al panel de Wompi → Desarrolladores → Eventos
-    //    2. Copia el "Secreto de eventos"
-    //    3. En Render → Environment Variables → WOMPI_EVENTS_SECRET
+    //     SHA256( id + status + amountInCents + currency + timestamp + eventsSecret )
+    //
+    //  Referencia: https://docs.wompi.co/docs/colombia/eventos/
+    //
+    //  El bug anterior usaba SHA256(rawBody + secret), que es incorrecto
+    //  y producía: "⛔ Firma Wompi inválida" en todos los webhooks.
     // ══════════════════════════════════════════════════════════════
     public boolean isValidWebhookSignature(String rawBody, String receivedSignature) {
 
         // Si el secret es el placeholder o está vacío, aceptar sin validar
-        // (modo desarrollo / secret no configurado aún)
         if (wompiEventsSecret == null
                 || wompiEventsSecret.isBlank()
                 || wompiEventsSecret.equals("secret_placeholder")) {
@@ -55,18 +55,33 @@ public class WompiService {
             return true;
         }
 
-        // Si Wompi no mandó firma, rechazar
         if (receivedSignature == null || receivedSignature.isBlank()) {
             log.warn("⛔ Webhook sin header x-event-checksum y secret SÍ está configurado — rechazado.");
             return false;
         }
 
         try {
-            String computed = sha256Hex(rawBody + wompiEventsSecret);
+            // ✅ FIX: Parsear el body para extraer los campos requeridos por Wompi
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            JsonNode root        = mapper.readTree(rawBody);
+            JsonNode transaction = root.path("data").path("transaction");
+
+            String id           = transaction.path("id").asText("");
+            String status       = transaction.path("status").asText("");
+            String amountCents  = transaction.path("amount_in_cents").asText("");
+            String currency     = transaction.path("currency").asText("");
+            // timestamp viene en el nivel raíz del evento
+            String timestamp    = root.path("sent_at").asText(
+                                  root.path("timestamp").asText(""));
+
+            // Fórmula oficial: id + status + amountInCents + currency + timestamp + eventsSecret
+            String toHash  = id + status + amountCents + currency + timestamp + wompiEventsSecret;
+            String computed = sha256Hex(toHash);
+
             boolean valid = computed != null && computed.equalsIgnoreCase(receivedSignature);
 
             if (valid) {
-                log.info("✅ Firma Wompi válida");
+                log.info("✅ Firma Wompi válida | id={}", id);
             } else {
                 log.warn("⛔ Firma Wompi inválida. computed={} | received={}", computed, receivedSignature);
             }
