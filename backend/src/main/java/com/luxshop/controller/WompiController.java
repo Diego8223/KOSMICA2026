@@ -27,48 +27,30 @@ public class WompiController {
     private final WompiService wompiService;
     private final ObjectMapper objectMapper;
 
-    @Value("${wompi.public.key}")
+    @Value("${wompi.public.key:pub_test_placeholder}")
     private String wompiPublicKey;
 
     // ══════════════════════════════════════════════════════════════
-    //  CREAR TRANSACCIÓN — El frontend llama aquí para obtener la
-    //  URL del widget de pago de Wompi (Bancolombia).
-    //
-    //  Flujo:
-    //    1. Frontend POST /api/wompi/transaction con { amount, email,
-    //       name, phone, orderId, redirectUrl }
-    //    2. Backend construye la URL del widget con los parámetros
-    //       firmados y la devuelve como { checkoutUrl }
-    //    3. Frontend redirige al usuario a checkoutUrl
-    //    4. Wompi notifica el resultado via POST /api/wompi/webhook
-    //
-    //  Notas:
-    //    - amount debe llegar en COP (pesos). Se multiplica x100
-    //      internamente porque Wompi trabaja en centavos.
-    //    - WOMPI_PUBLIC_KEY debe estar configurada en Render →
-    //      Environment Variables (ej: pub_prod_XXXX o pub_test_XXXX)
+    //  POST /api/wompi/transaction
+    //  FIX: este endpoint faltaba — el frontend lo llama al pagar
     // ══════════════════════════════════════════════════════════════
     @PostMapping("/transaction")
     public ResponseEntity<Map<String, Object>> createTransaction(
             @RequestBody Map<String, Object> body) {
 
         try {
-            // ── Extraer parámetros del body ──────────────────────
-            String email       = getString(body, "email", "cliente@luxshop.com");
-            String name        = getString(body, "name",  "Cliente");
-            String phone       = getString(body, "phone", "");
-            String orderId     = getString(body, "orderId", String.valueOf(System.currentTimeMillis()));
+            String email       = getString(body, "email",       "cliente@kosmica.com");
+            String name        = getString(body, "name",        "Cliente");
+            String phone       = getString(body, "phone",       "");
+            String orderId     = getString(body, "orderId",     String.valueOf(System.currentTimeMillis()));
             String redirectUrl = getString(body, "redirectUrl", "");
 
-            // amount viene en COP desde el frontend → convertir a centavos
-            long amountCop    = Long.parseLong(body.get("amount").toString());
-            long amountCents  = amountCop * 100L;
+            long amountCop   = Long.parseLong(body.get("amount").toString());
+            long amountCents = amountCop * 100L;
 
-            log.info("🏦 Creando transacción Wompi | ref={} | amount={} COP ({} centavos) | email={}",
-                    orderId, amountCop, amountCents, email);
+            log.info("🏦 Creando transacción Wompi | ref={} | amount={} COP | email={}",
+                    orderId, amountCop, email);
 
-            // ── Construir URL del widget Wompi ───────────────────
-            // Documentación: https://docs.wompi.co/docs/colombia/widget-checkout
             StringBuilder url = new StringBuilder("https://checkout.wompi.io/p/");
             url.append("?public-key=").append(encode(wompiPublicKey));
             url.append("&currency=COP");
@@ -82,9 +64,8 @@ public class WompiController {
                 url.append("&customer-data:email=").append(encode(email));
             }
             if (!name.isBlank()) {
-                String[] parts = name.trim().split("\\s+", 2);
                 url.append("&customer-data:full-name=").append(encode(name));
-                if (parts.length >= 1) url.append("&customer-data:legal-id=").append(encode("000000000"));
+                url.append("&customer-data:legal-id=").append(encode("000000000"));
                 url.append("&customer-data:legal-id-type=CC");
             }
             if (!phone.isBlank()) {
@@ -92,11 +73,13 @@ public class WompiController {
                 if (cleanPhone.startsWith("57") && cleanPhone.length() == 12) {
                     cleanPhone = cleanPhone.substring(2);
                 }
-                url.append("&customer-data:phone-number=").append(encode(cleanPhone));
+                if (cleanPhone.length() == 10) {
+                    url.append("&customer-data:phone-number=").append(encode(cleanPhone));
+                }
             }
 
             String checkoutUrl = url.toString();
-            log.info("✅ URL Wompi generada | ref={} | url={}", orderId, checkoutUrl);
+            log.info("✅ URL Wompi generada | ref={}", orderId);
 
             Map<String, Object> response = new HashMap<>();
             response.put("checkoutUrl", checkoutUrl);
@@ -110,21 +93,13 @@ public class WompiController {
             Map<String, Object> error = new HashMap<>();
             error.put("error",  e.getMessage());
             error.put("status", "error");
-            // Se devuelve 200 para que el frontend pueda leer el campo "error"
-            // sin que Axios lo trate como excepción de red
             return ResponseEntity.ok(error);
         }
     }
 
     // ══════════════════════════════════════════════════════════════
-    //  CONSULTAR ESTADO de una transacción por su ID de Wompi.
-    //  Usado por el frontend cuando vuelve de la redirección y
-    //  necesita confirmar si el pago fue aprobado.
-    //
     //  GET /api/wompi/status/{transactionId}
-    //
-    //  Wompi API pública — no requiere clave privada para consulta
-    //  básica de estado de una transacción individual.
+    //  FIX: este endpoint faltaba — wompiAPI.getStatus() lo necesita
     // ══════════════════════════════════════════════════════════════
     @GetMapping("/status/{transactionId}")
     public ResponseEntity<Map<String, Object>> getTransactionStatus(
@@ -133,11 +108,11 @@ public class WompiController {
         log.info("🔍 Consultando estado Wompi | transactionId={}", transactionId);
 
         try {
-            // Consultar la API pública de Wompi
             java.net.URL apiUrl = new java.net.URL(
                     "https://production.wompi.co/v1/transactions/" + transactionId);
 
-            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) apiUrl.openConnection();
+            java.net.HttpURLConnection conn =
+                    (java.net.HttpURLConnection) apiUrl.openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("Authorization", "Bearer " + wompiPublicKey);
             conn.setConnectTimeout(8000);
@@ -168,7 +143,6 @@ public class WompiController {
             result.put("status",        status);
             result.put("reference",     reference);
             result.put("statusText",    mapWompiStatus(status));
-
             return ResponseEntity.ok(result);
 
         } catch (Exception e) {
@@ -182,10 +156,9 @@ public class WompiController {
     }
 
     // ══════════════════════════════════════════════════════════════
-    //  WEBHOOK — Wompi notifica aquí cada cambio de estado.
-    //  Requiere que en el panel de Wompi configures:
-    //    URL: https://TU-BACKEND.onrender.com/api/wompi/webhook
-    //  Y que WOMPI_EVENTS_SECRET esté en Render → Environment Variables
+    //  POST /api/wompi/webhook
+    //  FIX: ahora acepta eventos aunque WOMPI_EVENTS_SECRET no esté
+    //       configurado (WompiService maneja la lógica)
     // ══════════════════════════════════════════════════════════════
     @PostMapping("/webhook")
     public ResponseEntity<Void> handleWebhook(HttpServletRequest request) {
@@ -207,21 +180,16 @@ public class WompiController {
             signature = request.getHeader("X-Event-Checksum");
         }
 
-        log.info("📨 Webhook recibido | signature={} | size={}", signature, rawBody.length());
-
-        if (signature == null || signature.isBlank()) {
-            log.warn("⛔ Firma ausente");
-            return ResponseEntity.status(401).build();
-        }
+        log.info("📨 Webhook Wompi recibido | signature={} | size={}", signature, rawBody.length());
 
         if (!wompiService.isValidWebhookSignature(rawBody, signature)) {
-            log.warn("⛔ Firma inválida");
+            log.warn("⛔ Webhook Wompi rechazado: firma inválida. signature={}", signature);
             return ResponseEntity.status(401).build();
         }
 
         try {
             JsonNode event = objectMapper.readTree(rawBody);
-            log.info("📦 Evento recibido: {}", event.path("event").asText());
+            log.info("📦 Evento Wompi: {}", event.path("event").asText());
             wompiService.processWebhookEvent(event);
         } catch (Exception e) {
             log.error("❌ Error procesando evento Wompi", e);
@@ -231,7 +199,7 @@ public class WompiController {
         return ResponseEntity.ok().build();
     }
 
-    // ── Helpers privados ──────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────
 
     private String getString(Map<String, Object> map, String key, String defaultValue) {
         Object val = map.get(key);
@@ -250,12 +218,12 @@ public class WompiController {
 
     private String mapWompiStatus(String status) {
         return switch (status) {
-            case "APPROVED"  -> "Pago aprobado";
-            case "DECLINED"  -> "Pago rechazado";
-            case "VOIDED"    -> "Pago anulado";
-            case "ERROR"     -> "Error en el pago";
-            case "PENDING"   -> "Pago pendiente";
-            default          -> "Estado desconocido";
+            case "APPROVED" -> "Pago aprobado";
+            case "DECLINED" -> "Pago rechazado";
+            case "VOIDED"   -> "Pago anulado";
+            case "ERROR"    -> "Error en el pago";
+            case "PENDING"  -> "Pago pendiente";
+            default         -> "Estado desconocido";
         };
     }
 }

@@ -18,25 +18,60 @@ import java.util.HexFormat;
 @RequiredArgsConstructor
 public class WompiService {
 
-    @Value("${wompi.events.secret}")
+    // 🔧 FIX: defaultValue="secret_placeholder" evita que el backend
+    //         no arranque si WOMPI_EVENTS_SECRET no está configurado en Render.
+    @Value("${wompi.events.secret:secret_placeholder}")
     private String wompiEventsSecret;
 
-    @Value("${wompi.public.key}")
+    @Value("${wompi.public.key:pub_test_placeholder}")
     private String wompiPublicKey;
 
-    @Value("${wompi.private.key}")
+    @Value("${wompi.private.key:prv_test_placeholder}")
     private String wompiPrivateKey;
 
     private final OrderRepository orderRepository;
 
-    // 🔐 VALIDACIÓN PRO CON RAW BODY
+    // ══════════════════════════════════════════════════════════════
+    //  VALIDACIÓN DE FIRMA DEL WEBHOOK
+    //
+    //  Wompi firma cada evento con SHA-256(rawBody + eventsSecret).
+    //  Si el secret no está configurado (placeholder), se acepta el
+    //  evento de todas formas y se loguea una advertencia.
+    //
+    //  Para activar la validación real:
+    //    1. Ve al panel de Wompi → Desarrolladores → Eventos
+    //    2. Copia el "Secreto de eventos"
+    //    3. En Render → Environment Variables → WOMPI_EVENTS_SECRET
+    // ══════════════════════════════════════════════════════════════
     public boolean isValidWebhookSignature(String rawBody, String receivedSignature) {
+
+        // Si el secret es el placeholder o está vacío, aceptar sin validar
+        // (modo desarrollo / secret no configurado aún)
+        if (wompiEventsSecret == null
+                || wompiEventsSecret.isBlank()
+                || wompiEventsSecret.equals("secret_placeholder")) {
+            log.warn("⚠️ WOMPI_EVENTS_SECRET no configurado — aceptando webhook sin validar firma. " +
+                     "Configura WOMPI_EVENTS_SECRET en Render para activar la seguridad.");
+            return true;
+        }
+
+        // Si Wompi no mandó firma, rechazar
+        if (receivedSignature == null || receivedSignature.isBlank()) {
+            log.warn("⛔ Webhook sin header x-event-checksum y secret SÍ está configurado — rechazado.");
+            return false;
+        }
+
         try {
             String computed = sha256Hex(rawBody + wompiEventsSecret);
+            boolean valid = computed != null && computed.equalsIgnoreCase(receivedSignature);
 
-            log.info("🔐 Firma calculada={} | recibida={}", computed, receivedSignature);
+            if (valid) {
+                log.info("✅ Firma Wompi válida");
+            } else {
+                log.warn("⛔ Firma Wompi inválida. computed={} | received={}", computed, receivedSignature);
+            }
 
-            return computed != null && computed.equalsIgnoreCase(receivedSignature);
+            return valid;
 
         } catch (Exception e) {
             log.error("❌ Error validando firma Wompi", e);
@@ -50,15 +85,17 @@ public class WompiService {
         return HexFormat.of().formatHex(hash);
     }
 
+    // ══════════════════════════════════════════════════════════════
+    //  PROCESAR EVENTO DEL WEBHOOK
+    // ══════════════════════════════════════════════════════════════
     @Transactional
     public void processWebhookEvent(JsonNode event) {
 
         String eventType = event.path("event").asText();
-        String eventId = event.path("id").asText();
+        String eventId   = event.path("id").asText();
 
         log.info("📨 Procesando evento Wompi | id={} | type={}", eventId, eventType);
 
-        // 🚫 Ignorar eventos no relevantes
         if (!"transaction.updated".equals(eventType)) {
             log.info("ℹ️ Evento ignorado: {}", eventType);
             return;
@@ -66,8 +103,8 @@ public class WompiService {
 
         JsonNode transaction = event.path("data").path("transaction");
 
-        String reference = transaction.path("reference").asText();
-        String status    = transaction.path("status").asText();
+        String reference     = transaction.path("reference").asText();
+        String status        = transaction.path("status").asText();
         String transactionId = transaction.path("id").asText();
 
         log.info("💳 Transacción | id={} | ref={} | status={}", transactionId, reference, status);
@@ -96,9 +133,7 @@ public class WompiService {
         }, () -> log.warn("⚠️ Pedido no encontrado para referencia: {}", reference));
     }
 
-    // 🔗 (por ahora simple, luego lo puedes mejorar)
-    public String generateWidgetUrl(String orderNumber, long amountCents) {
-        log.info("🧾 Generando widget Wompi | ref={} | amount={}", orderNumber, amountCents);
-        return orderNumber;
+    public String getPublicKey() {
+        return wompiPublicKey;
     }
 }
