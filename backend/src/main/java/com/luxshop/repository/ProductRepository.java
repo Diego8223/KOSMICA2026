@@ -12,6 +12,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long> {
@@ -34,6 +35,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     // ✅ FIX: bloqueo pesimista para evitar race condition en descuento de stock
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @jakarta.persistence.Query("SELECT p FROM Product p WHERE p.id = :id")
-    java.util.Optional<Product> findByIdWithLock(@org.springframework.data.repository.query.Param("id") Long id);
+    @Query("SELECT p FROM Product p WHERE p.id = :id")
+    Optional<Product> findByIdWithLock(@Param("id") Long id);
 }
