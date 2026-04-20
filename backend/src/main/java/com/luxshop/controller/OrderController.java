@@ -8,7 +8,6 @@ import com.luxshop.service.EmailService;
 import com.luxshop.service.GiftCardService;
 import com.luxshop.service.OrderService;
 import com.luxshop.service.PaymentService;
-import com.luxshop.service.ReferralService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,8 +30,7 @@ public class OrderController {
     private final OrderService    orderService;
     private final PaymentService  paymentService;
     private final GiftCardService giftCardService;
-    private final ReferralService referralService;  // ✅ NUEVO: para activar cupón 15%
-    private final EmailService    emailService;     // ✅ NUEVO: para notificaciones gift card
+    private final EmailService    emailService;
 
     // ── Pago directo con Nequi ─────────────────────────────────────
     @PostMapping("/nequi-payment")
@@ -156,10 +154,11 @@ public class OrderController {
                     // ── 1. Buscar y actualizar el pedido normal ──
                     orderService.findByPaymentId(paymentId).ifPresent(order -> {
                         if (order.getStatus() == Order.Status.PENDING) {
+                            // updateStatus maneja internamente: stock, referido, email y puntos
                             orderService.updateStatus(order.getId(), Order.Status.PAID);
                             log.info("✅ Pedido {} marcado como PAID", order.getOrderNumber());
 
-                            // ── 2. Activar gift card usada DENTRO del pedido ──
+                            // Activar gift card usada como descuento dentro del pedido
                             String giftCardCode = order.getCouponCode();
                             if (giftCardCode != null && giftCardCode.startsWith("GIFT-")) {
                                 try {
@@ -168,28 +167,6 @@ public class OrderController {
                                         giftCardCode, order.getOrderNumber());
                                 } catch (Exception e) {
                                     log.error("Error activando gift card {}: {}", giftCardCode, e.getMessage());
-                                }
-                            }
-
-                            // ── 3. ✅ NUEVO: Redimir código referido y generar cupón 15% ──
-                            String referralCode = order.getReferralCode();
-                            if (referralCode != null && !referralCode.isBlank()
-                                    && referralCode.startsWith("KOS-")) {
-                                try {
-                                    boolean redeemed = referralService.redeemCode(
-                                        referralCode,
-                                        order.getCustomerEmail(),
-                                        order.getCustomerName(),
-                                        order.getOrderNumber()
-                                    );
-                                    if (redeemed) {
-                                        log.info("🎉 Código referido {} redimido — cupón 15% generado y enviado",
-                                            referralCode);
-                                    } else {
-                                        log.warn("⚠️ Código referido {} no pudo ser redimido", referralCode);
-                                    }
-                                } catch (Exception e) {
-                                    log.error("Error redimiendo código referido {}: {}", referralCode, e.getMessage());
                                 }
                             }
                         } else {

@@ -5,7 +5,9 @@ import com.luxshop.model.Order;
 import com.luxshop.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +33,10 @@ public class WompiService {
     private String wompiPrivateKey;
 
     private final OrderRepository orderRepository;
+
+    // @Lazy evita dependencia circular: OrderService → EmailService, WompiService → OrderService
+    @Autowired @Lazy
+    private com.luxshop.service.OrderService orderService;
 
     // ══════════════════════════════════════════════════════════════
     //  VALIDACIÓN DE FIRMA DEL WEBHOOK
@@ -126,24 +132,31 @@ public class WompiService {
 
         orderRepository.findByOrderNumber(reference).ifPresentOrElse(order -> {
 
+            Order.Status newStatus = null;
             switch (status) {
                 case "APPROVED" -> {
-                    order.setStatus(Order.Status.PAID);
-                    log.info("✅ Pedido APROBADO: {}", reference);
+                    if (order.getStatus() == Order.Status.PENDING) {
+                        newStatus = Order.Status.PAID;
+                        log.info("✅ Pedido APROBADO: {}", reference);
+                    } else {
+                        log.info("ℹ️ Pedido {} ya estaba en estado {} — webhook ignorado",
+                            reference, order.getStatus());
+                    }
                 }
                 case "DECLINED", "VOIDED", "ERROR" -> {
-                    order.setStatus(Order.Status.CANCELLED);
-                    log.info("❌ Pedido {}: {}", status, reference);
+                    if (order.getStatus() == Order.Status.PENDING) {
+                        newStatus = Order.Status.CANCELLED;
+                        log.info("❌ Pedido {}: {}", status, reference);
+                    }
                 }
-                case "PENDING" -> {
-                    log.info("⏳ Pago pendiente: {}", reference);
-                }
-                default -> {
-                    log.info("ℹ️ Estado no manejado: {} | ref={}", status, reference);
-                }
+                case "PENDING" -> log.info("⏳ Pago pendiente: {}", reference);
+                default        -> log.info("ℹ️ Estado no manejado: {} | ref={}", status, reference);
             }
 
-            orderRepository.save(order);
+            if (newStatus != null) {
+                // updateStatus descuenta stock, acredita puntos, redime referido y envía email
+                orderService.updateStatus(order.getId(), newStatus);
+            }
 
         }, () -> log.warn("⚠️ Pedido no encontrado para referencia: {}", reference));
     }

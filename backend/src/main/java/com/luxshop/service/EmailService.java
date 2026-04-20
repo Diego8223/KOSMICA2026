@@ -310,7 +310,7 @@ public class EmailService {
             // CTA
             + "<a href='" + storeUrl + "' class='cta'>¡Ir a usar mi tarjeta de regalo! →</a>"
             + "<div class='sender-note'>"
-            + "Esta tarjeta tiene un saldo de <strong>" + amount + " COP</strong> y es válida por 2 años.<br/>"
+            + "Esta tarjeta tiene un saldo de <strong>" + amount + " COP</strong> y es válida por 1 año.<br/>"
             + "¿Preguntas? Escríbenos a <strong>" + storeEmail + "</strong>"
             + "</div>"
             + "</div>"

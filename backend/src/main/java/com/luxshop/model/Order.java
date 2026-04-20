@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Entity
 @Table(name = "orders")
@@ -49,7 +50,7 @@ public class Order {
     private String notes;
 
     @Builder.Default
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<OrderItem> items = new ArrayList<>();
 
     @Column(nullable = false, precision = 10, scale = 2)
@@ -98,7 +99,9 @@ public class Order {
     @PrePersist
     protected void onCreate() {
         createdAt = updatedAt = LocalDateTime.now();
-        orderNumber = "KOSMICA-" + System.currentTimeMillis();
+        // UUID garantiza unicidad absoluta incluso con pedidos simultáneos
+        orderNumber = "KOSMICA-" + UUID.randomUUID().toString()
+            .replace("-", "").substring(0, 10).toUpperCase();
     }
 
     @PreUpdate

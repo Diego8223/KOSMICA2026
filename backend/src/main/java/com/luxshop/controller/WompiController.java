@@ -55,22 +55,8 @@ public class WompiController {
             log.info("🏦 Creando transacción Wompi | ref={} | amount={} COP | email={}",
                     orderId, amountCop, email);
 
-            // ══════════════════════════════════════════════════════
-            // DEBUG — muestra el string exacto que se hashea y la
-            // longitud del secret para detectar espacios o caracteres
-            // extra copiados desde el panel de Wompi.
-            // Eliminar este bloque una vez resuelto el problema.
-            // ══════════════════════════════════════════════════════
-            String secretTrimmed = wompiIntegritySecret.trim();
-            String toHash = orderId + amountCents + "COP" + secretTrimmed;
-            log.info("🔍 DEBUG | secretLen={} | secretTrimmedLen={} | secretPrefix={}",
-                    wompiIntegritySecret.length(),
-                    secretTrimmed.length(),
-                    wompiIntegritySecret.substring(0, Math.min(20, wompiIntegritySecret.length())));
-            log.info("🔍 DEBUG | toHash=[{}]", toHash);
-
-            String integrity = sha256Hex(toHash);
-            log.info("🔑 Firma calculada | ref={} | hash={}", orderId, integrity);
+            String integrity = sha256Hex(orderId + amountCents + "COP" + wompiIntegritySecret.trim());
+            log.info("🔑 Firma calculada | ref={}", orderId);
 
             StringBuilder url = new StringBuilder("https://checkout.wompi.co/p/");
             url.append("?public-key=").append(encode(wompiPublicKey));

@@ -227,9 +227,8 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
-    /** ✅ FIX: devuelve TODOS los pedidos sin paginación (para admin panel y clientes) */
     public List<Order> getAllOrdersList() {
-        return orderRepo.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
+        return orderRepo.findAllWithItemsOrderByCreatedAtDesc();
     }
 
     public Page<Order> getAllOrders(int page, int size) {
