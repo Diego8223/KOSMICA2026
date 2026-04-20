@@ -82,8 +82,18 @@ public class AdminAuthFilter extends OncePerRequestFilter {
         // PATCH /api/orders/{id}/status — cambiar estado de pedido
         if ("PATCH".equals(method) && path.matches("/api/orders/\\d+/status")) return true;
 
-        // GET /api/orders con parámetro all=true — exportar todos los pedidos
+        // GET /api/orders — exportar todos los pedidos (admin)
         if ("GET".equals(method) && "/api/orders".equals(path)) return true;
+
+        // ✅ FIX: GET /api/gift-cards/all — solo admin puede listar todas las gift cards
+        if ("GET".equals(method) && "/api/gift-cards/all".equals(path)) return true;
+
+        // ✅ FIX: DELETE /api/products/{id}/reviews/{rid} — moderar reseñas
+        if ("DELETE".equals(method) && path.matches("/api/products/\\d+/reviews/\\d+")) return true;
+        if ("PATCH".equals(method) && path.matches("/api/products/\\d+/reviews/\\d+/moderate")) return true;
+
+        // ✅ FIX: POST /api/push/send — enviar push a todos (solo admin)
+        if ("POST".equals(method) && "/api/push/send".equals(path)) return true;
 
         return false;
     }

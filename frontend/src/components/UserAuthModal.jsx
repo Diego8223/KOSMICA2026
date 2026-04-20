@@ -151,15 +151,14 @@ const CSS = `
   .auth-benefit-ico{font-size:1rem;flex-shrink:0;}
 `;
 
-// Simple hash para "cifrar" contraseña en localStorage (no seguridad real, solo ofuscación)
-function simpleHash(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return hash.toString(36);
+// ✅ FIX: SHA-256 via Web Crypto API (nativa en todos los navegadores modernos)
+// Reemplaza simpleHash() que era trivialmente reversible.
+// El hash se guarda en localStorage — la contraseña real nunca se almacena.
+async function hashPassword(str) {
+  const msgBuffer = new TextEncoder().encode(str);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
 export function saveUser(userData) {
@@ -219,7 +218,9 @@ export default function UserAuthModal({ open, onClose, onSuccess, initialTab = "
     const users = getUsers();
     const user = users.find(u => u.email.toLowerCase() === loginEmail.toLowerCase());
     if (!user) { setError("No encontramos una cuenta con ese correo"); setLoading(false); return; }
-    if (user.passwordHash !== simpleHash(loginPwd)) { setError("Contraseña incorrecta"); setLoading(false); return; }
+    // ✅ FIX: usar SHA-256 para comparar — compatible con hashes guardados con nueva función
+    const pwdHash = await hashPassword(loginPwd);
+    if (user.passwordHash !== pwdHash) { setError("Contraseña incorrecta"); setLoading(false); return; }
     const sessionUser = { ...user };
     delete sessionUser.passwordHash;
 
@@ -240,7 +241,8 @@ export default function UserAuthModal({ open, onClose, onSuccess, initialTab = "
         sessionUser.address       = backendUser.address       || sessionUser.address;
         sessionUser.neighborhood  = backendUser.neighborhood  || sessionUser.neighborhood;
         // Actualizar también el registro local para que futuras sesiones offline sean correctas
-        saveUser({ ...sessionUser, passwordHash: simpleHash(loginPwd) });
+        const newHash = await hashPassword(loginPwd);
+        saveUser({ ...sessionUser, passwordHash: newHash });
       }
     } catch (_) {
       // Sin conexión: continuar con datos locales
@@ -268,7 +270,7 @@ export default function UserAuthModal({ open, onClose, onSuccess, initialTab = "
     const newUser = {
       name, email: email.toLowerCase(), phone, document,
       city, neighborhood: reg.neighborhood, address,
-      passwordHash: simpleHash(password),
+      passwordHash: await hashPassword(password),
       points: 20, // regalo de bienvenida
       giftCards: [],
       savedCards: [],

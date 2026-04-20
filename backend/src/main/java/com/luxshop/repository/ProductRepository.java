@@ -5,7 +5,9 @@ import com.luxshop.model.Category;
 import com.luxshop.model.Product;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -29,4 +31,9 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
            "(LOWER(p.name) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
            "LOWER(p.description) LIKE LOWER(CONCAT('%', :q, '%')))")
     Page<Product> search(@Param("q") String query, Pageable pageable);
+
+    // ✅ FIX: bloqueo pesimista para evitar race condition en descuento de stock
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @jakarta.persistence.Query("SELECT p FROM Product p WHERE p.id = :id")
+    java.util.Optional<Product> findByIdWithLock(@org.springframework.data.repository.query.Param("id") Long id);
 }

@@ -9,7 +9,6 @@ import com.luxshop.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -151,12 +150,15 @@ public class OrderService {
             // 1. Descontar stock
             if (saved.getItems() != null) {
                 for (OrderItem item : saved.getItems()) {
+                    // ✅ FIX: bloqueo pesimista para evitar race condition con pagos simultáneos
                     Product product = item.getProduct();
                     if (product != null) {
-                        int newStock = Math.max(0, product.getStock() - item.getQuantity());
-                        product.setStock(newStock);
-                        productRepo.save(product);
-                        log.info("📦 Stock actualizado: {} → {} unidades", product.getName(), newStock);
+                        Product locked = productRepo.findByIdWithLock(product.getId())
+                            .orElse(product);
+                        int newStock = Math.max(0, locked.getStock() - item.getQuantity());
+                        locked.setStock(newStock);
+                        productRepo.save(locked);
+                        log.info("📦 Stock actualizado: {} → {} unidades", locked.getName(), newStock);
                     }
                 }
             }
@@ -231,16 +233,10 @@ public class OrderService {
         return orderRepo.findAllWithItemsOrderByCreatedAtDesc();
     }
 
+    // ✅ FIX: paginacion nativa en DB — no carga todos los pedidos en memoria
     public Page<Order> getAllOrders(int page, int size) {
-        List<Order> allOrders = orderRepo.findAllByOrderByCreatedAtDesc();
-        log.info("📦 Total pedidos: {}", allOrders.size());
-        int total = allOrders.size();
-        int from  = Math.min(page * size, total);
-        int to    = Math.min(from + size, total);
-        return new PageImpl<>(
-            allOrders.subList(from, to),
-            PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")),
-            total
+        return orderRepo.findAllByOrderByCreatedAtDesc(
+            PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))
         );
     }
 }

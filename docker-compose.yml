@@ -1,7 +1,10 @@
 # ============================================================
 #  docker-compose.yml — Kosmica (LOCAL con PostgreSQL + pgAdmin4)
-#  Corrige: MySQL → PostgreSQL, agrega pgAdmin4, fix nginx.conf
-#  Uso: docker compose up --build
+#  ✅ FIXES:
+#     - Credenciales movidas a variables de entorno (.env)
+#     - WOMPI_INTEGRITY_SECRET agregado
+#     - REACT_APP_ANTHROPIC_KEY removido del frontend (chatbot movido al backend)
+#  Uso: cp .env.example .env  →  editar .env  →  docker compose up --build
 # ============================================================
 
 services:
@@ -12,16 +15,16 @@ services:
     container_name: kosmica-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: luxshop
-      POSTGRES_USER: luxshop_user
-      POSTGRES_PASSWORD: LuxPass2025!
+      POSTGRES_DB: ${POSTGRES_DB:-luxshop}
+      POSTGRES_USER: ${POSTGRES_USER:-luxshop_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "5432:5432"           # Puerto accesible desde pgAdmin4 externo o local
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/luxshop_database.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U luxshop_user -d luxshop"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-luxshop_user} -d ${POSTGRES_DB:-luxshop}"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -30,20 +33,14 @@ services:
 
   # ── pgAdmin 4 ─────────────────────────────────────────────
   #  Acceso: http://localhost:5050
-  #  Login : admin@kosmica.com / Admin2025!
-  #  Para conectar al server de postgres dentro de pgAdmin:
-  #    Host     → postgres      (nombre del servicio Docker)
-  #    Port     → 5432
-  #    Username → luxshop_user
-  #    Password → LuxPass2025!
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: kosmica-pgadmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@kosmica.com
-      PGADMIN_DEFAULT_PASSWORD: Admin2025!
-      PGADMIN_CONFIG_SERVER_MODE: "False"   # Modo single-user (sin login de organización)
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@kosmica.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
     ports:
       - "5050:80"
@@ -64,49 +61,58 @@ services:
     restart: unless-stopped
     environment:
       # ── Base de datos ────────────────────────────────────
-      # ✅ FIX: application.properties lee DATABASE_URL y DB_USER/DB_PASSWORD
-      DATABASE_URL: jdbc:postgresql://postgres:5432/luxshop
-      DB_USER: luxshop_user
-      DB_PASSWORD: LuxPass2025!
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-luxshop}?prepareThreshold=0
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-luxshop_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
 
       # ── Servidor ─────────────────────────────────────────
       PORT: 8080
-      STORE_URL: http://localhost:3000
-      STORE_NAME: Kosmica
-      STORE_EMAIL: hola@kosmica.com
+      STORE_URL: ${STORE_URL:-http://localhost:3000}
+      STORE_NAME: ${STORE_NAME:-Kosmica}
+      STORE_EMAIL: ${STORE_EMAIL:-hola@kosmica.com}
 
       # ── MercadoPago ──────────────────────────────────────
-      # Reemplaza con tus tokens reales de mercadopago.com.co
       MERCADOPAGO_ACCESS_TOKEN: ${MERCADOPAGO_ACCESS_TOKEN:-TEST-placeholder}
       MERCADOPAGO_PUBLIC_KEY: ${MERCADOPAGO_PUBLIC_KEY:-TEST-placeholder}
 
       # ── Wompi (Bancolombia) ──────────────────────────────
-      # Reemplaza en comercios.wompi.co → Configuración → Llaves API
       WOMPI_PUBLIC_KEY: ${WOMPI_PUBLIC_KEY:-pub_test_placeholder}
       WOMPI_PRIVATE_KEY: ${WOMPI_PRIVATE_KEY:-prv_test_placeholder}
       WOMPI_EVENTS_SECRET: ${WOMPI_EVENTS_SECRET:-}
+      # ✅ FIX: esta variable faltaba — necesaria para firmar el checkout
+      WOMPI_INTEGRITY_SECRET: ${WOMPI_INTEGRITY_SECRET:-}
 
       # ── Email ────────────────────────────────────────────
       MAIL_HOST: smtp.gmail.com
       MAIL_PORT: 587
       MAIL_USER: ${MAIL_USER:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
 
-      # ── Cloudinary (imágenes/videos) ─────────────────────
-      # ✅ Una sola variable con este formato exacto:
-      # cloudinary://API_KEY:API_SECRET@CLOUD_NAME
+      # ── Cloudinary ───────────────────────────────────────
       CLOUDINARY_URL: ${CLOUDINARY_URL:-}
 
       # ── JWT ──────────────────────────────────────────────
-      JWT_SECRET: ${JWT_SECRET:-kosmica-secreto-local-2025-cambiar-en-produccion}
-      JWT_EXPIRATION: 86400000
+      # ✅ Generar con: openssl rand -base64 64
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
 
       # ── Push Notifications (VAPID) ────────────────────────
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
 
-      # ── Groq AI (chatbot) ────────────────────────────────
+      # ── Admin ─────────────────────────────────────────────
+      ADMIN_API_KEY: ${ADMIN_API_KEY}
+
+      # ── Groq AI ──────────────────────────────────────────
       GROQ_API_KEY: ${GROQ_API_KEY:-}
+
+      # ── Anthropic (chatbot Isabel — ahora en el backend) ──
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+
+      # ── WhatsApp / CallMeBot ──────────────────────────────
+      ADMIN_WHATSAPP: ${ADMIN_WHATSAPP:-}
+      CALLMEBOT_API_KEY: ${CALLMEBOT_API_KEY:-}
 
     ports:
       - "8080:8080"
@@ -124,15 +130,11 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # Vacío = usa URL relativa; Nginx hace el proxy /api/ → backend:8080
+        # ✅ FIX: REACT_APP_ANTHROPIC_KEY eliminada — el chatbot ahora va por el backend
         REACT_APP_API_URL: ""
-        REACT_APP_ADMIN_PASSWORD: ${REACT_APP_ADMIN_PASSWORD:-Kosmica2025}
+        REACT_APP_ADMIN_PASSWORD: ${REACT_APP_ADMIN_PASSWORD}
         REACT_APP_VAPID_PUBLIC_KEY: ${REACT_APP_VAPID_PUBLIC_KEY:-}
         REACT_APP_MP_PUBLIC_KEY: ${REACT_APP_MP_PUBLIC_KEY:-TEST-placeholder}
-        # ⚠️  ADVERTENCIA: esta clave queda embebida en el bundle público de React.
-        #     Cualquier usuario puede verla en el navegador.
-        #     Solución definitiva: mover el chatbot de Anthropic al backend.
-        REACT_APP_ANTHROPIC_KEY: ${REACT_APP_ANTHROPIC_KEY:-}
     container_name: kosmica-frontend
     restart: unless-stopped
     ports:
@@ -149,6 +151,6 @@ networks:
 
 # ── Volúmenes persistentes ────────────────────────────────
 volumes:
-  postgres_data:    # Datos de PostgreSQL (persisten entre reinicios)
-  pgadmin_data:     # Configuración de pgAdmin4 (servidores guardados, etc.)
-  uploads_data:     # Archivos subidos por el backend
+  postgres_data:
+  pgadmin_data:
+  uploads_data:

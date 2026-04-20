@@ -32,6 +32,9 @@ public class WompiController {
     @Value("${wompi.public.key:pub_test_placeholder}")
     private String wompiPublicKey;
 
+    @Value("${wompi.private.key:prv_test_placeholder}")
+    private String wompiPrivateKey;
+
     @Value("${wompi.integrity.secret:integrity_placeholder}")
     private String wompiIntegritySecret;
 
@@ -121,7 +124,7 @@ public class WompiController {
             java.net.HttpURLConnection conn =
                     (java.net.HttpURLConnection) apiUrl.openConnection();
             conn.setRequestMethod("GET");
-            conn.setRequestProperty("Authorization", "Bearer " + wompiPublicKey);
+            conn.setRequestProperty("Authorization", "Bearer " + wompiPrivateKey);
             conn.setConnectTimeout(8000);
             conn.setReadTimeout(8000);
 
