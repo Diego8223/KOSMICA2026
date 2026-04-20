@@ -30,10 +30,11 @@ public class Product {
     @Column(name = "original_price", precision = 10, scale = 2)
     private BigDecimal originalPrice;
 
-    @NotNull
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Category category;
+    // ✅ FIX BUG #2: category es String (VARCHAR compatible con cualquier valor en BD)
+    // El enum Category solo se usa en el Controller para validar el parámetro de filtro
+    @NotBlank
+    @Column(nullable = false, length = 100)
+    private String category;
 
     @Column(length = 50)
     private String badge;
@@ -44,7 +45,6 @@ public class Product {
     @Column(name = "video_url", length = 500)
     private String videoUrl;
 
-    // ✅ FIX: TEXT en vez de JSON — evita error "no equality operator for json"
     @Column(columnDefinition = "TEXT")
     private String gallery;
 

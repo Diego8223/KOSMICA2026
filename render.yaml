@@ -1,14 +1,8 @@
 # ============================================================
 #  render.yaml — Kosmica en Render
-#  ✅ FIX CRÍTICO: variables de BD corregidas para que coincidan
-#     con application.properties (SPRING_DATASOURCE_*)
+#  ✅ FIX CRÍTICO: variables BD apuntan a Supabase (sync: false)
+#     Configura SPRING_DATASOURCE_URL manualmente en el dashboard
 # ============================================================
-
-databases:
-  - name: kosmica-db
-    databaseName: kosmica
-    plan: free
-    region: oregon
 
 services:
 
@@ -23,34 +17,19 @@ services:
     envVars:
 
       # ════════════════════════════════════════════════════
-      #  BASE DE DATOS
-      #  ✅ FIX: nombres corregidos → coinciden exactamente con
-      #     application.properties (${SPRING_DATASOURCE_URL}, etc.)
-      #
-      #  ⚠️  OPCIÓN A — Usando la DB interna de Render:
-      #     Descomenta estas 3 líneas y comenta la Opción B.
-      #
-      #  ⚠️  OPCIÓN B — Usando Supabase externo (más común):
-      #     Comenta estas 3 líneas y configura SPRING_DATASOURCE_URL
-      #     manualmente en Render → Environment Variables con:
-      #     jdbc:postgresql://db.XXX.supabase.co:5432/postgres?prepareThreshold=0&sslmode=require
+      #  BASE DE DATOS — Configura manualmente en el dashboard:
+      #  SPRING_DATASOURCE_URL  →  jdbc:postgresql://db.XXX.supabase.co:5432/postgres?prepareThreshold=0&sslmode=require
+      #  SPRING_DATASOURCE_USERNAME  →  postgres
+      #  SPRING_DATASOURCE_PASSWORD  →  tu contraseña de Supabase
       # ════════════════════════════════════════════════════
-
-      # OPCIÓN A — DB interna de Render (descomenta si usas esta opción)
       - key: SPRING_DATASOURCE_URL
-        fromDatabase:
-          name: kosmica-db
-          property: connectionString
+        sync: false
 
       - key: SPRING_DATASOURCE_USERNAME
-        fromDatabase:
-          name: kosmica-db
-          property: user
+        sync: false
 
       - key: SPRING_DATASOURCE_PASSWORD
-        fromDatabase:
-          name: kosmica-db
-          property: password
+        sync: false
 
       # ── Tienda ───────────────────────────────────────────
       - key: STORE_NAME
@@ -60,14 +39,14 @@ services:
         sync: false
 
       - key: STORE_URL
-        sync: false   # URL del frontend: https://kosmica-frontend.onrender.com
+        sync: false
 
       # ── Seguridad ────────────────────────────────────────
       - key: JWT_SECRET
-        sync: false   # Genera con: openssl rand -base64 64
+        sync: false
 
       - key: ADMIN_API_KEY
-        sync: false   # Genera con: openssl rand -hex 32
+        sync: false
 
       # ── Pasarelas de Pago ────────────────────────────────
       - key: MERCADOPAGO_ACCESS_TOKEN
@@ -86,7 +65,7 @@ services:
         sync: false
 
       - key: WOMPI_INTEGRITY_SECRET
-        sync: false   # ✅ Necesaria para firmar el checkout de Wompi
+        sync: false
 
       # ── Email ────────────────────────────────────────────
       - key: MAIL_HOST
@@ -103,7 +82,7 @@ services:
 
       # ── Cloudinary ───────────────────────────────────────
       - key: CLOUDINARY_URL
-        sync: false   # Formato: cloudinary://KEY:SECRET@CLOUD_NAME
+        sync: false
 
       # ── Push Notifications (VAPID) ───────────────────────
       - key: VAPID_PUBLIC_KEY

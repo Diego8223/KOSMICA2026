@@ -1,9 +1,7 @@
-// ── ProductService.java ──────────────────────────────────
 package com.luxshop.service;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
-import com.luxshop.model.Category;
 import com.luxshop.model.Product;
 import com.luxshop.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,9 +26,8 @@ public class ProductService {
     @Value("${cloudinary.url:}")
     private String cloudinaryUrl;
 
-    // ── Consultas ────────────────────────────────────────
-    // FIX: pasa el enum Category directamente al repositorio
-    public Page<Product> getByCategory(Category category, int page, int size) {
+    // ✅ FIX BUG #2: recibe String en lugar de enum Category
+    public Page<Product> getByCategory(String category, int page, int size) {
         return productRepo.findByCategoryAndActiveTrue(
             category,
             PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
@@ -40,7 +37,6 @@ public class ProductService {
         return productRepo.findByActiveTrue();
     }
 
-    // ✅ FIX: usa createdAt en lugar de reviewCount (columna eliminada)
     public List<Product> getFeatured() {
         return productRepo.findTop8ByActiveTrueOrderByCreatedAtDesc();
     }
@@ -64,7 +60,6 @@ public class ProductService {
         });
     }
 
-    // ── Subir archivo a Cloudinary ────────────────────────
     public String uploadFile(MultipartFile file) throws IOException {
         if (cloudinaryUrl == null || cloudinaryUrl.isBlank()) {
             throw new IOException(

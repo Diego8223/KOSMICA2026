@@ -1,7 +1,5 @@
-// ── ProductRepository.java ───────────────────────────────
 package com.luxshop.repository;
 
-import com.luxshop.model.Category;
 import com.luxshop.model.Product;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -17,14 +15,13 @@ import java.util.Optional;
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
-    // FIX: category es enum Category en el modelo Product
-    Page<Product> findByCategoryAndActiveTrue(Category category, Pageable pageable);
+    // ✅ FIX BUG #2: category es String (compatible con cualquier valor VARCHAR en BD)
+    Page<Product> findByCategoryAndActiveTrue(String category, Pageable pageable);
 
     List<Product> findByActiveTrue();
 
     List<Product> findTop8ByActiveTrueOrderByCreatedAtDesc();
 
-    // FIX: 'featured' no existe en Product — devuelve los más recientes activos
     @Query("SELECT p FROM Product p WHERE p.active = true ORDER BY p.createdAt DESC")
     List<Product> findByFeaturedTrueAndActiveTrue();
 
@@ -33,7 +30,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
            "LOWER(p.description) LIKE LOWER(CONCAT('%', :q, '%')))")
     Page<Product> search(@Param("q") String query, Pageable pageable);
 
-    // ✅ FIX: bloqueo pesimista para evitar race condition en descuento de stock
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM Product p WHERE p.id = :id")
     Optional<Product> findByIdWithLock(@Param("id") Long id);
