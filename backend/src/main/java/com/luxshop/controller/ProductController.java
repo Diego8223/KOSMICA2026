@@ -22,12 +22,19 @@ public class ProductController {
 
     @GetMapping
     public ResponseEntity<?> list(
-            @RequestParam(required = false) Category category,
+            @RequestParam(required = false) String category,
             @RequestParam(defaultValue = "0") int page,
-            // ✅ FIX: aumentado de 12 a 50 para mostrar todos los productos
             @RequestParam(defaultValue = "50") int size) {
-        if (category != null) {
-            return ResponseEntity.ok(productService.getByCategory(category, page, size));
+
+        if (category != null && !category.isBlank()) {
+            try {
+                Category cat = Category.valueOf(category.toUpperCase().trim());
+                return ResponseEntity.ok(productService.getByCategory(cat, page, size));
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Categoría inválida: " + category +
+                        ". Valores válidos: BOLSOS, BILLETERAS, MAQUILLAJE, CAPILAR, CUIDADO_PERSONAL, ACCESORIOS"));
+            }
         }
         return ResponseEntity.ok(productService.getAll());
     }
