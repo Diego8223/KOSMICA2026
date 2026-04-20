@@ -1,7 +1,7 @@
 # ============================================================
-#  render.yaml — Kosmica en Render (CORREGIDO)
-#  ✅ FIX: usa DATABASE_URL / DB_USER / DB_PASSWORD para que
-#           coincidan con application.properties
+#  render.yaml — Kosmica en Render
+#  ✅ FIX CRÍTICO: variables de BD corregidas para que coincidan
+#     con application.properties (SPRING_DATASOURCE_*)
 # ============================================================
 
 databases:
@@ -21,23 +21,55 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     envVars:
-      # ✅ FIX: ahora se llama DATABASE_URL — coincide con application.properties
-      - key: DATABASE_URL
+
+      # ════════════════════════════════════════════════════
+      #  BASE DE DATOS
+      #  ✅ FIX: nombres corregidos → coinciden exactamente con
+      #     application.properties (${SPRING_DATASOURCE_URL}, etc.)
+      #
+      #  ⚠️  OPCIÓN A — Usando la DB interna de Render:
+      #     Descomenta estas 3 líneas y comenta la Opción B.
+      #
+      #  ⚠️  OPCIÓN B — Usando Supabase externo (más común):
+      #     Comenta estas 3 líneas y configura SPRING_DATASOURCE_URL
+      #     manualmente en Render → Environment Variables con:
+      #     jdbc:postgresql://db.XXX.supabase.co:5432/postgres?prepareThreshold=0&sslmode=require
+      # ════════════════════════════════════════════════════
+
+      # OPCIÓN A — DB interna de Render (descomenta si usas esta opción)
+      - key: SPRING_DATASOURCE_URL
         fromDatabase:
           name: kosmica-db
-          property: connectionString   # Render inyecta: postgresql://user:pass@host/db
+          property: connectionString
 
-      # ✅ DB_USER y DB_PASSWORD también deben coincidir
-      - key: DB_USER
+      - key: SPRING_DATASOURCE_USERNAME
         fromDatabase:
           name: kosmica-db
           property: user
 
-      - key: DB_PASSWORD
+      - key: SPRING_DATASOURCE_PASSWORD
         fromDatabase:
           name: kosmica-db
           property: password
 
+      # ── Tienda ───────────────────────────────────────────
+      - key: STORE_NAME
+        value: Kosmica
+
+      - key: STORE_EMAIL
+        sync: false
+
+      - key: STORE_URL
+        sync: false   # URL del frontend: https://kosmica-frontend.onrender.com
+
+      # ── Seguridad ────────────────────────────────────────
+      - key: JWT_SECRET
+        sync: false   # Genera con: openssl rand -base64 64
+
+      - key: ADMIN_API_KEY
+        sync: false   # Genera con: openssl rand -hex 32
+
+      # ── Pasarelas de Pago ────────────────────────────────
       - key: MERCADOPAGO_ACCESS_TOKEN
         sync: false
 
@@ -53,15 +85,10 @@ services:
       - key: WOMPI_EVENTS_SECRET
         sync: false
 
-      - key: STORE_NAME
-        value: Kosmica
+      - key: WOMPI_INTEGRITY_SECRET
+        sync: false   # ✅ Necesaria para firmar el checkout de Wompi
 
-      - key: STORE_EMAIL
-        sync: false
-
-      - key: STORE_URL
-        sync: false   # URL del frontend: https://kosmica-frontend.onrender.com
-
+      # ── Email ────────────────────────────────────────────
       - key: MAIL_HOST
         value: smtp.gmail.com
 
@@ -74,18 +101,30 @@ services:
       - key: MAIL_PASSWORD
         sync: false
 
-      # ✅ Una sola variable — formato: cloudinary://KEY:SECRET@CLOUD_NAME
+      # ── Cloudinary ───────────────────────────────────────
       - key: CLOUDINARY_URL
-        sync: false
+        sync: false   # Formato: cloudinary://KEY:SECRET@CLOUD_NAME
 
+      # ── Push Notifications (VAPID) ───────────────────────
       - key: VAPID_PUBLIC_KEY
         sync: false
 
       - key: VAPID_PRIVATE_KEY
         sync: false
 
-      - key: JWT_SECRET
-        sync: false   # Genera uno largo y aleatorio para producción
+      # ── AI / Chatbot Isabel ──────────────────────────────
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+      - key: GROQ_API_KEY
+        sync: false
+
+      # ── WhatsApp / CallMeBot ─────────────────────────────
+      - key: ADMIN_WHATSAPP
+        sync: false
+
+      - key: CALLMEBOT_API_KEY
+        sync: false
 
   # ── Frontend React ────────────────────────────────────────
   - type: web
@@ -110,10 +149,6 @@ services:
         sync: false
 
       - key: REACT_APP_MP_PUBLIC_KEY
-        sync: false
-
-      # ⚠️  Esta clave es pública en el bundle de React — considera moverla al backend
-      - key: REACT_APP_ANTHROPIC_KEY
         sync: false
 
     routes:
