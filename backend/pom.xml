@@ -25,67 +25,67 @@
 
   <dependencies>
 
-    <!-- ── Spring Web ────────────────────────────────── -->
+    <!-- Spring Web -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-web</artifactId>
     </dependency>
 
-    <!-- ── Spring Data JPA ───────────────────────────── -->
+    <!-- Spring Data JPA -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-data-jpa</artifactId>
     </dependency>
 
-    <!-- ── PostgreSQL Driver ─────────────────────────── -->
+    <!-- PostgreSQL Driver -->
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
       <scope>runtime</scope>
     </dependency>
 
-    <!-- ── Lombok ────────────────────────────────────── -->
+    <!-- Lombok -->
     <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
       <optional>true</optional>
     </dependency>
 
-    <!-- ── Validaciones ──────────────────────────────── -->
+    <!-- Validaciones -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-validation</artifactId>
     </dependency>
 
-    <!-- ── MercadoPago SDK ───────────────────────────── -->
+    <!-- MercadoPago SDK -->
     <dependency>
       <groupId>com.mercadopago</groupId>
       <artifactId>sdk-java</artifactId>
       <version>${mercadopago.version}</version>
     </dependency>
 
-    <!-- ── Cloudinary (subida de imágenes y videos) ──── -->
+    <!-- Cloudinary (imagenes y videos) -->
     <dependency>
       <groupId>com.cloudinary</groupId>
       <artifactId>cloudinary-http45</artifactId>
       <version>1.36.0</version>
     </dependency>
 
-    <!-- ── Web Push ──────────────────────────────────── -->
+    <!-- Web Push -->
     <dependency>
       <groupId>nl.martijndwars</groupId>
       <artifactId>web-push</artifactId>
       <version>5.1.1</version>
     </dependency>
 
-    <!-- ── Bouncy Castle ─────────────────────────────── -->
+    <!-- Bouncy Castle -->
     <dependency>
       <groupId>org.bouncycastle</groupId>
       <artifactId>bcprov-jdk18on</artifactId>
       <version>1.77</version>
     </dependency>
 
-    <!-- ── Tests ─────────────────────────────────────── -->
+    <!-- Tests -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>

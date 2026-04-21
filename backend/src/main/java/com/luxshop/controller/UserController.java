@@ -1,5 +1,6 @@
 package com.luxshop.controller;
 
+import com.luxshop.exception.EntityNotFoundException;
 import com.luxshop.model.User;
 import com.luxshop.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -44,7 +45,8 @@ public class UserController {
     public ResponseEntity<User> getByEmail(@PathVariable String email) {
         try {
             return ResponseEntity.ok(userService.getByEmail(email));
-        } catch (IllegalArgumentException e) {
+        } catch (EntityNotFoundException e) {
+            // FIX: UserService lanza EntityNotFoundException, no IllegalArgumentException
             return ResponseEntity.notFound().build();
         }
     }
@@ -58,7 +60,8 @@ public class UserController {
     public ResponseEntity<User> checkin(@PathVariable String email) {
         try {
             return ResponseEntity.ok(userService.doCheckin(email));
-        } catch (IllegalArgumentException e) {
+        } catch (EntityNotFoundException e) {
+            // FIX: UserService lanza EntityNotFoundException, no IllegalArgumentException
             return ResponseEntity.notFound().build();
         }
     }
@@ -75,7 +78,8 @@ public class UserController {
         try {
             int total = ((Number) body.getOrDefault("total", 0)).intValue();
             return ResponseEntity.ok(userService.awardPurchasePoints(email, total));
-        } catch (IllegalArgumentException e) {
+        } catch (EntityNotFoundException e) {
+            // FIX: UserService lanza EntityNotFoundException, no IllegalArgumentException
             return ResponseEntity.notFound().build();
         }
     }
@@ -92,7 +96,8 @@ public class UserController {
         try {
             int pts = ((Number) body.getOrDefault("points", 0)).intValue();
             return ResponseEntity.ok(userService.addPoints(email, pts));
-        } catch (IllegalArgumentException e) {
+        } catch (EntityNotFoundException e) {
+            // FIX: UserService lanza EntityNotFoundException, no IllegalArgumentException
             return ResponseEntity.notFound().build();
         }
     }

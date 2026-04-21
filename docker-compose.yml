@@ -130,9 +130,14 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # ✅ FIX: REACT_APP_ANTHROPIC_KEY eliminada — el chatbot ahora va por el backend
+        # FIX: REACT_APP_ANTHROPIC_KEY eliminada (chatbot movido al backend)
+        # FIX: REACT_APP_ADMIN_PASSWORD eliminada (no pasar secrets al bundle JS)
         REACT_APP_API_URL: ""
-        REACT_APP_ADMIN_PASSWORD: ${REACT_APP_ADMIN_PASSWORD}
+        # FIX: REACT_APP_ADMIN_PASSWORD eliminada — las variables REACT_APP_* se
+        #      embeben en el bundle JS estatico y son visibles publicamente.
+        #      La autenticacion del panel admin se valida en el backend con ADMIN_API_KEY.
+        REACT_APP_ADMIN_WHATSAPP: ${ADMIN_WHATSAPP:-}
+        REACT_APP_STORE_URL: ${STORE_URL:-https://www.kosmica.com.co}
         REACT_APP_VAPID_PUBLIC_KEY: ${REACT_APP_VAPID_PUBLIC_KEY:-}
         REACT_APP_MP_PUBLIC_KEY: ${REACT_APP_MP_PUBLIC_KEY:-TEST-placeholder}
     container_name: kosmica-frontend

@@ -16,6 +16,13 @@ const UserAccountPage    = lazy(() => import("./components/UserAccountPage"));
 // ✅ Auth cargado de forma eager (no lazy) → respuesta instantánea al login/logout
 import UserAuthModal from "./components/UserAuthModal";
 
+// ✅ FIX: constantes de configuracion desde variables de entorno
+//    Antes: telefono y URL hardcodeados en 8+ lugares del codigo.
+//    Ahora: cambiar REACT_APP_ADMIN_WHATSAPP o REACT_APP_STORE_URL en .env
+//    actualiza TODOS los lugares automaticamente.
+const ADMIN_WA   = process.env.REACT_APP_ADMIN_WHATSAPP || "573043927148";
+const STORE_URL  = process.env.REACT_APP_STORE_URL       || "https://www.kosmica.com.co";
+
 const CSS = `
   /* ✅ FUENTE: cargada en index.html con display=swap — no bloquea render */
 
@@ -1904,7 +1911,7 @@ export default function App() {
         availability: p.stock > 0
           ? "https://schema.org/InStock"
           : "https://schema.org/OutOfStock",
-        url: `https://www.kosmica.com.co/?producto=${p.id}`
+        url: `${STORE_URL}/?producto=${p.id}`
       }
     }));
     let el = document.getElementById("schema-products");
@@ -2129,7 +2136,7 @@ export default function App() {
     const itemsText = cart.map(i => `• ${i.name} ×${i.qty} — ${fmtCOP(Number(i.price)*i.qty)}`).join("\n");
     const total = fmtCOP(cart.reduce((s,i)=>s+Number(i.price)*i.qty,0));
     const text = `Hola Kosmica! 💜 Dejé estos productos en mi carrito y me gustaría completar mi compra:\n\n${itemsText}\n\nTotal: ${total}\n\n¿Pueden ayudarme? 🙏`;
-    window.open(`https://wa.me/573043927148?text=${encodeURIComponent(text)}`, "_blank");
+    window.open(`https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(text)}`, "_blank");
   };
 
   // ════════════════════════════════════════
@@ -2569,14 +2576,14 @@ export default function App() {
     setSharePopup(product);
   };
   const shareViaWhatsApp = (product) => {
-    const url = `https://www.kosmica.com.co/?producto=${product.id}`;
+    const url = `${STORE_URL}/?producto=${product.id}`;
     const text = `¡Mira esto en Kosmica! 💜\n*${product.name}*\n${fmtCOP(product.price)}\n${url}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,"_blank");
     setSharePopup(null);
     if(typeof window.ttq==="object") window.ttq.track("Share",{content_id:String(product.id)});
   };
   const copyProductLink = (product) => {
-    const url = `https://www.kosmica.com.co/?producto=${product.id}`;
+    const url = `${STORE_URL}/?producto=${product.id}`;
     navigator.clipboard.writeText(url).then(()=>showToast("🔗 Link copiado al portapapeles"));
     setSharePopup(null);
   };
@@ -2599,7 +2606,7 @@ export default function App() {
     if(typeof window.fbq==="function") window.fbq("track","SubmitApplication",{content_name:"review"});
   };
   const copyReferral = () => {
-    const link = `https://www.kosmica.com.co/?ref=${myReferralCode}`;
+    const link = `${STORE_URL}/?ref=${myReferralCode}`;
     navigator.clipboard.writeText(link).then(()=>{
       setReferralCopied(true);
       showToast("🎁 Link de referido copiado");
@@ -2607,7 +2614,7 @@ export default function App() {
     });
   };
   const shareReferralWA = () => {
-    const link = `https://www.kosmica.com.co/?ref=${myReferralCode}`;
+    const link = `${STORE_URL}/?ref=${myReferralCode}`;
     const text = `¡Hola! Te recomiendo Kosmica, una tienda de moda femenina premium 💜\nUsa mi link y obtienes envío prioritario en tu primera compra:\n${link}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,"_blank");
   };
@@ -2971,10 +2978,10 @@ export default function App() {
             <div>
               <div className="footer-heading">Ayuda</div>
               <div className="footer-links">
-                <a href="https://wa.me/573043927148?text=Hola%20Kosmica%2C%20tengo%20una%20pregunta" target="_blank" rel="noreferrer">Contacto</a>
-                <a href="https://wa.me/573043927148?text=Hola%2C%20quiero%20saber%20sobre%20los%20env%C3%ADos" target="_blank" rel="noreferrer">Envíos</a>
-                <a href="https://wa.me/573043927148?text=Hola%2C%20quiero%20hacer%20una%20devoluci%C3%B3n" target="_blank" rel="noreferrer">Garantías</a>
-                <a href="https://wa.me/573043927148?text=Hola%2C%20tengo%20una%20pregunta%20frecuente" target="_blank" rel="noreferrer">FAQ</a>
+                <a href="https://wa.me/"+ ADMIN_WA +"?text=Hola%20Kosmica%2C%20tengo%20una%20pregunta" target="_blank" rel="noreferrer">Contacto</a>
+                <a href="https://wa.me/"+ ADMIN_WA +"?text=Hola%2C%20quiero%20saber%20sobre%20los%20env%C3%ADos" target="_blank" rel="noreferrer">Envíos</a>
+                <a href="https://wa.me/"+ ADMIN_WA +"?text=Hola%2C%20quiero%20hacer%20una%20devoluci%C3%B3n" target="_blank" rel="noreferrer">Garantías</a>
+                <a href="https://wa.me/"+ ADMIN_WA +"?text=Hola%2C%20tengo%20una%20pregunta%20frecuente" target="_blank" rel="noreferrer">FAQ</a>
               </div>
             </div>
             <div>
@@ -3416,7 +3423,7 @@ export default function App() {
                   </button>
                 )}
                 <a className="success-wa-btn"
-                  href={`https://wa.me/573043927148?text=Hola%20Kosmica%20🛍️%20Mi%20pedido%20es%20el%20%23${orderSuccess.orderNumber}%2C%20quiero%20saber%20el%20estado%20de%20mi%20compra%20💜`}
+                  href={`https://wa.me/${ADMIN_WA}?text=Hola%20Kosmica%20🛍️%20Mi%20pedido%20es%20el%20%23${orderSuccess.orderNumber}%2C%20quiero%20saber%20el%20estado%20de%20mi%20compra%20💜`}
                   target="_blank" rel="noreferrer">
                   💬 Consultar por WhatsApp
                 </a>
@@ -3519,7 +3526,7 @@ export default function App() {
       </Suspense>
 
       {/* ── WHATSAPP ── */}
-      <a className="wa-float" href="https://wa.me/573043927148?text=Hola%20Kosmica%2C%20quiero%20información"
+      <a className="wa-float" href="https://wa.me/"+ ADMIN_WA +"?text=Hola%20Kosmica%2C%20quiero%20información"
         target="_blank" rel="noreferrer" aria-label="WhatsApp">
         <span className="wa-float-icon">💬</span>
         <span className="wa-float-text">
@@ -3901,7 +3908,7 @@ export default function App() {
                 showToast("💎 Contacta a Kosmica por WhatsApp para canjear tus puntos");
                 setTimeout(()=>{
                   const text = `Hola Kosmica! 💜 Tengo ${displayPoints} puntos acumulados (equivalen a $${(displayPoints*36).toLocaleString("es-CO")} COP) y me gustaría canjearlos por un descuento.`;
-                  window.open(`https://wa.me/573043927148?text=${encodeURIComponent(text)}`,"_blank");
+                  window.open(`https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(text)}`,"_blank");
                 },1000);
               }}>
                 🎁 Canjear mis {displayPoints} pts (${(displayPoints*36).toLocaleString("es-CO")} COP)

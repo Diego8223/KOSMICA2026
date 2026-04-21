@@ -1,22 +1,39 @@
 # Node
 node_modules/
 
-# React
+# React build
 build/
 dist/
 
 # Java
 target/
 
-# env
+# Variables de entorno (FIX: .env nunca debe subirse al repo)
 .env
 .env.local
+.env.*.local
+!.env.example
 
-# uploads
+# uploads locales
 uploads/
 
-# docker volumes
+# Docker volumes
 mysql_data/
+postgres_data/
+pgadmin_data/
 
-# logs
+# Logs
 *.log
+
+# FIX: archivos basura creados accidentalmente por PowerShell en Windows
+Invoke-RestMethod
+git
+docker-compose
+
+# FIX: copia duplicada de package.json
+frontend/package (2).json
+
+# IDE
+.idea/
+*.iml
+.vscode/

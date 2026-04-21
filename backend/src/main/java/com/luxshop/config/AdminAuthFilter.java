@@ -79,6 +79,10 @@ public class AdminAuthFilter extends OncePerRequestFilter {
         // POST /api/users/{email}/add-points — sumar puntos manualmente
         if ("POST".equals(method) && path.matches("/api/users/.+/add-points")) return true;
 
+        // FIX: POST /api/users/{email}/purchase-points — protegido para evitar acreditacion fraudulenta
+        // Sin esta proteccion, cualquiera puede enviar un POST con total=9999999 y regalar puntos falsos.
+        if ("POST".equals(method) && path.matches("/api/users/.+/purchase-points")) return true;
+
         // PATCH /api/orders/{id}/status — cambiar estado de pedido
         if ("PATCH".equals(method) && path.matches("/api/orders/\\d+/status")) return true;
 
