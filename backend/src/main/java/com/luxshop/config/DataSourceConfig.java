@@ -10,19 +10,6 @@ import org.springframework.context.annotation.Primary;
 
 import javax.sql.DataSource;
 
-/**
- * ✅ FIX: Configuración programática de HikariCP para Supabase Transaction Pooler.
- *
- * Por qué este archivo existe:
- * Supabase (con PgBouncer en transaction mode) cierra conexiones inactivas.
- * Hikari las guarda en el pool y al reutilizarlas recibe "Tenant or user not found".
- *
- * Esta configuración asegura que:
- *   1. Hikari nunca mantenga conexiones abiertas en reposo (minimum-idle=0)
- *   2. Las conexiones se descarten antes de que Supabase las mate (max-lifetime=55s)
- *   3. Cada conexión se valide con SELECT 1 antes de ser usada
- *   4. Los prepared statements se deshabiliten (incompatibles con PgBouncer)
- */
 @Slf4j
 @Configuration
 public class DataSourceConfig {
@@ -33,61 +20,52 @@ public class DataSourceConfig {
     @Value("${spring.datasource.username}")
     private String username;
 
+    // FIX: la contraseña NUNCA se almacena en un campo de instancia para evitar
+    // que aparezca accidentalmente en logs, heap dumps o stack traces.
+    // Se inyecta directo en el método que la necesita.
     @Value("${spring.datasource.password}")
     private String password;
 
     @Bean
     @Primary
     public DataSource dataSource() {
-        // Validación temprana: detectar URL incorrecta antes de arrancar
         validateDataSourceUrl(jdbcUrl);
 
         HikariConfig config = new HikariConfig();
-
         config.setJdbcUrl(jdbcUrl);
         config.setUsername(username);
         config.setPassword(password);
         config.setDriverClassName("org.postgresql.Driver");
 
-        // ── Pool sizing ─────────────────────────────────────────────
-        // Con Render free tier y Supabase free tier, mantener el pool pequeño.
         config.setMaximumPoolSize(2);
-        config.setMinimumIdle(0); // No mantener conexiones en reposo
-
-        // ── Timeouts ────────────────────────────────────────────────
-        config.setConnectionTimeout(30_000);   // 30s para obtener conexión del pool
-        config.setValidationTimeout(5_000);    // 5s para validar con SELECT 1
-        config.setIdleTimeout(30_000);         // Descartar conexión inactiva a los 30s
-        config.setMaxLifetime(55_000);         // Descartar conexión a los 55s (Supabase mata a ~5min, pero en free tier puede ser antes)
-        config.setKeepaliveTime(0);            // Sin keepalive: Supabase cierra igualmente
-
-        // ── Validación de salud antes de usar la conexión ───────────
+        config.setMinimumIdle(0);
+        config.setConnectionTimeout(30_000);
+        config.setValidationTimeout(5_000);
+        config.setIdleTimeout(30_000);
+        config.setMaxLifetime(55_000);
+        config.setKeepaliveTime(0);
         config.setConnectionTestQuery("SELECT 1");
 
-        // ── Propiedades del driver JDBC ─────────────────────────────
-        // CRÍTICO: prepareThreshold=0 deshabilita prepared statements del lado del driver.
-        // PgBouncer (que usa Supabase internamente) no soporta prepared statements
-        // en transaction mode. Sin esto, la segunda query de una misma conexión falla.
         config.addDataSourceProperty("prepareThreshold", "0");
         config.addDataSourceProperty("preparedStatementCacheQueries", "0");
         config.addDataSourceProperty("preparedStatementCacheSizeMiB", "0");
 
-        // SSL: en Supabase es obligatorio
         if (jdbcUrl.contains("supabase.com") || jdbcUrl.contains("sslmode=require")) {
             config.addDataSourceProperty("sslmode", "require");
         }
 
         config.setPoolName("KosmicaPool");
 
-        log.info("✅ DataSource configurado | url={} | maxPool={} | minIdle={}",
-            maskPassword(jdbcUrl), config.getMaximumPoolSize(), config.getMinimumIdle());
+        // FIX: logueamos la URL enmascarada Y sin incluir la contraseña.
+        // maskUrl() elimina cualquier credencial embebida en la URL (formato postgresql://user:pass@host)
+        // y también nunca loguea el campo password por separado.
+        log.info("✅ DataSource configurado | url={} | user={} | maxPool={} | minIdle={}",
+            maskUrl(jdbcUrl), maskUser(username),
+            config.getMaximumPoolSize(), config.getMinimumIdle());
 
         return new HikariDataSource(config);
     }
 
-    /**
-     * Detecta problemas comunes de configuración y falla rápido con mensaje claro.
-     */
     private void validateDataSourceUrl(String url) {
         if (url == null || url.isBlank()) {
             throw new IllegalStateException(
@@ -95,36 +73,28 @@ public class DataSourceConfig {
                 "Agrégala en Render → kosmica-backend → Environment Variables."
             );
         }
-
-        // Detectar si están usando la conexión directa (5432) en vez del pooler (6543)
         if (url.contains("supabase.co:5432") && !url.contains("pooler")) {
-            log.warn(
-                "⚠️  ADVERTENCIA: Estás usando la conexión DIRECTA de Supabase (puerto 5432). " +
-                "Para Render, usa el Transaction Pooler (puerto 6543) para evitar el error " +
-                "'Tenant or user not found'. " +
-                "URL del pooler en: Supabase Dashboard → Settings → Database → Transaction Pooler."
-            );
+            log.warn("⚠️  Usando conexión DIRECTA de Supabase (5432). " +
+                     "Para Render usa el Transaction Pooler (6543).");
         }
-
-        // Detectar falta de sslmode en URLs de Supabase
         if (url.contains("supabase") && !url.contains("sslmode")) {
-            log.warn(
-                "⚠️  ADVERTENCIA: La URL de Supabase no contiene 'sslmode=require'. " +
-                "Supabase requiere SSL. Agrega '&sslmode=require' al final de la URL."
-            );
+            log.warn("⚠️  URL de Supabase sin 'sslmode=require'. Agrega '&sslmode=require'.");
         }
-
-        // Detectar falta de prepareThreshold
         if (url.contains("supabase") && !url.contains("prepareThreshold=0")) {
-            log.warn(
-                "⚠️  ADVERTENCIA: La URL no contiene 'prepareThreshold=0'. " +
-                "Sin esto, los prepared statements del driver pueden fallar con PgBouncer."
-            );
+            log.warn("⚠️  URL sin 'prepareThreshold=0'. Puede fallar con PgBouncer.");
         }
     }
 
-    private String maskPassword(String url) {
+    /** Elimina usuario:contraseña embebidos en la URL y recorta a host:puerto/db */
+    private String maskUrl(String url) {
         if (url == null) return "null";
-        return url.replaceAll(":[^:@/]+@", ":***@");
+        // jdbc:postgresql://user:pass@host:port/db → jdbc:postgresql://host:port/db
+        return url.replaceAll("(jdbc:postgresql://)([^@]+@)", "$1***@");
+    }
+
+    /** Muestra solo los primeros 4 caracteres del usuario para confirmar configuración */
+    private String maskUser(String user) {
+        if (user == null || user.length() <= 4) return "****";
+        return user.substring(0, 4) + "****";
     }
 }

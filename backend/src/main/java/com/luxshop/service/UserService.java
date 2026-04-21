@@ -1,14 +1,17 @@
 package com.luxshop.service;
 
+import com.luxshop.exception.EntityNotFoundException;
 import com.luxshop.model.User;
 import com.luxshop.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -24,16 +27,20 @@ public class UserService {
 
     /**
      * Registra un usuario nuevo o actualiza sus datos si el email ya existe.
-     * Al ser registro NUEVO: asigna 20 pts de bienvenida y envia email.
+     * Al ser registro NUEVO: asigna 20 pts de bienvenida y envía email.
      */
+    @Transactional
     public User registerOrUpdate(Map<String, Object> payload) {
         String email = ((String) payload.getOrDefault("email", "")).toLowerCase().trim();
         if (email.isEmpty()) throw new IllegalArgumentException("Email requerido");
 
-        boolean isNew = !userRepository.findByEmailIgnoreCase(email).isPresent();
-
-        User user = userRepository.findByEmailIgnoreCase(email)
-                .orElse(new User());
+        // FIX: antes se llamaba findByEmailIgnoreCase DOS veces seguidas:
+        //   1. boolean isNew = !userRepository.findByEmailIgnoreCase(email).isPresent();
+        //   2. User user = userRepository.findByEmailIgnoreCase(email).orElse(new User());
+        // Ahora se hace UNA sola consulta a la BD y se usa Optional directamente.
+        Optional<User> existing = userRepository.findByEmailIgnoreCase(email);
+        boolean isNew = existing.isEmpty();
+        User user = existing.orElse(new User());
 
         user.setEmail(email);
         user.setName((String) payload.getOrDefault("name", ""));
@@ -48,13 +55,15 @@ public class UserService {
         }
 
         User saved = userRepository.save(user);
-        log.info("Usuario {}: {} ({})", isNew ? "registrado" : "actualizado", saved.getName(), saved.getEmail());
+        log.info("Usuario {}: {} ({})", isNew ? "registrado" : "actualizado",
+            saved.getName(), saved.getEmail());
 
         if (isNew) {
             try {
                 emailService.sendWelcomeEmail(saved.getEmail(), saved.getName());
             } catch (Exception e) {
-                log.warn("No se pudo enviar email de bienvenida a {}: {}", saved.getEmail(), e.getMessage());
+                log.warn("No se pudo enviar email de bienvenida a {}: {}",
+                    saved.getEmail(), e.getMessage());
             }
         }
 
@@ -66,9 +75,10 @@ public class UserService {
      * Racha >= 3 dias: +5 bonus; >= 7 dias: +10 bonus.
      * Si ya hizo check-in hoy: devuelve usuario sin cambios.
      */
+    @Transactional
     public User doCheckin(String email) {
         User user = userRepository.findByEmailIgnoreCase(email)
-                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado: " + email));
+            .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado: " + email));
 
         LocalDate today     = LocalDate.now();
         LocalDate yesterday = today.minusDays(1);
@@ -85,28 +95,30 @@ public class UserService {
             newStreak = 1;
         }
 
-        int bonus = DAILY_CHECKIN_PTS + (newStreak >= 7 ? 10 : newStreak >= 3 ? 5 : 0);
+        int bonus      = DAILY_CHECKIN_PTS + (newStreak >= 7 ? 10 : newStreak >= 3 ? 5 : 0);
         int currentPts = user.getPoints() == null ? 0 : user.getPoints();
         user.setPoints(currentPts + bonus);
         user.setCheckinStreak(newStreak);
         user.setLastCheckinDate(today);
 
         User saved = userRepository.save(user);
-        log.info("Check-in {} -> racha={} dias, +{} pts (total={})", email, newStreak, bonus, saved.getPoints());
+        log.info("Check-in {} -> racha={} dias, +{} pts (total={})",
+            email, newStreak, bonus, saved.getPoints());
         return saved;
     }
 
     /**
      * Suma puntos por compra. 1 pto = $36 COP. Actualiza racha de compras.
      */
+    @Transactional
     public User awardPurchasePoints(String email, int total) {
         User user = userRepository.findByEmailIgnoreCase(email)
-                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado: " + email));
+            .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado: " + email));
 
-        LocalDate today     = LocalDate.now();
-        LocalDate yesterday = today.minusDays(1);
+        LocalDate today        = LocalDate.now();
+        LocalDate yesterday    = today.minusDays(1);
 
-        int earned = Math.max(0, Math.min(total / 36, DAILY_POINTS_LIMIT));
+        int earned     = Math.max(0, Math.min(total / 36, DAILY_POINTS_LIMIT));
         int currentPts = user.getPoints() == null ? 0 : user.getPoints();
         user.setPoints(currentPts + earned);
 
@@ -123,30 +135,28 @@ public class UserService {
         user.setLastPurchaseDate(today);
 
         User saved = userRepository.save(user);
-        log.info("Puntos compra {} -> +{} pts (total={}, racha_compras={})", email, earned, saved.getPoints(), newStreak);
+        log.info("Puntos compra {} -> +{} pts (total={}, racha_compras={})",
+            email, earned, saved.getPoints(), newStreak);
         return saved;
     }
 
-    /**
-     * Suma puntos manualmente (admin o eventos especiales).
-     */
+    /** Suma puntos manualmente (admin o eventos especiales). */
+    @Transactional
     public User addPoints(String email, int pts) {
         User user = userRepository.findByEmailIgnoreCase(email)
-                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado: " + email));
+            .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado: " + email));
         int current = user.getPoints() == null ? 0 : user.getPoints();
         user.setPoints(current + pts);
         return userRepository.save(user);
     }
 
-    /**
-     * Obtiene usuario por email (para sincronizar estado al hacer login).
-     */
+    /** Obtiene usuario por email (para sincronizar estado al hacer login). */
     public User getByEmail(String email) {
         return userRepository.findByEmailIgnoreCase(email.toLowerCase().trim())
-                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado: " + email));
+            .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado: " + email));
     }
 
-    /** Lista todos los usuarios ordenados por fecha de registro (mas recientes primero). */
+    /** Lista todos los usuarios ordenados por fecha de registro (más recientes primero). */
     public List<User> getAllUsers() {
         return userRepository.findAllByOrderByCreatedAtDesc();
     }

@@ -12,9 +12,14 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.net.URI;
 import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.Map;
@@ -38,9 +43,16 @@ public class WompiController {
     @Value("${wompi.integrity.secret:integrity_placeholder}")
     private String wompiIntegritySecret;
 
-    // ══════════════════════════════════════════════════════════════
-    //  POST /api/wompi/transaction
-    // ══════════════════════════════════════════════════════════════
+    // FIX: HttpClient como singleton.
+    // Antes se usaba HttpURLConnection (API de Java 1.1, verbose y sin pool de conexiones).
+    // Ahora usamos java.net.http.HttpClient (Java 11+) como singleton, que:
+    //   - Reutiliza conexiones HTTP/2 automáticamente
+    //   - Tiene API más limpia y menos propensa a errores
+    //   - No requiere conn.disconnect() manual
+    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
+        .connectTimeout(Duration.ofSeconds(8))
+        .build();
+
     @PostMapping("/transaction")
     public ResponseEntity<Map<String, Object>> createTransaction(
             @RequestBody Map<String, Object> body) {
@@ -51,15 +63,16 @@ public class WompiController {
             String phone       = getString(body, "phone",       "");
             String orderId     = getString(body, "orderId",     String.valueOf(System.currentTimeMillis()));
             String redirectUrl = getString(body, "redirectUrl", "");
+            // FIX: document del cliente para Wompi (reemplaza el "000000000" hardcodeado)
+            String document    = getString(body, "document",    "");
 
             long amountCop   = Long.parseLong(body.get("amount").toString());
             long amountCents = amountCop * 100L;
 
             log.info("🏦 Creando transacción Wompi | ref={} | amount={} COP | email={}",
-                    orderId, amountCop, email);
+                orderId, amountCop, email);
 
             String integrity = sha256Hex(orderId + amountCents + "COP" + wompiIntegritySecret.trim());
-            log.info("🔑 Firma calculada | ref={}", orderId);
 
             StringBuilder url = new StringBuilder("https://checkout.wompi.co/p/");
             url.append("?public-key=").append(encode(wompiPublicKey));
@@ -76,7 +89,11 @@ public class WompiController {
             }
             if (!name.isBlank()) {
                 url.append("&customer-data:full-name=").append(encode(name));
-                url.append("&customer-data:legal-id=").append(encode("000000000"));
+                // FIX: antes hardcodeaba "000000000" siempre.
+                // Ahora usa el documento real del cliente si viene en el body.
+                String legalId = !document.isBlank()
+                    ? document.replaceAll("\\D", "") : "000000000";
+                url.append("&customer-data:legal-id=").append(encode(legalId));
                 url.append("&customer-data:legal-id-type=CC");
             }
             if (!phone.isBlank()) {
@@ -90,13 +107,12 @@ public class WompiController {
             }
 
             String checkoutUrl = url.toString();
-            log.info("✅ URL Wompi generada | ref={} | url={}", orderId, checkoutUrl);
+            log.info("✅ URL Wompi generada | ref={}", orderId);
 
             Map<String, Object> response = new HashMap<>();
             response.put("checkoutUrl", checkoutUrl);
             response.put("reference",   orderId);
             response.put("amountCents", amountCents);
-
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
@@ -108,9 +124,6 @@ public class WompiController {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
-    //  GET /api/wompi/status/{transactionId}
-    // ══════════════════════════════════════════════════════════════
     @GetMapping("/status/{transactionId}")
     public ResponseEntity<Map<String, Object>> getTransactionStatus(
             @PathVariable String transactionId) {
@@ -118,29 +131,21 @@ public class WompiController {
         log.info("🔍 Consultando estado Wompi | transactionId={}", transactionId);
 
         try {
-            java.net.URL apiUrl = new java.net.URL(
-                    "https://production.wompi.co/v1/transactions/" + transactionId);
+            // FIX: reemplaza HttpURLConnection manual por HttpClient moderno.
+            // Antes: ~15 líneas de código con conn.setRequestMethod, getInputStream,
+            //        manejo manual de streams y conn.disconnect().
+            // Ahora: 5 líneas con la API fluida de HttpClient.
+            HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("https://production.wompi.co/v1/transactions/" + transactionId))
+                .header("Authorization", "Bearer " + wompiPrivateKey)
+                .timeout(Duration.ofSeconds(8))
+                .GET()
+                .build();
 
-            java.net.HttpURLConnection conn =
-                    (java.net.HttpURLConnection) apiUrl.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setRequestProperty("Authorization", "Bearer " + wompiPrivateKey);
-            conn.setConnectTimeout(8000);
-            conn.setReadTimeout(8000);
+            HttpResponse<String> httpResponse = HTTP_CLIENT
+                .send(request, HttpResponse.BodyHandlers.ofString());
 
-            int httpStatus = conn.getResponseCode();
-
-            java.io.InputStream stream = (httpStatus >= 200 && httpStatus < 300)
-                    ? conn.getInputStream()
-                    : conn.getErrorStream();
-
-            String responseBody = new BufferedReader(
-                    new InputStreamReader(stream, StandardCharsets.UTF_8))
-                    .lines().collect(Collectors.joining("\n"));
-
-            conn.disconnect();
-
-            JsonNode root   = objectMapper.readTree(responseBody);
+            JsonNode root   = objectMapper.readTree(httpResponse.body());
             JsonNode txData = root.path("data");
 
             String status    = txData.path("status").asText("UNKNOWN");
@@ -165,19 +170,14 @@ public class WompiController {
         }
     }
 
-    // ══════════════════════════════════════════════════════════════
-    //  POST /api/wompi/webhook
-    // ══════════════════════════════════════════════════════════════
     @PostMapping("/webhook")
     public ResponseEntity<Void> handleWebhook(HttpServletRequest request) {
-
         String rawBody;
-
         try {
             rawBody = new BufferedReader(
-                    new InputStreamReader(request.getInputStream(), StandardCharsets.UTF_8))
-                    .lines()
-                    .collect(Collectors.joining("\n"));
+                new InputStreamReader(request.getInputStream(), StandardCharsets.UTF_8))
+                .lines()
+                .collect(Collectors.joining("\n"));
         } catch (Exception e) {
             log.error("❌ Error leyendo body del webhook Wompi", e);
             return ResponseEntity.badRequest().build();
@@ -191,7 +191,7 @@ public class WompiController {
         log.info("📨 Webhook Wompi recibido | signature={} | size={}", signature, rawBody.length());
 
         if (!wompiService.isValidWebhookSignature(rawBody, signature)) {
-            log.warn("⛔ Webhook Wompi rechazado: firma inválida. signature={}", signature);
+            log.warn("⛔ Webhook Wompi rechazado: firma inválida.");
             return ResponseEntity.status(401).build();
         }
 
@@ -207,8 +207,6 @@ public class WompiController {
         return ResponseEntity.ok().build();
     }
 
-    // ── Helpers ───────────────────────────────────────────────────
-
     private String getString(Map<String, Object> map, String key, String defaultValue) {
         Object val = map.get(key);
         if (val == null) return defaultValue;
@@ -217,11 +215,7 @@ public class WompiController {
     }
 
     private String encode(String value) {
-        try {
-            return URLEncoder.encode(value, StandardCharsets.UTF_8);
-        } catch (Exception e) {
-            return value;
-        }
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     private String sha256Hex(String input) throws Exception {
