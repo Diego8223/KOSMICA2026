@@ -47,7 +47,6 @@ public class OrderController {
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("❌ Error creando pago Nequi: {}", e.getMessage());
-            // Devolver 200 con campo error para que el frontend pueda leerlo sin romper el JSON parse
             Map<String, String> errorResp = new HashMap<>();
             errorResp.put("error",  e.getMessage());
             errorResp.put("status", "error");
@@ -105,7 +104,6 @@ public class OrderController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "false") boolean all) {
-        // ✅ FIX: si all=true o size>=200 devuelve TODOS los pedidos (para el panel admin)
         if (all || size >= 200) {
             return ResponseEntity.ok(orderService.getAllOrdersList());
         }
@@ -151,14 +149,11 @@ public class OrderController {
 
                 if (approved) {
 
-                    // ── 1. Buscar y actualizar el pedido normal ──
                     orderService.findByPaymentId(paymentId).ifPresent(order -> {
                         if (order.getStatus() == Order.Status.PENDING) {
-                            // updateStatus maneja internamente: stock, referido, email y puntos
                             orderService.updateStatus(order.getId(), Order.Status.PAID);
                             log.info("✅ Pedido {} marcado como PAID", order.getOrderNumber());
 
-                            // Activar gift card usada como descuento dentro del pedido
                             String giftCardCode = order.getCouponCode();
                             if (giftCardCode != null && giftCardCode.startsWith("GIFT-")) {
                                 try {
@@ -175,14 +170,11 @@ public class OrderController {
                         }
                     });
 
-                    // ── 4. ✅ NUEVO: Activar gift card COMPRADA + enviar email/WhatsApp ──
-                    // (cuando alguien compra una tarjeta de regalo directamente)
                     giftCardService.findByPaymentId(paymentId).ifPresent(gc -> {
                         if ("PENDING".equals(gc.getStatus())) {
                             GiftCard activated = giftCardService.activateGiftCard(gc.getCode(), paymentId);
                             log.info("🎁 Gift card {} activada por pago directo {}", gc.getCode(), paymentId);
 
-                            // Enviar email al receptor + WhatsApp al sender
                             try {
                                 emailService.sendGiftCardNotifications(activated);
                             } catch (Exception e) {
@@ -231,9 +223,9 @@ public class OrderController {
                         OrderItem first = order.getItems().get(0);
                         if (first.getProduct() != null) {
                             productName = first.getProduct().getName();
-                            // FIX: getCategory() returns Category enum, use .name() for String
+                            // ✅ FIX: getCategory() ya devuelve String, no enum — eliminar .name()
                             category = first.getProduct().getCategory() != null
-                                ? first.getProduct().getCategory().name() : "";
+                                ? first.getProduct().getCategory() : "";
                         }
                     }
                     event.put("product", productName);
