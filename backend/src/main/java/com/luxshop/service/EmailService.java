@@ -13,6 +13,10 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.Properties;
+import org.springframework.mail.javamail.JavaMailSenderImpl;
+import org.springframework.mail.javamail.MimeMessageHelper;
+import jakarta.mail.internet.MimeMessage;
 
 @Slf4j
 @Service
@@ -35,6 +39,12 @@ public class EmailService {
 
     @Value("${callmebot.api.key:}")
     private String callmebotKey;
+
+    @Value("${spring.mail.username:}")
+    private String gmailUser;
+
+    @Value("${spring.mail.password:}")
+    private String gmailPassword;
 
     private boolean isEmailConfigured() {
         return sendgridKey != null && sendgridKey.startsWith("SG.");
