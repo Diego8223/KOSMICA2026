@@ -37,8 +37,13 @@ const ADMIN_PROTECTED = [
 
 api.interceptors.request.use(config => {
   if (ADMIN_API_KEY) {
-    const path = config.url?.replace(config.baseURL || '', '') || '';
-    const relPath = path.startsWith('/api') ? path.slice(4) : path;
+    // FIX: extraer el path relativo de forma robusta
+    // config.url puede ser path relativo (/orders?all=true) o URL absoluta completa
+    // dependiendo de cómo Axios resuelve la URL internamente.
+    // Usamos regex para extraer solo el path después de /api
+    const rawUrl = config.url || '';
+    const match = rawUrl.match(/\/api(\/[^?]*)?(\?.*)?);
+    const relPath = match ? (match[1] || '') + (match[2] || '') : rawUrl;
     if (ADMIN_PROTECTED.some(re => re.test(relPath))) {
       config.headers['X-Admin-Key'] = ADMIN_API_KEY;
     }
