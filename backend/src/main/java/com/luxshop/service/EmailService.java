@@ -649,9 +649,7 @@ public class EmailService {
                 + "\"from\":{\"email\":\"" + storeEmail + "\",\"name\":\"" + storeName + "\"},"
                 + "\"subject\":\"" + subject.replace("\"","'") + "\"," 
                 + "\"content\":[{\"type\":\"text/html\",\"value\":\"" 
-                + html.replace("\","\\").replace("\"","\\"")
-                            .replace("
-","\n").replace("","") + "\"}]}";
+                + html.replace("\\", "\\\\").replace("\"", "\\\"").replace("\r\n", "\\n").replace("\n", "\\n").replace("\r", "\\n") + "\"}]}";
 
             HttpRequest req = HttpRequest.newBuilder()
                 .uri(URI.create("https://api.sendgrid.com/v3/mail/send"))
