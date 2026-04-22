@@ -1105,15 +1105,8 @@ export default function AdminPanel({ onExit }) {
   };
 
   const login = () => {
-    // Formato: "password|apikey" o solo "password" si REACT_APP_ADMIN_API_KEY ya está en el build
-    const parts = pass.split('|');
-    const pwd   = parts[0].trim();
-    const key   = parts[1]?.trim();
-    if (pwd === ADMIN_PASSWORD) {
-      if (key) _adminApiKey = key;
-      setAuthed(true);
-      setLoginErr('');
-    } else setLoginErr('Contraseña incorrecta');
+    if (pass === ADMIN_PASSWORD) { setAuthed(true); setLoginErr(''); }
+    else setLoginErr('Contraseña incorrecta');
   };
 
   const loadProducts = async () => {
