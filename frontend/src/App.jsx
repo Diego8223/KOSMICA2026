@@ -1782,47 +1782,50 @@ export default function App() {
   //    1. Mostrar pantalla de éxito con número de pedido
   //    2. Acreditar puntos pendientes
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const pago = params.get("pago");
-    if (pago === "exitoso") {
-      try {
-        // Mostrar pantalla de éxito (funciona tanto para MP como Wompi)
-        const pendingOrder = localStorage.getItem("kosmica_pending_order") || "";
-        if (pendingOrder) {
-          setOrderSuccess({ orderNumber: pendingOrder });
-          setCheckoutOpen(true);
-          localStorage.removeItem("kosmica_pending_order");
-        }
-        // ✅ FIX: Refrescar puntos del usuario desde el backend para que
-        // el frontend muestre el saldo actualizado sin esperar recarga manual.
-        const pending = parseInt(localStorage.getItem("kosmica_pending_pts") || "0", 10);
-        const pendingEmail = localStorage.getItem("kosmica_pending_pts_user") || "";
-        if (pending > 0) {
-          localStorage.removeItem("kosmica_pending_pts");
-          localStorage.removeItem("kosmica_pending_order_total");
-          localStorage.removeItem("kosmica_pending_pts_user");
-          // Refrescar perfil desde backend si hay usuario logueado
-          if (pendingEmail) {
-            try {
-              const API_URL = process.env.REACT_APP_API_URL || "";
-              const res = await fetch(
-                `${API_URL}/api/users/${encodeURIComponent(pendingEmail)}`
-              );
-              if (res.ok) {
-                const updatedUser = await res.json();
-                setCurrentUser(updatedUser);
-                const newPts = parseInt(updatedUser.points || 0, 10);
-                setDisplayPoints(newPts);
-                localStorage.setItem("kosmica_pts", String(newPts));
-              }
-            } catch (_) {}
+    const run = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const pago = params.get("pago");
+      if (pago === "exitoso") {
+        try {
+          // Mostrar pantalla de éxito (funciona tanto para MP como Wompi)
+          const pendingOrder = localStorage.getItem("kosmica_pending_order") || "";
+          if (pendingOrder) {
+            setOrderSuccess({ orderNumber: pendingOrder });
+            setCheckoutOpen(true);
+            localStorage.removeItem("kosmica_pending_order");
           }
-          setTimeout(() => showToast("💎 ¡Ganaste " + pending + " puntos Kosmica!"), 1500);
-        }
-      } catch(_) {}
-      // Limpiar URL
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
+          // ✅ FIX: Refrescar puntos del usuario desde el backend para que
+          // el frontend muestre el saldo actualizado sin esperar recarga manual.
+          const pending = parseInt(localStorage.getItem("kosmica_pending_pts") || "0", 10);
+          const pendingEmail = localStorage.getItem("kosmica_pending_pts_user") || "";
+          if (pending > 0) {
+            localStorage.removeItem("kosmica_pending_pts");
+            localStorage.removeItem("kosmica_pending_order_total");
+            localStorage.removeItem("kosmica_pending_pts_user");
+            // Refrescar perfil desde backend si hay usuario logueado
+            if (pendingEmail) {
+              try {
+                const API_URL = process.env.REACT_APP_API_URL || "";
+                const res = await fetch(
+                  `${API_URL}/api/users/${encodeURIComponent(pendingEmail)}`
+                );
+                if (res.ok) {
+                  const updatedUser = await res.json();
+                  setCurrentUser(updatedUser);
+                  const newPts = parseInt(updatedUser.points || 0, 10);
+                  setDisplayPoints(newPts);
+                  localStorage.setItem("kosmica_pts", String(newPts));
+                }
+              } catch (_) {}
+            }
+            setTimeout(() => showToast("💎 ¡Ganaste " + pending + " puntos Kosmica!"), 1500);
+          }
+        } catch(_) {}
+        // Limpiar URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    };
+    run();
   // eslint-disable-next-line
   }, []);
 
