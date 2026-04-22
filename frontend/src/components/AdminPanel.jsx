@@ -6,11 +6,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { productAPI, orderAPI, pushAPI, giftCardAPI } from '../services/api';
 
 const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD || 'Kosmica2025';
-const ADMIN_API_KEY  = process.env.REACT_APP_ADMIN_API_KEY  || '';
+// FIX: _adminApiKey se setea en memoria al hacer login — no depende de variables de build
+let _adminApiKey = process.env.REACT_APP_ADMIN_API_KEY || '';
 // Helper: headers para endpoints protegidos con X-Admin-Key
 const adminHeaders = () => ({
   'Content-Type': 'application/json',
-  ...(ADMIN_API_KEY ? { 'X-Admin-Key': ADMIN_API_KEY } : {}),
+  ...(_adminApiKey ? { 'X-Admin-Key': _adminApiKey } : {}),
 });
 // Envia.com via backend proxy — v3 (auth y fan-out manejados en el backend)
 const CATEGORIES = ['BOLSOS','BILLETERAS','MAQUILLAJE','CAPILAR','CUIDADO_PERSONAL','ACCESORIOS'];
@@ -1060,6 +1061,7 @@ function PushNotificationsSection() {
 export default function AdminPanel({ onExit }) {
   const [authed,  setAuthed]  = useState(false);
   const [pass,    setPass]    = useState('');
+  const [apiKey,  setApiKey]  = useState('');
   const [loginErr,setLoginErr]= useState('');
   const [section, setSection] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);   // ← FIX: declarado
@@ -1104,8 +1106,11 @@ export default function AdminPanel({ onExit }) {
   };
 
   const login = () => {
-    if (pass === ADMIN_PASSWORD) { setAuthed(true); setLoginErr(''); }
-    else setLoginErr('Contraseña incorrecta');
+    if (pass === ADMIN_PASSWORD) {
+      _adminApiKey = apiKey.trim() || _adminApiKey;
+      setAuthed(true);
+      setLoginErr('');
+    } else setLoginErr('Contraseña incorrecta');
   };
 
   const loadProducts = async () => {
@@ -1567,6 +1572,10 @@ export default function AdminPanel({ onExit }) {
           <input className="adm-login-input" type="password" placeholder="Contraseña"
             value={pass} onChange={e=>setPass(e.target.value)}
             onKeyDown={e=>e.key==='Enter'&&login()} />
+          <input className="adm-login-input" type="password" placeholder="API Key (X-Admin-Key)"
+            value={apiKey} onChange={e=>setApiKey(e.target.value)}
+            onKeyDown={e=>e.key==='Enter'&&login()}
+            style={{marginTop:10}} />
           <button className="adm-login-btn" onClick={login}>Ingresar →</button>
           {loginErr && <p className="adm-login-err">⚠️ {loginErr}</p>}
         </div>
