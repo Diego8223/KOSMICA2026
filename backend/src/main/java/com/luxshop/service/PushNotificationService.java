@@ -139,10 +139,16 @@ public class PushNotificationService {
 
             } catch (Exception e) {
                 String msg = e.getMessage() != null ? e.getMessage() : "";
-                if (msg.contains("410") || msg.contains("404")) {
+                // FIX: limpiar suscripciones inválidas automáticamente
+                // 410 Gone = el browser revocó el permiso
+                // 404 Not Found = endpoint ya no existe
+                // 401/403 = suscripción inválida
+                if (msg.contains("410") || msg.contains("404") ||
+                    msg.contains("401") || msg.contains("403") ||
+                    msg.contains("UnauthorizedException") || msg.contains("ExpiredException")) {
                     sub.setActive(false);
                     subscriptionRepo.save(sub);
-                    log.info("🗑 Suscripción expirada eliminada: {}", sub.getEndpoint());
+                    log.info("🗑 Suscripción inválida desactivada: {}", sub.getEndpoint());
                 } else {
                     log.warn("Error enviando push a {}: {}", sub.getEndpoint(), msg);
                 }

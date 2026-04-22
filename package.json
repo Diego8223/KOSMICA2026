@@ -10,7 +10,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build",
+    "build": "react-scripts build && node -e \"const fs=require('fs'); const ts=Date.now(); const sw=fs.readFileSync('build/sw.js','utf8').replace('__BUILD_TIMESTAMP__',ts); fs.writeFileSync('build/sw.js',sw); console.log('SW cache version: kosmica-'+ts);\"",
     "test": "react-scripts test"
   },
   "browserslist": {

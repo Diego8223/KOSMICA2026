@@ -1,7 +1,9 @@
-// ✅ SERVICE WORKER — Kosmica v3
+// ✅ SERVICE WORKER — Kosmica v4
 // Auto-actualización inmediata + cache inteligente + push notifications
 
-const CACHE_VERSION = 'kosmica-v3';
+// FIX: CACHE_VERSION incluye timestamp del build para forzar actualización
+// en todos los dispositivos PWA cuando hay un nuevo deploy
+const CACHE_VERSION = 'kosmica-__BUILD_TIMESTAMP__';
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const IMAGE_CACHE   = `${CACHE_VERSION}-images`;
 const ALL_CACHES    = [STATIC_CACHE, IMAGE_CACHE];

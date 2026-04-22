@@ -601,16 +601,57 @@ public class EmailService {
             "🛍️ Nuevo pedido: " + order.getOrderNumber() + " — $" + total, html);
     }
 
-    // ── Envío email via SendGrid ──────────────────────────────
+    // ── Envío email: Gmail SMTP (primario) o SendGrid (fallback) ──
     private void sendEmail(String toEmail, String toName, String subject, String html) {
+        if (gmailUser != null && !gmailUser.isBlank()
+                && gmailPassword != null && !gmailPassword.isBlank()) {
+            sendViaGmail(toEmail, toName, subject, html);
+            return;
+        }
+        if (sendgridKey != null && sendgridKey.startsWith("SG.")) {
+            sendViaSendGrid(toEmail, toName, subject, html);
+            return;
+        }
+        log.warn("⚠️ No hay proveedor de email configurado (GMAIL_USER/GMAIL_PASSWORD o SENDGRID_API_KEY)");
+    }
+
+    private void sendViaGmail(String toEmail, String toName, String subject, String html) {
+        try {
+            JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
+            mailSender.setHost("smtp.gmail.com");
+            mailSender.setPort(587);
+            mailSender.setUsername(gmailUser);
+            mailSender.setPassword(gmailPassword);
+            Properties props = mailSender.getJavaMailProperties();
+            props.put("mail.transport.protocol", "smtp");
+            props.put("mail.smtp.auth", "true");
+            props.put("mail.smtp.starttls.enable", "true");
+            props.put("mail.smtp.starttls.required", "true");
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(gmailUser, storeName);
+            helper.setTo(toEmail);
+            helper.setSubject(subject);
+            helper.setText(html, true);
+
+            mailSender.send(message);
+            log.info("✉️ Email enviado via Gmail a {}", toEmail);
+        } catch (Exception e) {
+            log.error("Error enviando email via Gmail: {}", e.getMessage());
+        }
+    }
+
+    private void sendViaSendGrid(String toEmail, String toName, String subject, String html) {
         try {
             String body = "{\"personalizations\":[{\"to\":[{\"email\":\""
                 + toEmail + "\",\"name\":\"" + toName.replace("\"","") + "\"}]}],"
                 + "\"from\":{\"email\":\"" + storeEmail + "\",\"name\":\"" + storeName + "\"},"
-                + "\"subject\":\"" + subject.replace("\"","'") + "\","
-                + "\"content\":[{\"type\":\"text/html\",\"value\":"
-                + "\"" + html.replace("\\","\\\\").replace("\"","\\\"")
-                            .replace("\n","\\n").replace("\r","") + "\"}]}";
+                + "\"subject\":\"" + subject.replace("\"","'") + "\"," 
+                + "\"content\":[{\"type\":\"text/html\",\"value\":\"" 
+                + html.replace("\","\\").replace("\"","\\"")
+                            .replace("
+","\n").replace("","") + "\"}]}";
 
             HttpRequest req = HttpRequest.newBuilder()
                 .uri(URI.create("https://api.sendgrid.com/v3/mail/send"))
@@ -623,15 +664,14 @@ public class EmailService {
                 .send(req, HttpResponse.BodyHandlers.ofString());
 
             if (resp.statusCode() == 202)
-                log.info("✉️ Email enviado a {}", toEmail);
+                log.info("✉️ Email enviado via SendGrid a {}", toEmail);
             else
                 log.error("SendGrid error {}: {}", resp.statusCode(), resp.body());
 
         } catch (Exception e) {
-            log.error("Error enviando email: {}", e.getMessage());
+            log.error("Error enviando email via SendGrid: {}", e.getMessage());
         }
     }
-
     // ── Envío WhatsApp via CallMeBot ──────────────────────────
     private void sendWhatsapp(String phone, String message) {
         try {

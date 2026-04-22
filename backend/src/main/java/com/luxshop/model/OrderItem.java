@@ -14,9 +14,11 @@ public class OrderItem {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // ✅ FIX: @JsonIgnore rompe la recursión infinita Order → items → order → items...
+    // FIX: EAGER evita LazyInitializationException cuando Jackson serializa
+    // fuera de la sesión de Hibernate. @JsonIgnore rompe la recursión infinita
+    // Order → items → order → items...
     @JsonIgnore
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "order_id", nullable = false)
     private Order order;
 

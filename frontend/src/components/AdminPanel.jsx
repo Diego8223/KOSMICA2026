@@ -5,9 +5,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { productAPI, orderAPI, pushAPI, giftCardAPI } from '../services/api';
 
-const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD || 'Kosmica2025';
-// FIX: la API key se pasa como prop desde App.jsx al hacer login con la contraseña correcta
-// Así no depende de variables de entorno quemadas en el build
+// FIX SEGURIDAD: la contraseña ya no está hardcodeada en el bundle JS.
+// El login ahora valida contra el backend enviando la API key directamente.
+// Si la API key es válida → acceso concedido. Si no → rechazado.
+// Configura REACT_APP_ADMIN_API_KEY en Render → kosmica-frontend → Environment.
 let _adminApiKey = process.env.REACT_APP_ADMIN_API_KEY || '';
 const adminHeaders = () => ({
   'Content-Type': 'application/json',
@@ -1104,9 +1105,25 @@ export default function AdminPanel({ onExit }) {
     setTimeout(() => setToast(null), 3200);
   };
 
-  const login = () => {
-    if (pass === ADMIN_PASSWORD) { setAuthed(true); setLoginErr(''); }
-    else setLoginErr('Contraseña incorrecta');
+  const login = async () => {
+    // FIX SEGURIDAD: validamos la clave directamente contra el backend
+    // enviando un request protegido. Si el backend responde OK → acceso concedido.
+    // Así la contraseña nunca está expuesta en el bundle JS.
+    const API_URL = process.env.REACT_APP_API_URL || 'https://kosmica-backend.onrender.com';
+    try {
+      const res = await fetch(`${API_URL}/api/orders?all=true`, {
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Key': pass }
+      });
+      if (res.ok || res.status === 200) {
+        _adminApiKey = pass;
+        setAuthed(true);
+        setLoginErr('');
+      } else {
+        setLoginErr('Clave incorrecta');
+      }
+    } catch {
+      setLoginErr('Error de conexión. Verifica tu internet.');
+    }
   };
 
   const loadProducts = async () => {
@@ -1565,7 +1582,7 @@ export default function AdminPanel({ onExit }) {
           <div className="adm-login-icon">🛡️</div>
           <h1 className="adm-login-title">Panel Admin</h1>
           <p className="adm-login-sub">Kosmica · Acceso restringido</p>
-          <input className="adm-login-input" type="password" placeholder="Contraseña"
+          <input className="adm-login-input" type="password" placeholder="Clave de administrador"
             value={pass} onChange={e=>setPass(e.target.value)}
             onKeyDown={e=>e.key==='Enter'&&login()} />
           <button className="adm-login-btn" onClick={login}>Ingresar →</button>

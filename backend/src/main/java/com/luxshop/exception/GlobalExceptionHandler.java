@@ -1,8 +1,10 @@
 package com.luxshop.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.LazyInitializationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotWritableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -16,11 +18,7 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // FIX: excepciones de negocio (validaciones, entidad no encontrada, stock)
-    // Antes: todo RuntimeException → 400 (incorrecto para errores internos)
-    // Ahora: se diferencian por tipo de mensaje para devolver el HTTP correcto.
-
-    /** Errores de validación de negocio — el cliente envió datos incorrectos → 400 */
+    /** Errores de validación de negocio → 400 */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
         log.debug("Validación de negocio fallida: {}", ex.getMessage());
@@ -34,17 +32,38 @@ public class GlobalExceptionHandler {
         return buildError(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
-    /** Cualquier otro RuntimeException inesperado → 500 (no exponer detalles al cliente) */
+    /**
+     * FIX: LazyInitializationException — ocurre cuando Jackson intenta serializar
+     * una colección LAZY fuera de la sesión de Hibernate.
+     * Devuelve 500 con mensaje genérico para no exponer detalles internos al cliente.
+     */
+    @ExceptionHandler(LazyInitializationException.class)
+    public ResponseEntity<Map<String, Object>> handleLazyInit(LazyInitializationException ex) {
+        log.error("LazyInitializationException — revisar FetchType en el modelo: {}", ex.getMessage());
+        return buildError(HttpStatus.INTERNAL_SERVER_ERROR,
+            "Error interno del servidor. Por favor intenta de nuevo.");
+    }
+
+    /**
+     * FIX: HttpMessageNotWritableException — Jackson no puede escribir la respuesta.
+     * Causado frecuentemente por LazyInit o referencias circulares.
+     */
+    @ExceptionHandler(HttpMessageNotWritableException.class)
+    public ResponseEntity<Map<String, Object>> handleNotWritable(HttpMessageNotWritableException ex) {
+        log.error("Error serializando respuesta JSON: {}", ex.getMessage());
+        return buildError(HttpStatus.INTERNAL_SERVER_ERROR,
+            "Error interno del servidor. Por favor intenta de nuevo.");
+    }
+
+    /** Cualquier otro RuntimeException inesperado → 500 */
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleRuntime(RuntimeException ex) {
-        // FIX: antes devolvía 400 para TODOS los RuntimeException, incluyendo
-        // NullPointerException, errores de BD, etc. Ahora son 500 y se loguean.
         log.error("Error interno inesperado: {}", ex.getMessage(), ex);
         return buildError(HttpStatus.INTERNAL_SERVER_ERROR,
             "Error interno del servidor. Por favor intenta de nuevo.");
     }
 
-    /** Errores de validación de campos (@NotBlank, @Email, etc.) → 400 con detalle por campo */
+    /** Errores de validación de campos (@NotBlank, @Email, etc.) → 400 con detalle */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {
         Map<String, String> fieldErrors = new HashMap<>();

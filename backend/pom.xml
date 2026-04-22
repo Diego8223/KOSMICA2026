@@ -85,6 +85,12 @@
       <version>1.77</version>
     </dependency>
 
+    <!-- Spring Mail (Gmail SMTP) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-mail</artifactId>
+    </dependency>
+
     <!-- Tests -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
