@@ -6,9 +6,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { productAPI, orderAPI, pushAPI, giftCardAPI } from '../services/api';
 
 const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD || 'Kosmica2025';
-// FIX: _adminApiKey se setea en memoria al hacer login — no depende de variables de build
+// FIX: la API key se pasa como prop desde App.jsx al hacer login con la contraseña correcta
+// Así no depende de variables de entorno quemadas en el build
 let _adminApiKey = process.env.REACT_APP_ADMIN_API_KEY || '';
-// Helper: headers para endpoints protegidos con X-Admin-Key
 const adminHeaders = () => ({
   'Content-Type': 'application/json',
   ...(_adminApiKey ? { 'X-Admin-Key': _adminApiKey } : {}),
@@ -1061,7 +1061,6 @@ function PushNotificationsSection() {
 export default function AdminPanel({ onExit }) {
   const [authed,  setAuthed]  = useState(false);
   const [pass,    setPass]    = useState('');
-  const [apiKey,  setApiKey]  = useState('');
   const [loginErr,setLoginErr]= useState('');
   const [section, setSection] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);   // ← FIX: declarado
@@ -1106,8 +1105,12 @@ export default function AdminPanel({ onExit }) {
   };
 
   const login = () => {
-    if (pass === ADMIN_PASSWORD) {
-      _adminApiKey = apiKey.trim() || _adminApiKey;
+    // Formato: "password|apikey" o solo "password" si REACT_APP_ADMIN_API_KEY ya está en el build
+    const parts = pass.split('|');
+    const pwd   = parts[0].trim();
+    const key   = parts[1]?.trim();
+    if (pwd === ADMIN_PASSWORD) {
+      if (key) _adminApiKey = key;
       setAuthed(true);
       setLoginErr('');
     } else setLoginErr('Contraseña incorrecta');
@@ -1572,10 +1575,6 @@ export default function AdminPanel({ onExit }) {
           <input className="adm-login-input" type="password" placeholder="Contraseña"
             value={pass} onChange={e=>setPass(e.target.value)}
             onKeyDown={e=>e.key==='Enter'&&login()} />
-          <input className="adm-login-input" type="password" placeholder="API Key (X-Admin-Key)"
-            value={apiKey} onChange={e=>setApiKey(e.target.value)}
-            onKeyDown={e=>e.key==='Enter'&&login()}
-            style={{marginTop:10}} />
           <button className="adm-login-btn" onClick={login}>Ingresar →</button>
           {loginErr && <p className="adm-login-err">⚠️ {loginErr}</p>}
         </div>
