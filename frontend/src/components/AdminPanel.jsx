@@ -373,9 +373,10 @@ function ClientesSection() {
     // ✅ FIX: leer usuarios registrados del backend (endpoint /api/users)
     // y combinar con clientes de órdenes para tener lista completa
     const API_URL = process.env.REACT_APP_API_URL || 'https://kosmica-backend.onrender.com';
+    const adminHeaders = { 'X-Admin-Key': process.env.REACT_APP_ADMIN_API_KEY || '' };
     Promise.allSettled([
-      fetch(`${API_URL}/api/users`).then(r => r.ok ? r.json() : []),
-      fetch(`${API_URL}/api/orders?all=true`).then(r => r.json()),
+      fetch(`${API_URL}/api/users`, { headers: adminHeaders }).then(r => r.ok ? r.json() : []),
+      fetch(`${API_URL}/api/orders?all=true`, { headers: adminHeaders }).then(r => r.json()),
     ]).then(([usersRes, ordersRes]) => {
       // Mapa base: usuarios registrados directamente
       const map = new Map();
@@ -1145,7 +1146,7 @@ export default function AdminPanel({ onExit }) {
     if (section === 'orders'    || section === 'dashboard') loadOrders();
     if (section === 'reports'   || section === 'dashboard') {
       const API_URL = process.env.REACT_APP_API_URL || 'https://kosmica-backend.onrender.com';
-      fetch(`${API_URL}/api/users`)
+      fetch(`${API_URL}/api/users`, { headers: { 'X-Admin-Key': process.env.REACT_APP_ADMIN_API_KEY || '' } })
         .then(r => r.ok ? r.json() : [])
         .then(data => setRegisteredUsers(Array.isArray(data) ? data : []))
         .catch(() => {

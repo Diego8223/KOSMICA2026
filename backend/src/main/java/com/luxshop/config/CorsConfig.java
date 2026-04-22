@@ -54,7 +54,8 @@ public class CorsConfig {
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         
         // Cabeceras permitidas (importante para peticiones fetch/axios)
-        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"));
+        // FIX: X-Admin-Key necesario para que AdminPanel pueda llegar a los endpoints protegidos
+        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin", "X-Admin-Key"));
         
         // Permitir envío de cookies/auth headers
         config.setAllowCredentials(true);

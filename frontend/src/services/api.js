@@ -13,11 +13,18 @@ if (API_URL && !API_URL.startsWith("http")) {
   API_URL = "https://" + API_URL;
 }
 
+// FIX: El AdminAuthFilter exige este header en endpoints protegidos (/api/orders, /api/users, etc.)
+// Sin él el backend devuelve 401 → "Network Error" en el dashboard del admin.
+const ADMIN_KEY = process.env.REACT_APP_ADMIN_API_KEY || "";
+
 const api = axios.create({
   baseURL: `${API_URL}/api`,
   // ✅ 55s: suficiente para que Render despierte desde el primer intento
   timeout: 55000,
-  headers: { 'Content-Type': 'application/json' },
+  headers: {
+    'Content-Type': 'application/json',
+    ...(ADMIN_KEY ? { 'X-Admin-Key': ADMIN_KEY } : {}),
+  },
 });
 
 // ✅ RETRY AUTOMÁTICO: si falla por timeout, intenta una vez más
