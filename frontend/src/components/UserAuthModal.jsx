@@ -209,6 +209,10 @@ export default function UserAuthModal({ open, onClose, onSuccess, initialTab = "
     password: "", password2: "",
   });
 
+  // Forgot password fields
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotSent, setForgotSent]   = useState(false);
+
   if (!open) return null;
 
   const handleLogin = async () => {
@@ -252,6 +256,26 @@ export default function UserAuthModal({ open, onClose, onSuccess, initialTab = "
     onSuccess?.(sessionUser);
     onClose?.();
     setLoading(false);
+  };
+
+  const handleForgotPassword = async () => {
+    setError("");
+    if (!forgotEmail.trim()) { setError("Ingresa tu correo electrónico"); return; }
+    setLoading(true);
+    try {
+      const API_URL = process.env.REACT_APP_API_URL || "";
+      const res = await fetch(`${API_URL}/api/users/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail.trim().toLowerCase() }),
+      });
+      // Siempre mostramos éxito (el backend no revela si el email existe)
+      setForgotSent(true);
+    } catch (_) {
+      setForgotSent(true); // Mostrar éxito igual para no revelar info
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleRegister = async () => {
@@ -364,8 +388,9 @@ export default function UserAuthModal({ open, onClose, onSuccess, initialTab = "
                 <div className="auth-forgot">
                   <a href="#!" onClick={e=>{
                     e.preventDefault();
-                    setError("");
-                    setSuccess("Para recuperar tu contraseña escríbenos por WhatsApp al 3043927148 con tu correo registrado y te ayudamos 💜");
+                    setError(""); setSuccess("");
+                    setForgotEmail(loginEmail); setForgotSent(false);
+                    setTab("forgot");
                   }}>¿Olvidaste tu contraseña?</a>
                 </div>
                 {error && <div className="auth-error">⚠️ {error}</div>}
@@ -373,6 +398,52 @@ export default function UserAuthModal({ open, onClose, onSuccess, initialTab = "
                 <button className="auth-btn" onClick={handleLogin} disabled={loading}>
                   {loading ? "Verificando..." : "Ingresar →"}
                 </button>
+              </>
+            ) : tab === "forgot" ? (
+              <>
+                {!forgotSent ? (
+                  <>
+                    <div style={{textAlign:"center",marginBottom:20}}>
+                      <div style={{fontSize:"2.5rem",marginBottom:8}}>🔐</div>
+                      <p style={{color:"#4C1D95",fontWeight:700,fontSize:"1rem",margin:"0 0 6px"}}>
+                        Recuperar contraseña
+                      </p>
+                      <p style={{color:"#6B7280",fontSize:".88rem",margin:0,lineHeight:1.5}}>
+                        Ingresa tu correo y te enviaremos un enlace para crear una nueva contraseña.
+                      </p>
+                    </div>
+                    <div className="auth-group">
+                      <label className="auth-label">Correo electrónico *</label>
+                      <input className="auth-input" type="email" placeholder="tu@correo.com"
+                        value={forgotEmail} onChange={e=>setForgotEmail(e.target.value)}
+                        onKeyDown={e=>e.key==="Enter"&&handleForgotPassword()}/>
+                    </div>
+                    {error && <div className="auth-error">⚠️ {error}</div>}
+                    <button className="auth-btn" onClick={handleForgotPassword} disabled={loading}>
+                      {loading ? "Enviando..." : "Enviar enlace →"}
+                    </button>
+                    <div className="auth-switch" style={{marginTop:14}}>
+                      <span onClick={()=>{setTab("login");setError("");}}>← Volver al inicio de sesión</span>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{textAlign:"center",padding:"16px 0"}}>
+                    <div style={{fontSize:"3rem",marginBottom:12}}>💜</div>
+                    <p style={{color:"#166534",fontWeight:700,fontSize:"1rem",margin:"0 0 10px"}}>
+                      ¡Revisa tu correo!
+                    </p>
+                    <p style={{color:"#6B7280",fontSize:".9rem",lineHeight:1.6,margin:"0 0 20px"}}>
+                      Si existe una cuenta con <strong>{forgotEmail}</strong>, recibirás un
+                      enlace para restablecer tu contraseña en los próximos minutos.
+                    </p>
+                    <p style={{color:"#9CA3AF",fontSize:".82rem",margin:"0 0 20px"}}>
+                      ¿No lo ves? Revisa tu carpeta de spam.
+                    </p>
+                    <button className="auth-btn" style={{marginTop:0}} onClick={()=>{setTab("login");setError("");}}>
+                      Volver al inicio de sesión
+                    </button>
+                  </div>
+                )}
               </>
             ) : (
               <>

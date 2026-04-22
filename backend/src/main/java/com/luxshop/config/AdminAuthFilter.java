@@ -73,6 +73,10 @@ public class AdminAuthFilter extends OncePerRequestFilter {
     }
 
     private boolean isAdminEndpoint(String path, String method) {
+        // ✅ Los endpoints de recuperación de contraseña son PÚBLICOS — no requieren X-Admin-Key
+        if (path.startsWith("/api/users/forgot-password")) return false;
+        if (path.startsWith("/api/users/reset-password")) return false;
+
         // GET /api/users — listar todos los clientes
         if ("GET".equals(method) && "/api/users".equals(path)) return true;
 

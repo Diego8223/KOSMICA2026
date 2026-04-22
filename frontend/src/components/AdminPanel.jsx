@@ -6,6 +6,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { productAPI, orderAPI, pushAPI, giftCardAPI } from '../services/api';
 
 const ADMIN_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD || 'Kosmica2025';
+const ADMIN_API_KEY  = process.env.REACT_APP_ADMIN_API_KEY  || '';
+// Helper: headers para endpoints protegidos con X-Admin-Key
+const adminHeaders = () => ({
+  'Content-Type': 'application/json',
+  ...(ADMIN_API_KEY ? { 'X-Admin-Key': ADMIN_API_KEY } : {}),
+});
 // Envia.com via backend proxy — v3 (auth y fan-out manejados en el backend)
 const CATEGORIES = ['BOLSOS','BILLETERAS','MAQUILLAJE','CAPILAR','CUIDADO_PERSONAL','ACCESORIOS'];
 const BADGES     = ['','VIRAL','HOT','BESTSELLER','NUEVO'];
@@ -26,6 +32,7 @@ const CSS = `
   }
   .adm-login-box {
     background:#fff; border-radius:24px; padding:44px 36px;
+    position:relative;
     width:100%; max-width:380px; box-shadow:0 20px 60px rgba(120,80,180,.22); text-align:center;
   }
   .adm-login-icon { font-size:3.5rem; margin-bottom:16px; }
@@ -373,10 +380,9 @@ function ClientesSection() {
     // ✅ FIX: leer usuarios registrados del backend (endpoint /api/users)
     // y combinar con clientes de órdenes para tener lista completa
     const API_URL = process.env.REACT_APP_API_URL || 'https://kosmica-backend.onrender.com';
-    const adminHeaders = { 'X-Admin-Key': process.env.REACT_APP_ADMIN_API_KEY || '' };
     Promise.allSettled([
-      fetch(`${API_URL}/api/users`, { headers: adminHeaders }).then(r => r.ok ? r.json() : []),
-      fetch(`${API_URL}/api/orders?all=true`, { headers: adminHeaders }).then(r => r.json()),
+      fetch(`${API_URL}/api/users`, { headers: adminHeaders() }).then(r => r.ok ? r.json() : []),
+      fetch(`${API_URL}/api/orders?all=true`, { headers: adminHeaders() }).then(r => r.json()),
     ]).then(([usersRes, ordersRes]) => {
       // Mapa base: usuarios registrados directamente
       const map = new Map();
@@ -1146,7 +1152,7 @@ export default function AdminPanel({ onExit }) {
     if (section === 'orders'    || section === 'dashboard') loadOrders();
     if (section === 'reports'   || section === 'dashboard') {
       const API_URL = process.env.REACT_APP_API_URL || 'https://kosmica-backend.onrender.com';
-      fetch(`${API_URL}/api/users`, { headers: { 'X-Admin-Key': process.env.REACT_APP_ADMIN_API_KEY || '' } })
+      fetch(`${API_URL}/api/users`, { headers: adminHeaders() })
         .then(r => r.ok ? r.json() : [])
         .then(data => setRegisteredUsers(Array.isArray(data) ? data : []))
         .catch(() => {
@@ -1540,6 +1546,21 @@ export default function AdminPanel({ onExit }) {
       <style>{CSS}</style>
       <div className="adm-login">
         <div className="adm-login-box">
+          <button
+            onClick={() => window.location.href = '/'}
+            style={{
+              position:'absolute', top:18, left:18,
+              background:'rgba(155,114,207,.13)', border:'1.5px solid #EDE9FE',
+              borderRadius:50, padding:'7px 16px', fontSize:'.82rem',
+              color:'#7B5EA7', fontWeight:700, cursor:'pointer',
+              display:'flex', alignItems:'center', gap:5,
+              transition:'background .2s'
+            }}
+            onMouseOver={e=>e.currentTarget.style.background='rgba(155,114,207,.22)'}
+            onMouseOut={e=>e.currentTarget.style.background='rgba(155,114,207,.13)'}
+          >
+            ← Volver a la tienda
+          </button>
           <div className="adm-login-icon">🛡️</div>
           <h1 className="adm-login-title">Panel Admin</h1>
           <p className="adm-login-sub">Kosmica · Acceso restringido</p>

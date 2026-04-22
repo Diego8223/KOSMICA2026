@@ -13,6 +13,7 @@ const AIChatBot          = lazy(() => import("./components/AIChatBot"));
 const ReferralModal      = lazy(() => import("./components/ReferralModal"));
 const GiftCardModal      = lazy(() => import("./components/GiftCardModal"));
 const UserAccountPage    = lazy(() => import("./components/UserAccountPage"));
+const ResetPasswordPage  = lazy(() => import("./components/ResetPasswordPage"));
 // ✅ Auth cargado de forma eager (no lazy) → respuesta instantánea al login/logout
 import UserAuthModal from "./components/UserAuthModal";
 
@@ -1792,13 +1793,30 @@ export default function App() {
           setCheckoutOpen(true);
           localStorage.removeItem("kosmica_pending_order");
         }
-        // ✅ Puntos acreditados en backend (OrderService → awardPurchasePoints).
-        // Solo limpiamos localStorage y mostramos el toast informativo.
+        // ✅ FIX: Refrescar puntos del usuario desde el backend para que
+        // el frontend muestre el saldo actualizado sin esperar recarga manual.
         const pending = parseInt(localStorage.getItem("kosmica_pending_pts") || "0", 10);
+        const pendingEmail = localStorage.getItem("kosmica_pending_pts_user") || "";
         if (pending > 0) {
           localStorage.removeItem("kosmica_pending_pts");
           localStorage.removeItem("kosmica_pending_order_total");
           localStorage.removeItem("kosmica_pending_pts_user");
+          // Refrescar perfil desde backend si hay usuario logueado
+          if (pendingEmail) {
+            try {
+              const API_URL = process.env.REACT_APP_API_URL || "";
+              const res = await fetch(
+                `${API_URL}/api/users/${encodeURIComponent(pendingEmail)}`
+              );
+              if (res.ok) {
+                const updatedUser = await res.json();
+                setCurrentUser(updatedUser);
+                const newPts = parseInt(updatedUser.points || 0, 10);
+                setDisplayPoints(newPts);
+                localStorage.setItem("kosmica_pts", String(newPts));
+              }
+            } catch (_) {}
+          }
           setTimeout(() => showToast("💎 ¡Ganaste " + pending + " puntos Kosmica!"), 1500);
         }
       } catch(_) {}
@@ -2618,6 +2636,21 @@ export default function App() {
     const text = `¡Hola! Te recomiendo Kosmica, una tienda de moda femenina premium 💜\nUsa mi link y obtienes envío prioritario en tu primera compra:\n${link}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,"_blank");
   };
+
+  // ✅ Ruta /reset-password?token=xxx — página de nueva contraseña
+  const resetToken = (() => {
+    const p = new URLSearchParams(window.location.search);
+    const path = window.location.pathname;
+    if (path === "/reset-password" || path.includes("reset-password")) {
+      return p.get("token") || "";
+    }
+    return null;
+  })();
+  if (resetToken !== null) return (
+    <Suspense fallback={<SpinFallback/>}>
+      <ResetPasswordPage token={resetToken} />
+    </Suspense>
+  );
 
   if(adminMode) return <Suspense fallback={<SpinFallback/>}><AdminPanel onExit={()=>setAdminMode(false)} /></Suspense>;
   if(trackingMode) return (

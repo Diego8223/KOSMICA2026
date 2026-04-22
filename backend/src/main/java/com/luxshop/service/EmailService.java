@@ -124,9 +124,48 @@ public class EmailService {
             "💜 Tu código de descuento exclusivo — " + code, html);
     }
 
-    // ── Email de bienvenida al registrarse ───────────────────
-    public void sendWelcomeEmail(String toEmail, String toName) {
+    // ── Recuperar contraseña ──────────────────────────────────
+    public void sendPasswordReset(String toEmail, String toName, String resetToken) {
         if (!isEmailConfigured()) {
+            log.warn("SendGrid no configurado — email de reset omitido para {}", toEmail);
+            return;
+        }
+        String resetLink = storeUrl + "/reset-password?token=" + resetToken;
+        String firstName = (toName != null && !toName.isBlank())
+            ? toName.split(" ")[0] : "amiga";
+        String html = "<!DOCTYPE html><html><head><meta charset='UTF-8'/></head>"
+            + "<body style='margin:0;padding:0;background:#F5F0FF;font-family:Arial,sans-serif'>"
+            + "<div style='max-width:520px;margin:0 auto;background:#fff;border-radius:20px;"
+            + "overflow:hidden;box-shadow:0 4px 24px rgba(45,27,78,.1)'>"
+            + "<div style='background:linear-gradient(135deg,#9B72CF,#7C3AED);padding:36px 32px;text-align:center'>"
+            + "<div style='font-size:2.5rem;margin-bottom:8px'>🔐</div>"
+            + "<h1 style='color:#fff;font-size:1.6rem;font-weight:800;margin:0'>Restablecer contraseña</h1>"
+            + "<p style='color:rgba(255,255,255,.85);margin:8px 0 0;font-size:.95rem'>Recibimos tu solicitud</p>"
+            + "</div>"
+            + "<div style='padding:32px'>"
+            + "<p style='color:#2D1B4E;font-size:1rem;margin-bottom:16px'>Hola <strong>" + firstName + "</strong> 💜</p>"
+            + "<p style='color:#6B7280;font-size:.95rem;line-height:1.6;margin-bottom:24px'>"
+            + "Recibimos una solicitud para restablecer la contraseña de tu cuenta <strong>" + toEmail + "</strong>.<br/>"
+            + "Haz clic en el botón de abajo para crear una nueva contraseña. "
+            + "Este enlace es válido por <strong>1 hora</strong>.</p>"
+            + "<a href='" + resetLink + "' style='display:block;background:linear-gradient(135deg,#9B72CF,#7C3AED);"
+            + "color:#fff;text-align:center;padding:16px;border-radius:14px;text-decoration:none;"
+            + "font-weight:800;font-size:1rem;margin-bottom:24px'>Restablecer mi contraseña →</a>"
+            + "<p style='color:#9CA3AF;font-size:.8rem;line-height:1.6;text-align:center'>"
+            + "Si no solicitaste este cambio, ignora este correo. Tu contraseña no cambiará.<br/>"
+            + "¿Problemas? Escríbenos a <strong>" + storeEmail + "</strong></p>"
+            + "</div>"
+            + "<div style='background:#F9F7FF;padding:14px;text-align:center'>"
+            + "<p style='color:#9CA3AF;font-size:.75rem;margin:0'>" + storeName + " · "
+            + "<a href='" + storeUrl + "' style='color:#9B72CF'>" + storeUrl + "</a></p>"
+            + "</div></div></body></html>";
+
+        sendEmail(toEmail, firstName, "🔐 Restablecer contraseña — " + storeName, html);
+        log.info("✉️ Email de reset enviado a {}", toEmail);
+    }
+
+    // ── Email de bienvenida al registrarse ───────────────────
+    public void sendWelcomeEmail(String toEmail, String toName) {        if (!isEmailConfigured()) {
             log.warn("SendGrid no configurado — email de bienvenida omitido para {}", toEmail);
             return;
         }

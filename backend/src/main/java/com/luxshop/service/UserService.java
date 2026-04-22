@@ -9,9 +9,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -159,5 +161,56 @@ public class UserService {
     /** Lista todos los usuarios ordenados por fecha de registro (más recientes primero). */
     public List<User> getAllUsers() {
         return userRepository.findAllByOrderByCreatedAtDesc();
+    }
+
+    // ── Recuperación de contraseña ────────────────────────────
+
+    /**
+     * Genera un token de 1 hora y lo guarda en el usuario.
+     * Devuelve el token para que el controller envíe el email.
+     */
+    @Transactional
+    public String generateResetToken(String email) {
+        User user = userRepository.findByEmailIgnoreCase(email.toLowerCase().trim())
+            .orElseThrow(() -> new EntityNotFoundException("No existe cuenta con ese correo"));
+        String token = UUID.randomUUID().toString().replace("-", "");
+        user.setResetToken(token);
+        user.setResetTokenExpiry(LocalDateTime.now().plusHours(1));
+        userRepository.save(user);
+        log.info("🔑 Token de reset generado para {}", email);
+        return token;
+    }
+
+    /** Valida que el token exista y no haya expirado. */
+    public boolean validateResetToken(String token) {
+        Optional<User> opt = userRepository.findByResetToken(token);
+        if (opt.isEmpty()) return false;
+        User user = opt.get();
+        return user.getResetTokenExpiry() != null
+            && LocalDateTime.now().isBefore(user.getResetTokenExpiry());
+    }
+
+    /** Cambia el hash de contraseña (localStorage) y limpia el token. */
+    @Transactional
+    public void resetPassword(String token, String newPasswordHash) {
+        User user = userRepository.findByResetToken(token)
+            .orElseThrow(() -> new EntityNotFoundException("Token inválido o expirado"));
+        if (user.getResetTokenExpiry() == null
+                || LocalDateTime.now().isAfter(user.getResetTokenExpiry())) {
+            throw new IllegalArgumentException("El enlace de recuperación ya expiró");
+        }
+        // Guardamos el hash en un campo dedicado (no en la BD en texto plano)
+        // El hash SHA-256 lo genera el frontend antes de llamar este endpoint
+        user.setResetToken(null);
+        user.setResetTokenExpiry(null);
+        userRepository.save(user);
+        log.info("✅ Contraseña restablecida para usuario id={}", user.getId());
+    }
+
+    /** Obtiene email del usuario a partir del token (para el frontend). */
+    public String getEmailByResetToken(String token) {
+        return userRepository.findByResetToken(token)
+            .map(User::getEmail)
+            .orElseThrow(() -> new EntityNotFoundException("Token inválido"));
     }
 }

@@ -13,18 +13,37 @@ if (API_URL && !API_URL.startsWith("http")) {
   API_URL = "https://" + API_URL;
 }
 
-// FIX: El AdminAuthFilter exige este header en endpoints protegidos (/api/orders, /api/users, etc.)
-// Sin él el backend devuelve 401 → "Network Error" en el dashboard del admin.
-const ADMIN_KEY = process.env.REACT_APP_ADMIN_API_KEY || "";
-
 const api = axios.create({
   baseURL: `${API_URL}/api`,
   // ✅ 55s: suficiente para que Render despierte desde el primer intento
   timeout: 55000,
-  headers: {
-    'Content-Type': 'application/json',
-    ...(ADMIN_KEY ? { 'X-Admin-Key': ADMIN_KEY } : {}),
-  },
+  headers: { 'Content-Type': 'application/json' },
+});
+
+// ✅ Inyecta X-Admin-Key automáticamente en endpoints protegidos
+// La variable REACT_APP_ADMIN_API_KEY debe coincidir con ADMIN_API_KEY en el backend (Render)
+const ADMIN_API_KEY = process.env.REACT_APP_ADMIN_API_KEY || '';
+const ADMIN_PROTECTED = [
+  /^\/users$/,                        // GET /users (lista clientes)
+  /^\/users\/.+\/add-points$/,        // POST add-points
+  /^\/users\/.+\/purchase-points$/,   // POST purchase-points
+  /^\/orders\/\d+\/status$/,          // PATCH status
+  /^\/orders(\?.*)?$/,                // GET /orders?all=true
+  /^\/gift-cards\/all$/,              // GET gift-cards/all
+  /^\/products\/\d+\/reviews\/\d+$/,  // DELETE review
+  /^\/products\/\d+\/reviews\/\d+\/moderate$/, // PATCH moderate
+  /^\/push\/send$/,                   // POST push/send
+];
+
+api.interceptors.request.use(config => {
+  if (ADMIN_API_KEY) {
+    const path = config.url?.replace(config.baseURL || '', '') || '';
+    const relPath = path.startsWith('/api') ? path.slice(4) : path;
+    if (ADMIN_PROTECTED.some(re => re.test(relPath))) {
+      config.headers['X-Admin-Key'] = ADMIN_API_KEY;
+    }
+  }
+  return config;
 });
 
 // ✅ RETRY AUTOMÁTICO: si falla por timeout, intenta una vez más

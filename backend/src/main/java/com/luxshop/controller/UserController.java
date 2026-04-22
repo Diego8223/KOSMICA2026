@@ -2,6 +2,7 @@ package com.luxshop.controller;
 
 import com.luxshop.exception.EntityNotFoundException;
 import com.luxshop.model.User;
+import com.luxshop.service.EmailService;
 import com.luxshop.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +17,7 @@ import java.util.Map;
 public class UserController {
 
     private final UserService userService;
+    private final EmailService emailService;
 
     /**
      * POST /api/users/register
@@ -97,8 +99,82 @@ public class UserController {
             int pts = ((Number) body.getOrDefault("points", 0)).intValue();
             return ResponseEntity.ok(userService.addPoints(email, pts));
         } catch (EntityNotFoundException e) {
-            // FIX: UserService lanza EntityNotFoundException, no IllegalArgumentException
             return ResponseEntity.notFound().build();
+        }
+    }
+
+    // ── Recuperación de contraseña ────────────────────────────
+
+    /**
+     * POST /api/users/forgot-password
+     * Genera token y envía email con enlace de reset.
+     * Body: { "email": "usuario@correo.com" }
+     */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String,String>> forgotPassword(@RequestBody Map<String, Object> body) {
+        String email = (String) body.getOrDefault("email", "");
+        if (email.isBlank()) {
+            return ResponseEntity.badRequest()
+                .body(Map.of("error", "El correo es requerido"));
+        }
+        try {
+            String token = userService.generateResetToken(email.trim().toLowerCase());
+            // Obtener nombre del usuario para personalizar el email
+            User user = userService.getByEmail(email.trim().toLowerCase());
+            emailService.sendPasswordReset(user.getEmail(), user.getName(), token);
+            return ResponseEntity.ok(Map.of("message", "Correo de recuperación enviado"));
+        } catch (EntityNotFoundException e) {
+            // Por seguridad respondemos OK aunque el email no exista (evitar enumerar usuarios)
+            return ResponseEntity.ok(Map.of("message", "Correo de recuperación enviado"));
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of("message", "Correo de recuperación enviado"));
+        }
+    }
+
+    /**
+     * GET /api/users/reset-password/validate?token=xxx
+     * Valida si el token es válido y no expiró. Devuelve el email asociado.
+     */
+    @GetMapping("/reset-password/validate")
+    public ResponseEntity<Map<String,Object>> validateResetToken(@RequestParam String token) {
+        boolean valid = userService.validateResetToken(token);
+        if (!valid) {
+            return ResponseEntity.badRequest()
+                .body(Map.of("valid", false, "error", "El enlace es inválido o ya expiró"));
+        }
+        try {
+            String email = userService.getEmailByResetToken(token);
+            return ResponseEntity.ok(Map.of("valid", true, "email", email));
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.badRequest()
+                .body(Map.of("valid", false, "error", "Token no encontrado"));
+        }
+    }
+
+    /**
+     * POST /api/users/reset-password
+     * Invalida el token y confirma el reset (el hash lo guarda el frontend en localStorage).
+     * Body: { "token": "xxx", "passwordHash": "sha256hash" }
+     */
+    @PostMapping("/reset-password")
+    public ResponseEntity<Map<String,String>> resetPassword(@RequestBody Map<String, Object> body) {
+        String token = (String) body.getOrDefault("token", "");
+        String hash  = (String) body.getOrDefault("passwordHash", "");
+        if (token.isBlank() || hash.isBlank()) {
+            return ResponseEntity.badRequest()
+                .body(Map.of("error", "Token y hash son requeridos"));
+        }
+        try {
+            // Obtener email antes de invalidar el token
+            String email = userService.getEmailByResetToken(token);
+            userService.resetPassword(token, hash);
+            return ResponseEntity.ok(Map.of(
+                "message", "Contraseña actualizada correctamente",
+                "email", email
+            ));
+        } catch (EntityNotFoundException | IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                .body(Map.of("error", e.getMessage()));
         }
     }
 }
