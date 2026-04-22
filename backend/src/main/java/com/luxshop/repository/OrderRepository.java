@@ -27,6 +27,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items i LEFT JOIN FETCH i.product ORDER BY o.createdAt DESC")
     List<Order> findAllWithItemsOrderByCreatedAtDesc();
 
+    // Para social proof (recent-activity) — con JOIN FETCH para evitar LazyInitializationException
+    @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items i LEFT JOIN FETCH i.product ORDER BY o.createdAt DESC")
+    List<Order> findRecentWithItems(Pageable pageable);
+
     // Mantener para compatibilidad
     List<Order> findAllByOrderByCreatedAtDesc();
 }

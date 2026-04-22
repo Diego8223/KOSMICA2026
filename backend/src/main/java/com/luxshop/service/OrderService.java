@@ -233,6 +233,14 @@ public class OrderService {
         return orderRepo.findAllWithItemsOrderByCreatedAtDesc();
     }
 
+    // Para social proof — trae los últimos N pedidos con items ya cargados (evita LazyInit)
+    @Transactional(readOnly = true)
+    public List<Order> getRecentOrdersWithItems(int limit) {
+        return orderRepo.findRecentWithItems(
+            PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "createdAt"))
+        );
+    }
+
     // ✅ FIX: paginacion nativa en DB — no carga todos los pedidos en memoria
     public Page<Order> getAllOrders(int page, int size) {
         return orderRepo.findAllByOrderByCreatedAtDesc(

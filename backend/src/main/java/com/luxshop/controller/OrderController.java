@@ -197,8 +197,8 @@ public class OrderController {
     @GetMapping("/recent-activity")
     public ResponseEntity<List<Map<String, Object>>> getRecentActivity() {
         try {
-            Page<Order> page = orderService.getAllOrders(0, 50);
-            List<Order> orders = page.getContent();
+            // ✅ FIX: usar query con JOIN FETCH para evitar LazyInitializationException
+            List<Order> orders = orderService.getRecentOrdersWithItems(50);
             LocalDateTime now = LocalDateTime.now();
 
             List<Map<String, Object>> activity = orders.stream()
@@ -223,7 +223,6 @@ public class OrderController {
                         OrderItem first = order.getItems().get(0);
                         if (first.getProduct() != null) {
                             productName = first.getProduct().getName();
-                            // ✅ FIX: getCategory() ya devuelve String, no enum — eliminar .name()
                             category = first.getProduct().getCategory() != null
                                 ? first.getProduct().getCategory() : "";
                         }
