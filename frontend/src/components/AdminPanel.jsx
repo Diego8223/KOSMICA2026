@@ -1109,20 +1109,32 @@ export default function AdminPanel({ onExit }) {
     // FIX SEGURIDAD: validamos la clave directamente contra el backend
     // enviando un request protegido. Si el backend responde OK → acceso concedido.
     // Así la contraseña nunca está expuesta en el bundle JS.
+    // FIX TIMEOUT: AbortController de 60s para no colgar si Render está despertando.
     const API_URL = process.env.REACT_APP_API_URL || 'https://kosmica-backend.onrender.com';
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 60000);
     try {
       const res = await fetch(`${API_URL}/api/orders?all=true`, {
-        headers: { 'Content-Type': 'application/json', 'X-Admin-Key': pass }
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Key': pass },
+        signal: controller.signal,
       });
+      clearTimeout(timer);
       if (res.ok || res.status === 200) {
         _adminApiKey = pass;
         setAuthed(true);
         setLoginErr('');
-      } else {
+      } else if (res.status === 401 || res.status === 403) {
         setLoginErr('Clave incorrecta');
+      } else {
+        setLoginErr(`Error del servidor (${res.status}). Intenta de nuevo.`);
       }
-    } catch {
-      setLoginErr('Error de conexión. Verifica tu internet.');
+    } catch (err) {
+      clearTimeout(timer);
+      if (err.name === 'AbortError') {
+        setLoginErr('El servidor tardó demasiado. Render puede estar despertando, intenta en 30s.');
+      } else {
+        setLoginErr('Error de conexión. Verifica que el backend esté activo.');
+      }
     }
   };
 
