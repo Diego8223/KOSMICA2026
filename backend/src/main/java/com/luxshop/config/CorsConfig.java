@@ -25,14 +25,23 @@ public class CorsConfig {
         CorsConfiguration config = new CorsConfiguration();
         List<String> origins = new ArrayList<>();
 
-        // 1. Añadimos el origen principal (Producción)
-        origins.add(storeUrl);
-        
-        // 2. Añadimos variantes comunes para evitar bloqueos por el "www" o falta de él
-        if (storeUrl.contains("www.")) {
-            origins.add(storeUrl.replace("www.", ""));
-        } else if (storeUrl.startsWith("https://")) {
-            origins.add(storeUrl.replace("https://", "https://www."));
+        // 1. Orígenes de producción fijos (siempre permitidos)
+        origins.add("https://www.kosmica.com.co");
+        origins.add("https://kosmica.com.co");
+
+        // 2. Origen configurado por variable de entorno STORE_URL
+        if (storeUrl != null && !storeUrl.isBlank()) {
+            if (!origins.contains(storeUrl)) {
+                origins.add(storeUrl);
+            }
+            // Añadimos variante con/sin www
+            if (storeUrl.contains("www.")) {
+                String sinWww = storeUrl.replace("www.", "");
+                if (!origins.contains(sinWww)) origins.add(sinWww);
+            } else if (storeUrl.startsWith("https://")) {
+                String conWww = storeUrl.replace("https://", "https://www.");
+                if (!origins.contains(conWww)) origins.add(conWww);
+            }
         }
 
         // 3. Orígenes de desarrollo local
@@ -40,32 +49,34 @@ public class CorsConfig {
         origins.add("http://localhost:5173");
         origins.add("http://localhost:8080");
 
-        // 4. Procesamos orígenes adicionales desde variables de entorno
+        // 4. Orígenes adicionales desde variable de entorno CORS_EXTRA_ORIGINS
         if (extraOrigins != null && !extraOrigins.isBlank()) {
             Arrays.stream(extraOrigins.split(","))
                   .map(String::trim)
                   .filter(s -> !s.isBlank())
-                  .forEach(origins::add);
+                  .forEach(o -> { if (!origins.contains(o)) origins.add(o); });
         }
 
         config.setAllowedOrigins(origins);
-        
+
         // Métodos permitidos
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        
-        // Cabeceras permitidas (importante para peticiones fetch/axios)
-        // FIX: X-Admin-Key necesario para que AdminPanel pueda llegar a los endpoints protegidos
-        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin", "X-Admin-Key"));
-        
+
+        // Cabeceras permitidas
+        config.setAllowedHeaders(Arrays.asList(
+            "Authorization", "Content-Type", "X-Requested-With",
+            "Accept", "Origin", "X-Admin-Key"
+        ));
+
         // Permitir envío de cookies/auth headers
         config.setAllowCredentials(true);
-        
-        // Tiempo de cache de la respuesta preflight (1 hora)
+
+        // Cache preflight 1 hora
         config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
-        
+
         return new CorsFilter(source);
     }
 }
