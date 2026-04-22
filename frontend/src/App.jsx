@@ -3014,10 +3014,10 @@ export default function App() {
             <div>
               <div className="footer-heading">Ayuda</div>
               <div className="footer-links">
-                <a href="https://wa.me/"+ ADMIN_WA +"?text=Hola%20Kosmica%2C%20tengo%20una%20pregunta" target="_blank" rel="noreferrer">Contacto</a>
-                <a href="https://wa.me/"+ ADMIN_WA +"?text=Hola%2C%20quiero%20saber%20sobre%20los%20env%C3%ADos" target="_blank" rel="noreferrer">Envíos</a>
-                <a href="https://wa.me/"+ ADMIN_WA +"?text=Hola%2C%20quiero%20hacer%20una%20devoluci%C3%B3n" target="_blank" rel="noreferrer">Garantías</a>
-                <a href="https://wa.me/"+ ADMIN_WA +"?text=Hola%2C%20tengo%20una%20pregunta%20frecuente" target="_blank" rel="noreferrer">FAQ</a>
+                <a href={`https://wa.me/${ADMIN_WA}?text=Hola%20Kosmica%2C%20tengo%20una%20pregunta`} target="_blank" rel="noreferrer">Contacto</a>
+                <a href={`https://wa.me/${ADMIN_WA}?text=Hola%2C%20quiero%20saber%20sobre%20los%20env%C3%ADos`} target="_blank" rel="noreferrer">Envíos</a>
+                <a href={`https://wa.me/${ADMIN_WA}?text=Hola%2C%20quiero%20hacer%20una%20devoluci%C3%B3n`} target="_blank" rel="noreferrer">Garantías</a>
+                <a href={`https://wa.me/${ADMIN_WA}?text=Hola%2C%20tengo%20una%20pregunta%20frecuente`} target="_blank" rel="noreferrer">FAQ</a>
               </div>
             </div>
             <div>
@@ -3562,7 +3562,7 @@ export default function App() {
       </Suspense>
 
       {/* ── WHATSAPP ── */}
-      <a className="wa-float" href="https://wa.me/"+ ADMIN_WA +"?text=Hola%20Kosmica%2C%20quiero%20información"
+      <a className="wa-float" href={`https://wa.me/${ADMIN_WA}?text=Hola%20Kosmica%2C%20quiero%20información`}
         target="_blank" rel="noreferrer" aria-label="WhatsApp">
         <span className="wa-float-icon">💬</span>
         <span className="wa-float-text">
