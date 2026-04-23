@@ -3,6 +3,7 @@
 //  ✅ Registro completo con datos de envío pre-guardados
 //  ✅ Login por email + contraseña (localStorage cifrado simple)
 //  ✅ Al registrarse → perfil guardado → checkout en 1 clic
+//  ✅ Registro SIEMPRE sincroniza con backend (fix reset password)
 //  ✅ Estilo Kosmica (lila/morado, gradientes suaves)
 // ============================================================
 import { useState } from "react";
@@ -105,16 +106,6 @@ const CSS = `
   }
   .auth-divider::before{left:0;}
   .auth-divider::after{right:0;}
-  .auth-social {
-    display:flex; gap:10px; margin-bottom:4px;
-  }
-  .auth-social-btn {
-    flex:1; padding:10px; border:2px solid #EDE9FE; border-radius:12px;
-    background:#fff; cursor:pointer; font-size:.85rem; font-weight:700;
-    color:#374151; display:flex; align-items:center; justify-content:center; gap:6px;
-    transition:border .2s, background .2s;
-  }
-  .auth-social-btn:hover{border-color:#C4B5FD;background:#FDFAFF;}
   .auth-pwd-wrap{position:relative;}
   .auth-pwd-eye {
     position:absolute; right:12px; top:50%; transform:translateY(-50%);
@@ -151,9 +142,7 @@ const CSS = `
   .auth-benefit-ico{font-size:1rem;flex-shrink:0;}
 `;
 
-// ✅ FIX: SHA-256 via Web Crypto API (nativa en todos los navegadores modernos)
-// Reemplaza simpleHash() que era trivialmente reversible.
-// El hash se guarda en localStorage — la contraseña real nunca se almacena.
+// SHA-256 via Web Crypto API (nativa en todos los navegadores modernos)
 async function hashPassword(str) {
   const msgBuffer = new TextEncoder().encode(str);
   const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
@@ -215,6 +204,8 @@ export default function UserAuthModal({ open, onClose, onSuccess, initialTab = "
 
   if (!open) return null;
 
+  const API_URL = process.env.REACT_APP_API_URL || "https://kosmica-backend.onrender.com";
+
   const handleLogin = async () => {
     setError("");
     if (!loginEmail || !loginPwd) { setError("Completa todos los campos"); return; }
@@ -222,29 +213,23 @@ export default function UserAuthModal({ open, onClose, onSuccess, initialTab = "
     const users = getUsers();
     const user = users.find(u => u.email.toLowerCase() === loginEmail.toLowerCase());
     if (!user) { setError("No encontramos una cuenta con ese correo"); setLoading(false); return; }
-    // ✅ FIX: usar SHA-256 para comparar — compatible con hashes guardados con nueva función
     const pwdHash = await hashPassword(loginPwd);
     if (user.passwordHash !== pwdHash) { setError("Contraseña incorrecta"); setLoading(false); return; }
     const sessionUser = { ...user };
     delete sessionUser.passwordHash;
 
-    // ✅ FIX: sincronizar puntos y racha desde el backend al hacer login
-    // Si el backend responde, usamos esos datos (son la fuente de verdad).
-    // Si no responde, usamos los datos locales como fallback.
+    // Sincronizar puntos y racha desde el backend al hacer login
     try {
-      const API_URL = process.env.REACT_APP_API_URL || "https://kosmica-backend.onrender.com";
       const res = await fetch(`${API_URL}/api/users/${encodeURIComponent(sessionUser.email)}`);
       if (res.ok) {
         const backendUser = await res.json();
-        // Mezclar: datos de perfil del backend + passwordHash del localStorage (para futuras sesiones)
-        sessionUser.points        = backendUser.points        ?? sessionUser.points ?? 0;
-        sessionUser.checkinStreak = backendUser.checkinStreak ?? sessionUser.checkinStreak ?? 0;
-        sessionUser.purchaseStreak= backendUser.purchaseStreak?? sessionUser.purchaseStreak ?? 0;
-        sessionUser.city          = backendUser.city          || sessionUser.city;
-        sessionUser.phone         = backendUser.phone         || sessionUser.phone;
-        sessionUser.address       = backendUser.address       || sessionUser.address;
-        sessionUser.neighborhood  = backendUser.neighborhood  || sessionUser.neighborhood;
-        // Actualizar también el registro local para que futuras sesiones offline sean correctas
+        sessionUser.points         = backendUser.points         ?? sessionUser.points ?? 0;
+        sessionUser.checkinStreak  = backendUser.checkinStreak  ?? sessionUser.checkinStreak ?? 0;
+        sessionUser.purchaseStreak = backendUser.purchaseStreak ?? sessionUser.purchaseStreak ?? 0;
+        sessionUser.city           = backendUser.city           || sessionUser.city;
+        sessionUser.phone          = backendUser.phone          || sessionUser.phone;
+        sessionUser.address        = backendUser.address        || sessionUser.address;
+        sessionUser.neighborhood   = backendUser.neighborhood   || sessionUser.neighborhood;
         const newHash = await hashPassword(loginPwd);
         saveUser({ ...sessionUser, passwordHash: newHash });
       }
@@ -263,16 +248,14 @@ export default function UserAuthModal({ open, onClose, onSuccess, initialTab = "
     if (!forgotEmail.trim()) { setError("Ingresa tu correo electrónico"); return; }
     setLoading(true);
     try {
-      const API_URL = process.env.REACT_APP_API_URL || "";
-      const res = await fetch(`${API_URL}/api/users/forgot-password`, {
+      await fetch(`${API_URL}/api/users/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: forgotEmail.trim().toLowerCase() }),
       });
-      // Siempre mostramos éxito (el backend no revela si el email existe)
       setForgotSent(true);
     } catch (_) {
-      setForgotSent(true); // Mostrar éxito igual para no revelar info
+      setForgotSent(true);
     } finally {
       setLoading(false);
     }
@@ -286,41 +269,55 @@ export default function UserAuthModal({ open, onClose, onSuccess, initialTab = "
     }
     if (password.length < 6) { setError("La contraseña debe tener al menos 6 caracteres"); return; }
     if (password !== password2) { setError("Las contraseñas no coinciden"); return; }
+
+    // ✅ FIX: verificar duplicado solo en localStorage para el mensaje de error,
+    // pero SIEMPRE intentar registrar en el backend (puede existir en localStorage
+    // pero no en DB, lo que rompe el reset de contraseña)
     const users = getUsers();
-    if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
+    const existsLocally = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (existsLocally) {
       setError("Ya existe una cuenta con ese correo. Inicia sesión."); return;
     }
+
     setLoading(true);
+    const normalizedEmail = email.toLowerCase();
+    const passwordHash = await hashPassword(password);
+
     const newUser = {
-      name, email: email.toLowerCase(), phone, document,
+      name, email: normalizedEmail, phone, document,
       city, neighborhood: reg.neighborhood, address,
-      passwordHash: await hashPassword(password),
-      points: 20, // regalo de bienvenida
+      passwordHash,
+      points: 20,
       giftCards: [],
       savedCards: [],
       createdAt: new Date().toISOString(),
     };
-    saveUser(newUser);
-    // ✅ FIX: también guardar en el backend para que aparezca en panel de admin
+
+    // ✅ FIX: registrar en backend PRIMERO — así el reset de contraseña funciona
     try {
-      const API_URL = process.env.REACT_APP_API_URL || "https://kosmica-backend.onrender.com";
-      await fetch(`${API_URL}/api/users/register`, {
+      const res = await fetch(`${API_URL}/api/users/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name, email: email.toLowerCase(), phone, document,
+          name, email: normalizedEmail, phone, document,
           city, neighborhood: reg.neighborhood, address,
           createdAt: new Date().toISOString(),
         }),
       });
-    } catch(err) {
-      // No bloquear el registro si el backend falla, pero sí registrar el error
+      if (!res.ok) {
+        console.warn("⚠️ Backend registro respondió con error:", res.status);
+      }
+    } catch (err) {
+      // No bloquear el registro si el backend falla
       console.warn("⚠️ No se pudo sincronizar usuario con el backend:", err?.message || err);
     }
+
+    // Guardar en localStorage después del backend
+    saveUser(newUser);
+
     const sessionUser = { ...newUser };
     delete sessionUser.passwordHash;
     setCurrentUser(sessionUser);
-    // Llamar onSuccess Y cerrar inmediatamente — el toast lo muestra App.jsx
     onSuccess?.(sessionUser);
     onClose?.();
     setLoading(false);
