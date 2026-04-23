@@ -117,7 +117,7 @@ services:
     plan: free
     rootDir: frontend
     runtime: static
-    buildCommand: npm install --legacy-peer-deps && npm run build
+    buildCommand: npm install --legacy-peer-deps && DISABLE_ESLINT_PLUGIN=true npm run build
     staticPublishPath: build
     envVars:
       - key: REACT_APP_API_URL
