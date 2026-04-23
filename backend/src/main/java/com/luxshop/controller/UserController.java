@@ -5,14 +5,12 @@ import com.luxshop.model.User;
 import com.luxshop.service.EmailService;
 import com.luxshop.service.UserService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
 
-@Slf4j
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
@@ -21,29 +19,20 @@ public class UserController {
     private final UserService userService;
     private final EmailService emailService;
 
-    /**
-     * POST /api/users/register
-     * Registra una cuenta nueva o actualiza datos si el email ya existe.
-     */
+    /** POST /api/users/register */
     @PostMapping("/register")
     public ResponseEntity<User> register(@RequestBody Map<String, Object> payload) {
         User user = userService.registerOrUpdate(payload);
         return ResponseEntity.ok(user);
     }
 
-    /**
-     * GET /api/users
-     * Panel admin: lista todos los clientes registrados.
-     */
+    /** GET /api/users — panel admin */
     @GetMapping
     public ResponseEntity<List<User>> getAll() {
         return ResponseEntity.ok(userService.getAllUsers());
     }
 
-    /**
-     * GET /api/users/{email}
-     * Obtiene un usuario por email.
-     */
+    /** GET /api/users/{email} — sincronizar puntos al login */
     @GetMapping("/{email}")
     public ResponseEntity<User> getByEmail(@PathVariable String email) {
         try {
@@ -53,9 +42,7 @@ public class UserController {
         }
     }
 
-    /**
-     * POST /api/users/{email}/checkin
-     */
+    /** POST /api/users/{email}/checkin */
     @PostMapping("/{email}/checkin")
     public ResponseEntity<User> checkin(@PathVariable String email) {
         try {
@@ -67,6 +54,8 @@ public class UserController {
 
     /**
      * POST /api/users/{email}/purchase-points
+     * Body: { "total": 120000 }
+     * Acredita puntos por compra respetando el límite diario acumulado.
      */
     @PostMapping("/{email}/purchase-points")
     public ResponseEntity<User> purchasePoints(
@@ -82,6 +71,8 @@ public class UserController {
 
     /**
      * POST /api/users/{email}/add-points
+     * Suma puntos manualmente (admin / eventos especiales).
+     * Body: { "points": 50 }
      */
     @PostMapping("/{email}/add-points")
     public ResponseEntity<User> addPoints(
@@ -95,13 +86,29 @@ public class UserController {
         }
     }
 
+    /**
+     * POST /api/users/{email}/redeem-points
+     * Descuenta puntos canjeados. Mínimo 500 pts.
+     * Body: { "points": 500 }
+     * Responde con el usuario actualizado o error si puntos insuficientes.
+     */
+    @PostMapping("/{email}/redeem-points")
+    public ResponseEntity<?> redeemPoints(
+            @PathVariable String email,
+            @RequestBody Map<String, Object> body) {
+        try {
+            int pts = ((Number) body.getOrDefault("points", 0)).intValue();
+            User updated = userService.redeemPoints(email, pts);
+            return ResponseEntity.ok(updated);
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     // ── Recuperación de contraseña ────────────────────────────
 
-    /**
-     * POST /api/users/forgot-password
-     * Genera token y envía email con enlace de reset.
-     * Body: { "email": "usuario@correo.com" }
-     */
     @PostMapping("/forgot-password")
     public ResponseEntity<Map<String,String>> forgotPassword(@RequestBody Map<String, Object> body) {
         String email = (String) body.getOrDefault("email", "");
@@ -109,32 +116,18 @@ public class UserController {
             return ResponseEntity.badRequest()
                 .body(Map.of("error", "El correo es requerido"));
         }
-
-        String normalizedEmail = email.trim().toLowerCase();
-        log.info("🔐 Solicitud de reset para: {}", normalizedEmail);
-
         try {
-            String token = userService.generateResetToken(normalizedEmail);
-            User user = userService.getByEmail(normalizedEmail);
+            String token = userService.generateResetToken(email.trim().toLowerCase());
+            User user = userService.getByEmail(email.trim().toLowerCase());
             emailService.sendPasswordReset(user.getEmail(), user.getName(), token);
-            log.info("✅ Reset de contraseña procesado para: {}", normalizedEmail);
             return ResponseEntity.ok(Map.of("message", "Correo de recuperación enviado"));
-
         } catch (EntityNotFoundException e) {
-            // Por seguridad respondemos OK aunque el email no exista
-            log.warn("⚠️ Reset solicitado para email no registrado en DB: {}", normalizedEmail);
             return ResponseEntity.ok(Map.of("message", "Correo de recuperación enviado"));
-
         } catch (Exception e) {
-            // Error real — logueamos para diagnóstico
-            log.error("❌ Error enviando reset a {}: {} — {}", normalizedEmail, e.getClass().getSimpleName(), e.getMessage());
             return ResponseEntity.ok(Map.of("message", "Correo de recuperación enviado"));
         }
     }
 
-    /**
-     * GET /api/users/reset-password/validate?token=xxx
-     */
     @GetMapping("/reset-password/validate")
     public ResponseEntity<Map<String,Object>> validateResetToken(@RequestParam String token) {
         boolean valid = userService.validateResetToken(token);
@@ -151,10 +144,6 @@ public class UserController {
         }
     }
 
-    /**
-     * POST /api/users/reset-password
-     * Body: { "token": "xxx", "passwordHash": "sha256hash" }
-     */
     @PostMapping("/reset-password")
     public ResponseEntity<Map<String,String>> resetPassword(@RequestBody Map<String, Object> body) {
         String token = (String) body.getOrDefault("token", "");
@@ -166,7 +155,6 @@ public class UserController {
         try {
             String email = userService.getEmailByResetToken(token);
             userService.resetPassword(token, hash);
-            log.info("✅ Contraseña reseteada para: {}", email);
             return ResponseEntity.ok(Map.of(
                 "message", "Contraseña actualizada correctamente",
                 "email", email

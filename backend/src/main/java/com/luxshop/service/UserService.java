@@ -25,7 +25,8 @@ public class UserService {
 
     private static final int WELCOME_POINTS     = 20;
     private static final int DAILY_CHECKIN_PTS  = 5;
-    private static final int DAILY_POINTS_LIMIT = 500;
+    private static final int DAILY_POINTS_LIMIT = 500;   // límite de puntos por compras POR DÍA
+    private static final int REDEEM_MIN_POINTS  = 500;   // mínimo para canjear
 
     /**
      * Registra un usuario nuevo o actualiza sus datos si el email ya existe.
@@ -36,10 +37,6 @@ public class UserService {
         String email = ((String) payload.getOrDefault("email", "")).toLowerCase().trim();
         if (email.isEmpty()) throw new IllegalArgumentException("Email requerido");
 
-        // FIX: antes se llamaba findByEmailIgnoreCase DOS veces seguidas:
-        //   1. boolean isNew = !userRepository.findByEmailIgnoreCase(email).isPresent();
-        //   2. User user = userRepository.findByEmailIgnoreCase(email).orElse(new User());
-        // Ahora se hace UNA sola consulta a la BD y se usa Optional directamente.
         Optional<User> existing = userRepository.findByEmailIgnoreCase(email);
         boolean isNew = existing.isEmpty();
         User user = existing.orElse(new User());
@@ -74,8 +71,9 @@ public class UserService {
 
     /**
      * Check-in diario: suma puntos y actualiza racha.
-     * Racha >= 3 dias: +5 bonus; >= 7 dias: +10 bonus.
+     * Racha >= 3 días: +5 bonus; >= 7 días: +10 bonus.
      * Si ya hizo check-in hoy: devuelve usuario sin cambios.
+     * NOTA: el check-in NO cuenta para el límite diario de compras.
      */
     @Transactional
     public User doCheckin(String email) {
@@ -104,13 +102,16 @@ public class UserService {
         user.setLastCheckinDate(today);
 
         User saved = userRepository.save(user);
-        log.info("Check-in {} -> racha={} dias, +{} pts (total={})",
+        log.info("Check-in {} -> racha={} días, +{} pts (total={})",
             email, newStreak, bonus, saved.getPoints());
         return saved;
     }
 
     /**
-     * Suma puntos por compra. 1 pto = $36 COP. Actualiza racha de compras.
+     * Suma puntos por compra. 1 pto = $1.000 COP.
+     * Límite acumulado: máximo DAILY_POINTS_LIMIT puntos por compras en un mismo día.
+     * Si ya llegó al límite hoy, se acreditan 0 puntos (pero la compra sigue adelante).
+     * Actualiza racha de compras.
      */
     @Transactional
     public User awardPurchasePoints(String email, int total) {
@@ -120,10 +121,24 @@ public class UserService {
         LocalDate today        = LocalDate.now();
         LocalDate yesterday    = today.minusDays(1);
 
-        int earned     = Math.max(0, Math.min(total / 36, DAILY_POINTS_LIMIT));
-        int currentPts = user.getPoints() == null ? 0 : user.getPoints();
-        user.setPoints(currentPts + earned);
+        // Resetear contador diario si cambió el día
+        int dailyEarnedSoFar = 0;
+        if (today.equals(user.getLastPointsDate())) {
+            dailyEarnedSoFar = user.getDailyPointsEarned() == null ? 0 : user.getDailyPointsEarned();
+        }
+        // Cuánto puede ganar aún hoy
+        int remaining  = Math.max(0, DAILY_POINTS_LIMIT - dailyEarnedSoFar);
+        int rawEarned  = Math.max(0, total / 1000);   // 1 pt = $1.000 COP
+        int earned     = Math.min(rawEarned, remaining);
 
+        if (earned > 0) {
+            int currentPts = user.getPoints() == null ? 0 : user.getPoints();
+            user.setPoints(currentPts + earned);
+            user.setDailyPointsEarned(dailyEarnedSoFar + earned);
+            user.setLastPointsDate(today);
+        }
+
+        // Racha de compras
         int newStreak;
         LocalDate lastPurchase = user.getLastPurchaseDate();
         if (today.equals(lastPurchase)) {
@@ -137,12 +152,40 @@ public class UserService {
         user.setLastPurchaseDate(today);
 
         User saved = userRepository.save(user);
-        log.info("Puntos compra {} -> +{} pts (total={}, racha_compras={})",
-            email, earned, saved.getPoints(), newStreak);
+        log.info("Puntos compra {} -> brutos={} acreditados={} (límite diario={}/{}, total={}, racha={})",
+            email, rawEarned, earned, dailyEarnedSoFar + earned, DAILY_POINTS_LIMIT,
+            saved.getPoints(), newStreak);
         return saved;
     }
 
-    /** Suma puntos manualmente (admin o eventos especiales). */
+    /**
+     * Canjea puntos: descuenta los puntos del usuario si tiene saldo suficiente.
+     * Mínimo REDEEM_MIN_POINTS para canjear. Devuelve el usuario actualizado.
+     * Lanza IllegalArgumentException si no tiene suficientes puntos.
+     */
+    @Transactional
+    public User redeemPoints(String email, int pointsToRedeem) {
+        User user = userRepository.findByEmailIgnoreCase(email)
+            .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado: " + email));
+
+        int current = user.getPoints() == null ? 0 : user.getPoints();
+
+        if (pointsToRedeem < REDEEM_MIN_POINTS) {
+            throw new IllegalArgumentException(
+                "El mínimo para canjear es " + REDEEM_MIN_POINTS + " puntos");
+        }
+        if (current < pointsToRedeem) {
+            throw new IllegalArgumentException(
+                "Puntos insuficientes. Tienes " + current + " y quieres canjear " + pointsToRedeem);
+        }
+
+        user.setPoints(current - pointsToRedeem);
+        User saved = userRepository.save(user);
+        log.info("Canje {} -> -{} pts (restante={})", email, pointsToRedeem, saved.getPoints());
+        return saved;
+    }
+
+    /** Suma puntos manualmente (admin o eventos especiales). No cuenta para límite diario. */
     @Transactional
     public User addPoints(String email, int pts) {
         User user = userRepository.findByEmailIgnoreCase(email)
@@ -165,10 +208,6 @@ public class UserService {
 
     // ── Recuperación de contraseña ────────────────────────────
 
-    /**
-     * Genera un token de 1 hora y lo guarda en el usuario.
-     * Devuelve el token para que el controller envíe el email.
-     */
     @Transactional
     public String generateResetToken(String email) {
         User user = userRepository.findByEmailIgnoreCase(email.toLowerCase().trim())
@@ -181,7 +220,6 @@ public class UserService {
         return token;
     }
 
-    /** Valida que el token exista y no haya expirado. */
     public boolean validateResetToken(String token) {
         Optional<User> opt = userRepository.findByResetToken(token);
         if (opt.isEmpty()) return false;
@@ -190,7 +228,6 @@ public class UserService {
             && LocalDateTime.now().isBefore(user.getResetTokenExpiry());
     }
 
-    /** Cambia el hash de contraseña (localStorage) y limpia el token. */
     @Transactional
     public void resetPassword(String token, String newPasswordHash) {
         User user = userRepository.findByResetToken(token)
@@ -199,15 +236,12 @@ public class UserService {
                 || LocalDateTime.now().isAfter(user.getResetTokenExpiry())) {
             throw new IllegalArgumentException("El enlace de recuperación ya expiró");
         }
-        // Guardamos el hash en un campo dedicado (no en la BD en texto plano)
-        // El hash SHA-256 lo genera el frontend antes de llamar este endpoint
         user.setResetToken(null);
         user.setResetTokenExpiry(null);
         userRepository.save(user);
         log.info("✅ Contraseña restablecida para usuario id={}", user.getId());
     }
 
-    /** Obtiene email del usuario a partir del token (para el frontend). */
     public String getEmailByResetToken(String token) {
         return userRepository.findByResetToken(token)
             .map(User::getEmail)

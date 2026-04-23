@@ -228,6 +228,9 @@ export default function UserAccountPage({ onClose, onOpenGiftCard, onLogout }) {
   const [backendGCs, setBackendGCs] = useState([]);
   const [loadingGCs, setLoadingGCs] = useState(false);
   const [toast, setToast]     = useState("");
+  const [redeemLoading, setRedeemLoading] = useState(false);
+
+  const API_URL = process.env.REACT_APP_API_URL || "https://kosmica-backend.onrender.com";
 
   useEffect(() => {
     if (user) setForm({
@@ -517,15 +520,52 @@ export default function UserAccountPage({ onClose, onOpenGiftCard, onLogout }) {
                 ))}
               </div>
 
-              <button className="pts-redeem" onClick={()=>{
-                if ((user.points||0) >= 500) {
-                  const msg = `Hola Kosmica! 💜 Tengo ${user.points} puntos acumulados y me gustaría canjearlos por un descuento.`;
-                  window.open(`https://wa.me/573043927148?text=${encodeURIComponent(msg)}`,"_blank");
-                } else {
-                  showToast("Necesitas mínimo 500 puntos para canjear 💎");
-                }
-              }}>
-                {(user.points||0) >= 500 ? `🎁 Canjear mis ${user.points} puntos` : `✦ Acumula ${500-(user.points||0)} pts más para canjear`}
+              <button
+                className="pts-redeem"
+                disabled={redeemLoading || (user.points||0) < 500}
+                style={{ opacity: (user.points||0) < 500 ? 0.6 : 1, cursor: (user.points||0) < 500 ? "not-allowed" : "pointer" }}
+                onClick={async () => {
+                  if ((user.points||0) < 500) {
+                    showToast("Necesitas mínimo 500 puntos para canjear 💎");
+                    return;
+                  }
+                  setRedeemLoading(true);
+                  try {
+                    const res = await fetch(
+                      `${API_URL}/api/users/${encodeURIComponent(user.email)}/redeem-points`,
+                      {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ points: user.points }),
+                      }
+                    );
+                    if (res.ok) {
+                      const updated = await res.json();
+                      // Actualizar puntos en sesión y localStorage
+                      const newUser = { ...user, points: updated.points ?? 0 };
+                      setUser(newUser);
+                      setCurrentUser(newUser);
+                      saveUser({ ...newUser, passwordHash: undefined });
+                      // Abrir WhatsApp con confirmación
+                      const msg = `Hola Kosmica! 💜 Acabo de canjear mis puntos y me gustaría recibir mi descuento. (Canje registrado ✅)`;
+                      window.open(`https://wa.me/573043927148?text=${encodeURIComponent(msg)}`, "_blank");
+                      showToast("✅ Puntos canjeados exitosamente");
+                    } else {
+                      const err = await res.json().catch(() => ({}));
+                      showToast("⚠️ " + (err.error || "Error al canjear puntos"));
+                    }
+                  } catch (_) {
+                    showToast("⚠️ Sin conexión. Intenta de nuevo.");
+                  } finally {
+                    setRedeemLoading(false);
+                  }
+                }}
+              >
+                {redeemLoading
+                  ? "Canjeando..."
+                  : (user.points||0) >= 500
+                    ? `🎁 Canjear mis ${user.points} puntos`
+                    : `✦ Acumula ${500-(user.points||0)} pts más para canjear`}
               </button>
             </>
           )}

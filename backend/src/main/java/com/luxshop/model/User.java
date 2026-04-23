@@ -55,6 +55,15 @@ public class User {
     @Column(name = "last_purchase_date")
     private LocalDate lastPurchaseDate;
 
+    // ── Límite diario de puntos por compras ───────────────
+    // Acumula los puntos ganados HOY por compras; se resetea al cambiar el día.
+    @Column(name = "daily_points_earned", columnDefinition = "INT NOT NULL DEFAULT 0")
+    @Builder.Default
+    private Integer dailyPointsEarned = 0;
+
+    @Column(name = "last_points_date")
+    private LocalDate lastPointsDate;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
@@ -71,5 +80,6 @@ public class User {
         if (points == null) points = 0;
         if (checkinStreak == null) checkinStreak = 0;
         if (purchaseStreak == null) purchaseStreak = 0;
+        if (dailyPointsEarned == null) dailyPointsEarned = 0;
     }
 }
