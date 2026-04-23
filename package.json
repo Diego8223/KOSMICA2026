@@ -10,7 +10,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build && node -e \"const fs=require('fs'); const ts=Date.now(); const sw=fs.readFileSync('build/sw.js','utf8').replace('__BUILD_TIMESTAMP__',ts); fs.writeFileSync('build/sw.js',sw); console.log('SW cache version: kosmica-'+ts);\"",
+    "build": "react-scripts build",
     "test": "react-scripts test"
   },
   "browserslist": {
@@ -24,5 +24,11 @@
       "last 1 firefox version"
     ]
   },
-  "proxy": "http://localhost:8080"
+  "proxy": "http://localhost:8080",
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  }
 }
