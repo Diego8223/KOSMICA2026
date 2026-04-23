@@ -65,13 +65,17 @@ export default function ResetPasswordPage({ token }) {
       if (!res.ok) { setError(data.error || "Error al restablecer contraseña"); setLoading(false); return; }
 
       // Actualizar hash en localStorage para que el login funcione inmediatamente
+      // Si el usuario no existe en localStorage (ej: fue insertado manualmente en la DB),
+      // lo creamos con el nuevo hash para que pueda iniciar sesión sin registrarse de nuevo.
       const email = data.email || userEmail;
       const users = getUsers();
       const idx = users.findIndex(u => u.email?.toLowerCase() === email.toLowerCase());
       if (idx >= 0) {
         users[idx].passwordHash = newHash;
-        saveUsers(users);
+      } else {
+        users.push({ email, passwordHash: newHash });
       }
+      saveUsers(users);
       setStage("success");
     } catch (_) {
       setError("Error de conexión. Intenta de nuevo.");
