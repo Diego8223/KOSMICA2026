@@ -22,7 +22,9 @@ const api = axios.create({
 
 // ✅ Inyecta X-Admin-Key automáticamente en endpoints protegidos
 // La variable REACT_APP_ADMIN_API_KEY debe coincidir con ADMIN_API_KEY en el backend (Render)
-const ADMIN_API_KEY = process.env.REACT_APP_ADMIN_API_KEY || '';
+let ADMIN_API_KEY = process.env.REACT_APP_ADMIN_API_KEY || '';
+// FIX: permite actualizar la clave después del login sin recargar
+export const setAdminApiKey = (key) => { ADMIN_API_KEY = key; };
 const ADMIN_PROTECTED = [
   /^\/users$/,                        // GET /users (lista clientes)
   /^\/users\/.+\/add-points$/,        // POST add-points

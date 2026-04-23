@@ -3,7 +3,7 @@
 //  ✅ Mobile-first  ✅ Hamburger menu  ✅ Media fix (no useRef en map)
 // ============================================================
 import React, { useState, useEffect, useRef } from 'react';
-import { productAPI, orderAPI, pushAPI, giftCardAPI } from '../services/api';
+import { productAPI, orderAPI, pushAPI, giftCardAPI, setAdminApiKey } from '../services/api';
 
 // FIX SEGURIDAD: la contraseña ya no está hardcodeada en el bundle JS.
 // El login ahora valida contra el backend enviando la API key directamente.
@@ -1121,6 +1121,7 @@ export default function AdminPanel({ onExit }) {
       clearTimeout(timer);
       if (res.ok || res.status === 200) {
         _adminApiKey = pass;
+        setAdminApiKey(pass);  // FIX: sincroniza clave con axios interceptor
         setAuthed(true);
         setLoginErr('');
       } else if (res.status === 401 || res.status === 403) {
