@@ -154,7 +154,11 @@ export function saveUser(userData) {
   const users = getUsers();
   const existing = users.findIndex(u => u.email === userData.email);
   if (existing >= 0) {
-    users[existing] = { ...users[existing], ...userData };
+    // FIX CRÍTICO: si el nuevo dato no trae passwordHash (o lo trae como undefined/null),
+    // conservar el hash que ya había. Esto evita que operaciones como "guardar perfil"
+    // o "canjear puntos" borren la contraseña y rompan el login.
+    const preservedHash = userData.passwordHash ?? users[existing].passwordHash;
+    users[existing] = { ...users[existing], ...userData, passwordHash: preservedHash };
   } else {
     users.push({ ...userData, createdAt: new Date().toISOString(), points: 0 });
   }

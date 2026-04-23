@@ -1626,7 +1626,7 @@ export default function App() {
   const [socialProof, setSocialProof]         = useState(null);
   const [spHiding, setSpHiding]               = useState(false);
   // ── PUNTOS DE FIDELIDAD ──
-  const DAILY_POINTS_LIMIT = 200;
+  const DAILY_POINTS_LIMIT = 500; // FIX: debe coincidir con el backend (UserService.java)
   const [loyaltyOpen, setLoyaltyOpen]         = useState(false);
   // Fuente única de puntos: currentUser.points (si logueado) o localStorage (fallback)
   const getUserPoints = () => {
@@ -1668,6 +1668,30 @@ export default function App() {
       setDisplayPoints(0);
     }
   }, [currentUser]);
+
+  // FIX: Sincronizar puntos y rachas desde el backend al montar la app.
+  // Esto evita que la UI muestre una racha obsoleta si pasaron días sin comprar.
+  useEffect(() => {
+    if (!currentUser?.email) return;
+    const API_URL_SYNC = process.env.REACT_APP_API_URL || "";
+    fetch(`${API_URL_SYNC}/api/users/${encodeURIComponent(currentUser.email)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(u => {
+        if (!u) return;
+        const pts = u.points ?? currentUser.points ?? 0;
+        const cStreak = u.checkinStreak ?? 0;
+        const pStreak = u.purchaseStreak ?? 0;
+        setDisplayPoints(pts);
+        setPurchaseStreak(pStreak);
+        setCheckinStreak(cStreak);
+        localStorage.setItem("kosmica_pts", String(pts));
+        localStorage.setItem("kosmica_streak", String(pStreak));
+        localStorage.setItem("kosmica_checkin_streak", String(cStreak));
+        // Actualizar user en sesión sin perder otros datos locales
+        setCurrentUser({ ...currentUser, points: pts, checkinStreak: cStreak, purchaseStreak: pStreak });
+      })
+      .catch(() => {}); // Sin conexión: continuar con datos locales
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps — solo al montar
 
   // Mostrar check-in popup automáticamente si usuario logueado y no lo hizo hoy
   useEffect(() => {
@@ -2100,8 +2124,10 @@ export default function App() {
       const API = process.env.REACT_APP_API_URL || "https://kosmica-backend.onrender.com";
       const VAPID_PUBLIC_KEY = process.env.REACT_APP_VAPID_PUBLIC_KEY;
       if (!VAPID_PUBLIC_KEY) {
-        new Notification("¡Bienvenida a Kosmica! 💜", {
-          body: "Serás la primera en enterarte de ofertas exclusivas 🎁",
+        // FIX: antes fallaba silenciosamente — ahora avisa que no se registró en backend
+        console.warn("⚠️ REACT_APP_VAPID_PUBLIC_KEY no configurada — suscripción push NO registrada en backend. El usuario no recibirá notificaciones del servidor.");
+        new Notification("¡Activaste las notificaciones! 💜", {
+          body: "Gracias por suscribirte a Kosmica ✨",
           icon: "/icon-192.png",
         });
         return;
@@ -2182,10 +2208,11 @@ export default function App() {
   // ════════════════════════════════════════
   // 💎 PUNTOS — sumar por compra y guardar en backend
   // ════════════════════════════════════════
-  // 1 punto = $36 COP → pts = floor(total / 36)
+  // FIX: 1 punto = $1.000 COP — igual que el backend (UserService.java: total / 1000)
+  // Antes estaba mal calculado como total / 36 generando hasta 27x más puntos que los acreditados
   const awardLoyaltyPoints = async (total) => {
     if (!currentUser) return 0;
-    const pts = Math.floor(total / 36);
+    const pts = Math.floor(total / 1000); // FIX: era Math.floor(total / 36)
     try {
       const API_URL = process.env.REACT_APP_API_URL || "";
       const res = await fetch(
@@ -3831,7 +3858,7 @@ export default function App() {
               <div className="loyalty-points-label">puntos acumulados</div>
             </div>
             <div className="loyalty-value-note">
-              💎 1 punto = $36 COP &nbsp;·&nbsp; Valor acumulado: <strong>${(displayPoints * 36).toLocaleString("es-CO")} COP</strong> &nbsp;·&nbsp; Límite diario: {DAILY_POINTS_LIMIT} pts
+              💎 1 punto = $1.000 COP &nbsp;·&nbsp; Valor acumulado: <strong>${(displayPoints * 1000).toLocaleString("es-CO")} COP</strong> &nbsp;·&nbsp; Límite diario: {DAILY_POINTS_LIMIT} pts
             </div>
 
             {/* ── RACHA DIARIA TIPO SHEIN ── */}
@@ -3927,7 +3954,7 @@ export default function App() {
               <div className="loyalty-how-title">Cómo ganar puntos</div>
               {[
                 ["Check-in diario","+5 pts gratis cada día (hasta +20 pts el día 7)"],
-                ["Cada compra","1 pt por cada $36 COP — máx. "+DAILY_POINTS_LIMIT+" pts/día"],
+                ["Cada compra","1 pt por cada $1.000 COP — máx. "+DAILY_POINTS_LIMIT+" pts/día"],
                 ["Referir una amiga","+50 pts cuando ella compra"],
                 ["Dejar reseña","+10 pts por reseña publicada"],
                 ["Newsletter","+20 pts al suscribirte"],

@@ -267,10 +267,25 @@ export default function UserAccountPage({ onClose, onOpenGiftCard, onLogout }) {
   };
 
   const saveProfile = () => {
-    const updated = { ...user, ...form };
+    // FIX CRÍTICO: preservar passwordHash existente — sin esto el login
+    // falla después de guardar porque el hash queda undefined en localStorage.
+    const { getUsers } = require ? (() => {
+      try { return require("./UserAuthModal"); } catch(_) { return {}; }
+    })() : {};
+    // Forma segura: leer hash directo desde localStorage
+    let existingHash = null;
+    try {
+      const stored = JSON.parse(localStorage.getItem("kosmica_users") || "[]");
+      const found = stored.find(u => u.email?.toLowerCase() === user.email?.toLowerCase());
+      existingHash = found?.passwordHash || null;
+    } catch(_) {}
+
+    const updated = { ...user, ...form, passwordHash: existingHash };
     saveUser(updated);
-    setCurrentUser(updated);
-    setUser(updated);
+    // Para la sesión activa nunca exponer el hash
+    const { passwordHash: _hash, ...sessionUser } = updated;
+    setCurrentUser(sessionUser);
+    setUser(sessionUser);
     setEditing(false);
     showToast("✅ Perfil actualizado");
   };
@@ -507,7 +522,7 @@ export default function UserAccountPage({ onClose, onOpenGiftCard, onLogout }) {
               <div className="uacc-card">
                 <div className="uacc-card-title">Cómo ganar puntos</div>
                 {[
-                  ["Cada compra","1 pt por cada $1.000 COP"],
+                  ["Cada compra","1 pt por cada $1.000 COP — máx. 500 pts/día"],
                   ["Referir una amiga","+50 pts cuando ella compra"],
                   ["Dejar reseña","+10 pts por reseña publicada"],
                   ["Newsletter","+20 pts al suscribirte"],
@@ -541,11 +556,17 @@ export default function UserAccountPage({ onClose, onOpenGiftCard, onLogout }) {
                     );
                     if (res.ok) {
                       const updated = await res.json();
-                      // Actualizar puntos en sesión y localStorage
+                      // FIX: preservar passwordHash al actualizar puntos
+                      let existingHash = null;
+                      try {
+                        const stored = JSON.parse(localStorage.getItem("kosmica_users") || "[]");
+                        const found = stored.find(u => u.email?.toLowerCase() === user.email?.toLowerCase());
+                        existingHash = found?.passwordHash || null;
+                      } catch(_) {}
                       const newUser = { ...user, points: updated.points ?? 0 };
                       setUser(newUser);
                       setCurrentUser(newUser);
-                      saveUser({ ...newUser, passwordHash: undefined });
+                      saveUser({ ...newUser, passwordHash: existingHash }); // FIX: no borrar el hash
                       // Abrir WhatsApp con confirmación
                       const msg = `Hola Kosmica! 💜 Acabo de canjear mis puntos y me gustaría recibir mi descuento. (Canje registrado ✅)`;
                       window.open(`https://wa.me/573043927148?text=${encodeURIComponent(msg)}`, "_blank");
