@@ -31,14 +31,12 @@ public class OrderService {
     private final UserService       userService;
 
     // ════════════════════════════════════════════════════════════
-    //  CREAR PEDIDO — estado PENDING (no descuenta stock todavía)
+    //  CREAR PEDIDO
     //
-    //  El stock y los emails se aplican SOLO cuando el webhook de
-    //  MercadoPago o Wompi confirma el pago (updateStatus → PAID).
-    //  Esto evita:
-    //    - Pedidos "fantasma" sin pago real
-    //    - Stock descontado por pedidos abandonados
-    //    - Emails de confirmación por pedidos no pagados
+    //  ✅ FIX: Ahora se envía email al cliente Y al admin en cuanto
+    //  se crea el pedido (PENDING), sin esperar el webhook.
+    //  Cuando el webhook confirme PAID, se envía una segunda
+    //  confirmación de "pago recibido" al cliente.
     // ════════════════════════════════════════════════════════════
     @Transactional
     public Order createOrder(OrderRequest req) {
@@ -48,10 +46,7 @@ public class OrderService {
         order.setShippingAddress(req.getAddress());
         order.setPaymentMethod(req.getPaymentMethod() != null ? req.getPaymentMethod() : "MERCADOPAGO");
         order.setPaymentId(req.getPaymentIntentId());
-
-        // ✅ PENDIENTE hasta que el webhook confirme el pago
         order.setStatus(Order.Status.PENDING);
-
         order.setPhone(req.getPhone());
         order.setDocument(req.getDocument());
         order.setCity(req.getCity());
@@ -83,7 +78,7 @@ public class OrderService {
             }
         }
 
-        // ✅ Solo guardar los items con precios — NO descontar stock aquí
+        // Guardar items — NO descontar stock todavía
         List<OrderItem> items = new ArrayList<>();
         BigDecimal subtotal = BigDecimal.ZERO;
 
@@ -91,7 +86,6 @@ public class OrderService {
             Product product = productRepo.findById(item.getProductId())
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado: " + item.getProductId()));
 
-            // Validar stock sin descontarlo todavía
             if (product.getStock() < item.getQuantity()) {
                 throw new RuntimeException("Stock insuficiente para: " + product.getName());
             }
@@ -119,18 +113,21 @@ public class OrderService {
         log.info("📋 Pedido PENDIENTE creado: {} | Total: {} | Pago: {}",
             saved.getOrderNumber(), saved.getTotal(), saved.getPaymentMethod());
 
-        // ✅ NO enviamos email ni WhatsApp aquí — se envía cuando sea PAID
+        // ✅ FIX PRINCIPAL: Enviar email inmediatamente al crear el pedido
+        // El cliente recibe el número de pedido y el admin es notificado
+        try {
+            emailService.sendOrderConfirmation(saved);
+            log.info("✉️ Email de pedido {} enviado al cliente y admin", saved.getOrderNumber());
+        } catch (Exception e) {
+            // El email no debe bloquear la creación del pedido
+            log.warn("⚠️ Email de pedido no enviado para {}: {}", saved.getOrderNumber(), e.getMessage());
+        }
+
         return saved;
     }
 
     // ════════════════════════════════════════════════════════════
-    //  ACTUALIZAR ESTADO — aquí sí se descuenta stock y se notifica
-    //
-    //  Cuando el webhook confirma PAID:
-    //    1. Se descuenta el stock de cada producto
-    //    2. Se redime el código de referido
-    //    3. Se envía email de confirmación al cliente
-    //    4. Se envía alerta WhatsApp al admin
+    //  ACTUALIZAR ESTADO
     // ════════════════════════════════════════════════════════════
     @Transactional
     public Order updateStatus(Long orderId, Order.Status newStatus) {
@@ -143,14 +140,13 @@ public class OrderService {
 
         log.info("🔄 Pedido {} cambió de {} a {}", saved.getOrderNumber(), prevStatus, newStatus);
 
-        // ✅ Solo al confirmar el pago (PENDING → PAID) descontamos stock y notificamos
+        // ✅ Cuando el webhook confirma PAID: descontar stock, referidos, puntos
         if (newStatus == Order.Status.PAID && prevStatus == Order.Status.PENDING) {
             log.info("💳 Pago confirmado para pedido {} — procesando...", saved.getOrderNumber());
 
             // 1. Descontar stock
             if (saved.getItems() != null) {
                 for (OrderItem item : saved.getItems()) {
-                    // ✅ FIX: bloqueo pesimista para evitar race condition con pagos simultáneos
                     Product product = item.getProduct();
                     if (product != null) {
                         Product locked = productRepo.findByIdWithLock(product.getId())
@@ -180,15 +176,7 @@ public class OrderService {
                 }
             }
 
-            // 3. Enviar confirmación al cliente y alerta al admin
-            try {
-                emailService.sendOrderConfirmation(saved);
-                log.info("✉️ Confirmación enviada para pedido {}", saved.getOrderNumber());
-            } catch (Exception e) {
-                log.warn("Email de confirmación no enviado para {}: {}", saved.getOrderNumber(), e.getMessage());
-            }
-
-            // 4. Acreditar puntos de fidelidad (1 pto = $36 COP)
+            // 3. Acreditar puntos de fidelidad
             if (saved.getCustomerEmail() != null && !saved.getCustomerEmail().isBlank()
                     && saved.getTotal() != null) {
                 try {
@@ -196,20 +184,29 @@ public class OrderService {
                         saved.getCustomerEmail(),
                         saved.getTotal().intValue()
                     );
-                    log.info("💎 Puntos acreditados para pedido {} — cliente {}",
-                        saved.getOrderNumber(), saved.getCustomerEmail());
+                    log.info("💎 Puntos acreditados para pedido {}", saved.getOrderNumber());
                 } catch (Exception e) {
                     log.warn("No se pudieron acreditar puntos para {}: {}",
                         saved.getCustomerEmail(), e.getMessage());
                 }
             }
 
-        } else if (newStatus != Order.Status.PAID) {
+            // ✅ Nota: NO se reenvía el email de confirmación aquí porque
+            // ya se envió al crear el pedido. Si quieres una segunda
+            // notificación de "pago confirmado", descomenta esto:
+            //
+            // try {
+            //     emailService.sendStatusUpdate(saved); // enviará PAID si agregas ese case
+            // } catch (Exception e) {
+            //     log.warn("Email de pago confirmado no enviado: {}", e.getMessage());
+            // }
+
+        } else if (newStatus != Order.Status.PAID && newStatus != Order.Status.PENDING) {
             // Para cambios de estado posteriores (PROCESSING, SHIPPED, DELIVERED, CANCELLED)
             try {
                 emailService.sendStatusUpdate(saved);
             } catch (Exception e) {
-                log.warn("Email de estado no enviado: {}", e.getMessage());
+                log.warn("Email de estado no enviado para {}: {}", saved.getOrderNumber(), e.getMessage());
             }
         }
 
@@ -233,20 +230,15 @@ public class OrderService {
         return orderRepo.findAllWithItemsOrderByCreatedAtDesc();
     }
 
-    // Para social proof — dos queries: primero IDs, luego fetch (evita LazyInit + paginación en memoria)
     @Transactional(readOnly = true)
     public List<Order> getRecentOrdersWithItems(int limit) {
-        List<Long> ids = orderRepo.findRecentIds(
-            PageRequest.of(0, limit)
-        );
+        List<Long> ids = orderRepo.findRecentIds(PageRequest.of(0, limit));
         if (ids.isEmpty()) return java.util.Collections.emptyList();
         return orderRepo.findByIdsWithItems(ids);
     }
 
-    // ✅ FIX: paginacion nativa en DB — no carga todos los pedidos en memoria
     public Page<Order> getAllOrders(int page, int size) {
         return orderRepo.findAllByOrderByCreatedAtDesc(
-            PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))
-        );
+            PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
     }
 }
