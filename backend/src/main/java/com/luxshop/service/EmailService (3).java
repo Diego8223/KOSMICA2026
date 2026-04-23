@@ -47,7 +47,11 @@ public class EmailService {
     private String gmailPassword;
 
     private boolean isEmailConfigured() {
-        return sendgridKey != null && sendgridKey.startsWith("SG.");
+        // FIX: también considera Gmail como proveedor válido
+        boolean hasSendGrid = sendgridKey != null && sendgridKey.startsWith("SG.");
+        boolean hasGmail    = gmailUser != null && !gmailUser.isBlank()
+                           && gmailPassword != null && !gmailPassword.isBlank();
+        return hasSendGrid || hasGmail;
     }
 
     private boolean isWhatsappConfigured() {
