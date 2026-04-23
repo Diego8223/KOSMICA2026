@@ -1691,7 +1691,7 @@ export default function App() {
         setCurrentUser({ ...currentUser, points: pts, checkinStreak: cStreak, purchaseStreak: pStreak });
       })
       .catch(() => {}); // Sin conexión: continuar con datos locales
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line
   }, []);
 
   // Mostrar check-in popup automáticamente si usuario logueado y no lo hizo hoy
