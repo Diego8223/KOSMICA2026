@@ -5,12 +5,14 @@ import com.luxshop.model.User;
 import com.luxshop.service.EmailService;
 import com.luxshop.service.UserService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
@@ -22,7 +24,6 @@ public class UserController {
     /**
      * POST /api/users/register
      * Registra una cuenta nueva o actualiza datos si el email ya existe.
-     * Body: { name, email, phone, document, city, neighborhood, address }
      */
     @PostMapping("/register")
     public ResponseEntity<User> register(@RequestBody Map<String, Object> payload) {
@@ -41,37 +42,31 @@ public class UserController {
 
     /**
      * GET /api/users/{email}
-     * Obtiene un usuario por email (usado al hacer login para sincronizar puntos/racha desde BD).
+     * Obtiene un usuario por email.
      */
     @GetMapping("/{email}")
     public ResponseEntity<User> getByEmail(@PathVariable String email) {
         try {
             return ResponseEntity.ok(userService.getByEmail(email));
         } catch (EntityNotFoundException e) {
-            // FIX: UserService lanza EntityNotFoundException, no IllegalArgumentException
             return ResponseEntity.notFound().build();
         }
     }
 
     /**
      * POST /api/users/{email}/checkin
-     * Registra el check-in diario del usuario: suma puntos y actualiza racha.
-     * Responde con el usuario actualizado (incluye points y checkinStreak).
      */
     @PostMapping("/{email}/checkin")
     public ResponseEntity<User> checkin(@PathVariable String email) {
         try {
             return ResponseEntity.ok(userService.doCheckin(email));
         } catch (EntityNotFoundException e) {
-            // FIX: UserService lanza EntityNotFoundException, no IllegalArgumentException
             return ResponseEntity.notFound().build();
         }
     }
 
     /**
      * POST /api/users/{email}/purchase-points
-     * Acredita puntos por compra. 1 pto = $36 COP.
-     * Body: { "total": 120000 }
      */
     @PostMapping("/{email}/purchase-points")
     public ResponseEntity<User> purchasePoints(
@@ -81,15 +76,12 @@ public class UserController {
             int total = ((Number) body.getOrDefault("total", 0)).intValue();
             return ResponseEntity.ok(userService.awardPurchasePoints(email, total));
         } catch (EntityNotFoundException e) {
-            // FIX: UserService lanza EntityNotFoundException, no IllegalArgumentException
             return ResponseEntity.notFound().build();
         }
     }
 
     /**
      * POST /api/users/{email}/add-points
-     * Suma puntos manualmente (admin o eventos especiales).
-     * Body: { "points": 50 }
      */
     @PostMapping("/{email}/add-points")
     public ResponseEntity<User> addPoints(
@@ -117,23 +109,31 @@ public class UserController {
             return ResponseEntity.badRequest()
                 .body(Map.of("error", "El correo es requerido"));
         }
+
+        String normalizedEmail = email.trim().toLowerCase();
+        log.info("🔐 Solicitud de reset para: {}", normalizedEmail);
+
         try {
-            String token = userService.generateResetToken(email.trim().toLowerCase());
-            // Obtener nombre del usuario para personalizar el email
-            User user = userService.getByEmail(email.trim().toLowerCase());
+            String token = userService.generateResetToken(normalizedEmail);
+            User user = userService.getByEmail(normalizedEmail);
             emailService.sendPasswordReset(user.getEmail(), user.getName(), token);
+            log.info("✅ Reset de contraseña procesado para: {}", normalizedEmail);
             return ResponseEntity.ok(Map.of("message", "Correo de recuperación enviado"));
+
         } catch (EntityNotFoundException e) {
-            // Por seguridad respondemos OK aunque el email no exista (evitar enumerar usuarios)
+            // Por seguridad respondemos OK aunque el email no exista
+            log.warn("⚠️ Reset solicitado para email no registrado en DB: {}", normalizedEmail);
             return ResponseEntity.ok(Map.of("message", "Correo de recuperación enviado"));
+
         } catch (Exception e) {
+            // Error real — logueamos para diagnóstico
+            log.error("❌ Error enviando reset a {}: {} — {}", normalizedEmail, e.getClass().getSimpleName(), e.getMessage());
             return ResponseEntity.ok(Map.of("message", "Correo de recuperación enviado"));
         }
     }
 
     /**
      * GET /api/users/reset-password/validate?token=xxx
-     * Valida si el token es válido y no expiró. Devuelve el email asociado.
      */
     @GetMapping("/reset-password/validate")
     public ResponseEntity<Map<String,Object>> validateResetToken(@RequestParam String token) {
@@ -153,7 +153,6 @@ public class UserController {
 
     /**
      * POST /api/users/reset-password
-     * Invalida el token y confirma el reset (el hash lo guarda el frontend en localStorage).
      * Body: { "token": "xxx", "passwordHash": "sha256hash" }
      */
     @PostMapping("/reset-password")
@@ -165,9 +164,9 @@ public class UserController {
                 .body(Map.of("error", "Token y hash son requeridos"));
         }
         try {
-            // Obtener email antes de invalidar el token
             String email = userService.getEmailByResetToken(token);
             userService.resetPassword(token, hash);
+            log.info("✅ Contraseña reseteada para: {}", email);
             return ResponseEntity.ok(Map.of(
                 "message", "Contraseña actualizada correctamente",
                 "email", email
