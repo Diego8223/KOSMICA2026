@@ -9,6 +9,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * ✅ PARCHE v2 — Campos añadidos:
+ *
+ *  + pointsDiscount  → descuento en COP aplicado con puntos en este pedido
+ *  + pointsRedeemed  → cantidad de puntos canjeados (para auditoría)
+ *
+ * El SQL V3__orders_points_columns.sql añade estas columnas a la BD.
+ * Resto del archivo sin cambios.
+ */
 @Entity
 @Table(name = "orders")
 @Data @NoArgsConstructor @AllArgsConstructor @Builder
@@ -90,6 +99,17 @@ public class Order {
     @Column(name = "referral_code")
     private String referralCode;
 
+    // ✅ NUEVO — puntos canjeados en este pedido
+    /** Descuento en COP aplicado con puntos. Equivale a pointsRedeemed × $25. */
+    @Builder.Default
+    @Column(name = "points_discount", precision = 10, scale = 2)
+    private BigDecimal pointsDiscount = BigDecimal.ZERO;
+
+    /** Cantidad de puntos canjeados (para historial y auditoría). */
+    @Builder.Default
+    @Column(name = "points_redeemed")
+    private Integer pointsRedeemed = 0;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
@@ -99,9 +119,10 @@ public class Order {
     @PrePersist
     protected void onCreate() {
         createdAt = updatedAt = LocalDateTime.now();
-        // UUID garantiza unicidad absoluta incluso con pedidos simultáneos
         orderNumber = "KOSMICA-" + UUID.randomUUID().toString()
             .replace("-", "").substring(0, 10).toUpperCase();
+        if (pointsDiscount == null)  pointsDiscount  = BigDecimal.ZERO;
+        if (pointsRedeemed == null)  pointsRedeemed  = 0;
     }
 
     @PreUpdate

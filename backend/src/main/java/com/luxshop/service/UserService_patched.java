@@ -1,5 +1,25 @@
 package com.luxshop.service;
 
+// ══════════════════════════════════════════════════════════════
+//  KOSMICA — UserService.java  (PARCHE v2 — Sistema de Puntos)
+//
+//  CAMBIOS RESPECTO A LA VERSIÓN ANTERIOR:
+//
+//  ❌ BUG CRÍTICO CORREGIDO:
+//     ANTES:  rawEarned = total / 20   ← INCORRECTO
+//     AHORA:  lógica delegada a PointsConstants.calculatePurchasePoints()
+//             que usa floor(total / 1.000) ← CORRECTO
+//
+//  ✅ Los métodos awardPurchasePoints, doCheckin, redeemPoints
+//     se delegan a PointsService para mantener lógica centralizada.
+//
+//  ✅ Se mantienen los métodos legacy addPoints y getByEmail
+//     para no romper código existente.
+//
+//  ⚠️  Para nuevas integraciones: usar PointsService directamente.
+// ══════════════════════════════════════════════════════════════
+
+import com.luxshop.constants.PointsConstants;
 import com.luxshop.dto.PointsDtos.*;
 import com.luxshop.exception.EntityNotFoundException;
 import com.luxshop.model.User;
@@ -9,49 +29,32 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-/**
- * ✅ PARCHE v2 — Correcciones aplicadas:
- *
- *  ❌ BUG CORREGIDO: rawEarned = total / 20  →  ahora delega a PointsService
- *     con la fórmula correcta floor(total / 1.000)
- *
- *  ✅ registerOrUpdate: los +20 pts de bienvenida ahora se registran
- *     en point_transactions (historial completo) vía PointsService.
- *
- *  ✅ doCheckin, awardPurchasePoints, redeemPoints, addPoints:
- *     delegan a PointsService para mantener lógica centralizada.
- *     Todos los métodos legacy mantienen su firma para no romper
- *     el código existente (UserController, OrderService).
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserService {
 
-    private final UserRepository userRepository;
+    private final UserRepository userRepo;
     private final EmailService   emailService;
-    private final PointsService  pointsService;   // ← nuevo: lógica de puntos centralizada
+    private final PointsService  pointsService;  // ← delegar lógica de puntos
 
     // ══════════════════════════════════════════════════════════
     //  REGISTRO / ACTUALIZACIÓN
     // ══════════════════════════════════════════════════════════
 
-    /**
-     * Registra un usuario nuevo o actualiza sus datos si el email ya existe.
-     * Al ser registro NUEVO: acredita +20 pts de bienvenida con historial completo.
-     */
     @Transactional
     public User registerOrUpdate(Map<String, Object> payload) {
         String email = ((String) payload.getOrDefault("email", "")).toLowerCase().trim();
         if (email.isEmpty()) throw new IllegalArgumentException("Email requerido");
 
-        Optional<User> existing = userRepository.findByEmailIgnoreCase(email);
+        Optional<User> existing = userRepo.findByEmailIgnoreCase(email);
         boolean isNew = existing.isEmpty();
         User user = existing.orElse(new User());
 
@@ -63,18 +66,13 @@ public class UserService {
         user.setNeighborhood((String) payload.getOrDefault("neighborhood", ""));
         user.setAddress((String) payload.getOrDefault("address", ""));
 
-        // Guardar primero (necesitamos que el usuario exista antes de acreditar puntos)
-        User saved = userRepository.save(user);
+        User saved = userRepo.save(user);
 
         if (isNew) {
-            // ✅ Puntos de bienvenida con historial (antes se asignaban directo sin registro)
-            try {
-                AddBonusPointsRequest bonus = new AddBonusPointsRequest();
-                bonus.setType("SIGNUP");
-                pointsService.awardBonusPoints(email, bonus);
-            } catch (Exception e) {
-                log.warn("No se pudieron acreditar pts de bienvenida a {}: {}", email, e.getMessage());
-            }
+            // Otorgar puntos de bienvenida via PointsService (registra historial)
+            AddBonusPointsRequest bonus = new AddBonusPointsRequest();
+            bonus.setType("SIGNUP");
+            pointsService.awardBonusPoints(email, bonus);
 
             try {
                 emailService.sendWelcomeEmail(saved.getEmail(), saved.getName());
@@ -82,7 +80,8 @@ public class UserService {
                 log.warn("No se pudo enviar email de bienvenida a {}: {}", email, e.getMessage());
             }
 
-            log.info("✅ Usuario registrado: {} ({})", saved.getName(), email);
+            log.info("✅ Usuario registrado: {} ({}), +{} pts de bienvenida",
+                saved.getName(), email, PointsConstants.BONUS_SIGNUP);
         } else {
             log.info("🔄 Usuario actualizado: {}", email);
         }
@@ -91,14 +90,12 @@ public class UserService {
     }
 
     // ══════════════════════════════════════════════════════════
-    //  PUNTOS — delegados a PointsService
-    //  Mantienen la firma original para compatibilidad con
-    //  UserController y OrderService sin cambios.
+    //  MÉTODOS DE PUNTOS — DELEGADOS A PointsService
+    //  Se mantienen por compatibilidad con código existente.
     // ══════════════════════════════════════════════════════════
 
     /**
-     * Check-in diario. Idempotente: si ya lo hizo hoy, no hace nada.
-     * Delegado a PointsService que maneja la racha correctamente.
+     * @deprecated Usar PointsService.doCheckin() directamente.
      */
     @Transactional
     public User doCheckin(String email) {
@@ -107,43 +104,41 @@ public class UserService {
     }
 
     /**
-     * Suma puntos por compra respetando el límite diario de 500 pts.
+     * Suma puntos por compra.
      *
-     * ✅ CORREGIDO: antes usaba total / 20 (BUG).
-     *    Ahora delega a PointsService que usa floor(total / 1.000).
+     * ✅ CORREGIDO: antes usaba total/20, ahora usa PointsConstants.calculatePurchasePoints()
+     *    que aplica floor(total / 1.000)
      *
-     * Ejemplos correctos:
-     *   $50.000  → 50 pts
-     *   $120.000 → 120 pts
+     * @deprecated Para nuevas integraciones, llamar directamente a
+     *             PointsService.awardPurchasePoints()
      */
     @Transactional
     public User awardPurchasePoints(String email, int totalCop) {
         AddPurchasePointsRequest req = new AddPurchasePointsRequest();
         req.setTotalCop(totalCop);
-        req.setOrderNumber("AUTO");
+        req.setOrderNumber("LEGACY");
         pointsService.awardPurchasePoints(email, req);
         return getByEmail(email);
     }
 
     /**
-     * Canjea puntos. Mínimo 500 pts.
-     * Delegado a PointsService que valida las 4 condiciones del negocio.
+     * Canjea puntos.
+     *
+     * @deprecated Para nuevas integraciones, llamar directamente a
+     *             PointsService.redeemPoints()
      */
     @Transactional
     public User redeemPoints(String email, int pointsToRedeem) {
-        // Usar el mínimo requerido como total de pedido referencia
-        // Para canje completo con validación de pedido: usar PointsController directamente
+        // Usamos el mínimo de orden requerido en la validación
         RedeemPointsRequest req = new RedeemPointsRequest();
         req.setPointsToRedeem(pointsToRedeem);
-        req.setOrderTotalCop(50_000L); // mínimo válido para no fallar la validación del 30%
-        req.setOrderNumber("MANUAL");
+        req.setOrderTotalCop(PointsConstants.REDEEM_MIN_ORDER_COP); // mínimo válido
+        req.setOrderNumber("LEGACY");
         pointsService.redeemPoints(email, req);
         return getByEmail(email);
     }
 
-    /**
-     * Suma puntos manualmente sin límite diario (admin o eventos especiales).
-     */
+    /** Suma puntos manualmente sin límite diario (admin o eventos especiales). */
     @Transactional
     public User addPoints(String email, int pts) {
         AddBonusPointsRequest req = new AddBonusPointsRequest();
@@ -158,32 +153,31 @@ public class UserService {
     // ══════════════════════════════════════════════════════════
 
     public User getByEmail(String email) {
-        return userRepository.findByEmailIgnoreCase(email.toLowerCase().trim())
+        return userRepo.findByEmailIgnoreCase(email.toLowerCase().trim())
             .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado: " + email));
     }
 
     public List<User> getAllUsers() {
-        return userRepository.findAllByOrderByCreatedAtDesc();
+        return userRepo.findAllByOrderByCreatedAtDesc();
     }
 
     // ══════════════════════════════════════════════════════════
-    //  RECUPERACIÓN DE CONTRASEÑA (sin cambios)
+    //  RECUPERACIÓN DE CONTRASEÑA
     // ══════════════════════════════════════════════════════════
 
     @Transactional
     public String generateResetToken(String email) {
-        User user = userRepository.findByEmailIgnoreCase(email.toLowerCase().trim())
+        User user = userRepo.findByEmailIgnoreCase(email.toLowerCase().trim())
             .orElseThrow(() -> new EntityNotFoundException("No existe cuenta con ese correo"));
         String token = UUID.randomUUID().toString().replace("-", "");
         user.setResetToken(token);
         user.setResetTokenExpiry(LocalDateTime.now().plusHours(1));
-        userRepository.save(user);
-        log.info("🔑 Token de reset generado para {}", email);
+        userRepo.save(user);
         return token;
     }
 
     public boolean validateResetToken(String token) {
-        Optional<User> opt = userRepository.findByResetToken(token);
+        Optional<User> opt = userRepo.findByResetToken(token);
         if (opt.isEmpty()) return false;
         User user = opt.get();
         return user.getResetTokenExpiry() != null
@@ -192,7 +186,7 @@ public class UserService {
 
     @Transactional
     public void resetPassword(String token, String newPasswordHash) {
-        User user = userRepository.findByResetToken(token)
+        User user = userRepo.findByResetToken(token)
             .orElseThrow(() -> new EntityNotFoundException("Token inválido o expirado"));
         if (user.getResetTokenExpiry() == null
                 || LocalDateTime.now().isAfter(user.getResetTokenExpiry())) {
@@ -200,12 +194,11 @@ public class UserService {
         }
         user.setResetToken(null);
         user.setResetTokenExpiry(null);
-        userRepository.save(user);
-        log.info("✅ Contraseña restablecida para usuario id={}", user.getId());
+        userRepo.save(user);
     }
 
     public String getEmailByResetToken(String token) {
-        return userRepository.findByResetToken(token)
+        return userRepo.findByResetToken(token)
             .map(User::getEmail)
             .orElseThrow(() -> new EntityNotFoundException("Token inválido"));
     }

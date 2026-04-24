@@ -1,5 +1,6 @@
 package com.luxshop.service;
 
+import com.luxshop.dto.PointsDtos.AddBonusPointsRequest;
 import com.luxshop.exception.EntityNotFoundException;
 import com.luxshop.model.Product;
 import com.luxshop.model.Review;
@@ -16,13 +17,23 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * ✅ PARCHE v2 — Correcciones aplicadas:
+ *
+ *  ✅ createReview(): ahora acredita +10 pts al usuario cuando
+ *     publica una reseña con email registrado.
+ *     (antes no otorgaba ningún punto por reseñar)
+ *
+ * Resto del archivo sin cambios.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ReviewService {
 
-    private final ReviewRepository reviewRepo;
+    private final ReviewRepository  reviewRepo;
     private final ProductRepository productRepo;
+    private final PointsService     pointsService;  // ← nuevo
 
     public Page<Review> getReviews(Long productId, int page, int size) {
         return reviewRepo.findByProductIdAndApprovedTrueOrderByCreatedAtDesc(
@@ -31,11 +42,6 @@ public class ReviewService {
     }
 
     public Map<String, Object> getStats(Long productId) {
-        // FIX: antes se llamaba avgRatingByProduct(productId) DOS veces:
-        //   double avg = reviewRepo.avgRatingByProduct(productId) != null
-        //                ? reviewRepo.avgRatingByProduct(productId) : 0.0;
-        // Eso hacía dos queries idénticas a la BD. Ahora se llama UNA sola vez
-        // y se guarda el resultado en una variable local.
         Double rawAvg = reviewRepo.avgRatingByProduct(productId);
         double avg    = rawAvg != null ? rawAvg : 0.0;
         long   total  = reviewRepo.countByProductIdAndApprovedTrue(productId);
@@ -75,6 +81,22 @@ public class ReviewService {
 
         log.info("⭐ Nueva reseña: producto {} | {} estrellas | {}",
             productId, review.getRating(), review.getUserName());
+
+        // ✅ NUEVO: acreditar +10 pts al usuario por publicar la reseña
+        if (saved.getUserEmail() != null && !saved.getUserEmail().isBlank()) {
+            try {
+                AddBonusPointsRequest bonus = new AddBonusPointsRequest();
+                bonus.setType("REVIEW");
+                bonus.setReference(String.valueOf(productId));
+                pointsService.awardBonusPoints(saved.getUserEmail(), bonus);
+                log.info("💎 +10 pts de reseña acreditados a {}", saved.getUserEmail());
+            } catch (Exception e) {
+                // Los puntos son beneficio secundario: no deben bloquear el guardado
+                log.warn("No se pudieron acreditar pts de reseña a {}: {}",
+                    saved.getUserEmail(), e.getMessage());
+            }
+        }
+
         return saved;
     }
 

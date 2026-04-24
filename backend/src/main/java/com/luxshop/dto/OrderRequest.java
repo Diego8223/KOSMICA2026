@@ -6,6 +6,15 @@ import lombok.Data;
 import java.math.BigDecimal;
 import java.util.List;
 
+/**
+ * ✅ PARCHE v2 — Campos añadidos:
+ *
+ *  + pointsToRedeem  → puntos que el cliente quiere canjear (null = no usa puntos)
+ *
+ * El backend valida que el canje sea válido antes de aplicarlo.
+ * El frontend envía este campo solo si el usuario activó el canje de puntos.
+ * Resto del archivo sin cambios.
+ */
 @Data
 public class OrderRequest {
 
@@ -40,6 +49,14 @@ public class OrderRequest {
 
     private String     giftCardCode;
     private BigDecimal giftCardDiscount;
+
+    // ✅ NUEVO — puntos a canjear en este pedido
+    /**
+     * Puntos que el cliente quiere canjear como descuento.
+     * null o 0 = no usa puntos.
+     * El backend valida: mínimo 500 pts, pedido >= $50.000, máximo 30% del total.
+     */
+    private Integer pointsToRedeem;
 
     @Valid
     @NotEmpty(message = "El carrito está vacío")

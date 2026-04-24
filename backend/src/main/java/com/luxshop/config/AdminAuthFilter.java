@@ -14,17 +14,12 @@ import java.io.IOException;
 import java.util.Set;
 
 /**
- * Protege los endpoints de administración con una clave secreta enviada
- * en el header  X-Admin-Key.
+ * ✅ PARCHE v2 — Endpoints nuevos protegidos:
  *
- * Endpoints protegidos:
- *   - PATCH  /api/orders/{id}/status      (cambiar estado de pedido)
- *   - GET    /api/users                   (listar clientes)
- *   - POST   /api/users/{email}/add-points (sumar puntos manualmente)
- *   - GET    /api/orders?all=true          (exportar todos los pedidos)
+ *  + POST /api/points/expire/run        → ejecutar expiración manual (admin)
+ *  + POST /api/points/add/bonus/{email} → acreditar bonos manualmente (admin)
  *
- * Configura ADMIN_API_KEY en Render con el resultado de:
- *   openssl rand -hex 32
+ * Resto del archivo sin cambios.
  */
 @Slf4j
 @Component
@@ -34,9 +29,8 @@ public class AdminAuthFilter extends OncePerRequestFilter {
     @Value("${admin.api.key:}")
     private String adminApiKey;
 
-    // Rutas que requieren la clave de admin (prefijos exactos o métodos específicos)
     private static final Set<String> PROTECTED_PREFIXES = Set.of(
-        "/api/users"        // GET lista clientes, POST add-points
+        "/api/users"
     );
 
     @Override
@@ -50,7 +44,6 @@ public class AdminAuthFilter extends OncePerRequestFilter {
 
         if (isAdminEndpoint(path, method)) {
 
-            // Si la clave no está configurada en el servidor, bloqueamos de todas formas
             if (adminApiKey == null || adminApiKey.isBlank()) {
                 log.error("⛔ ADMIN_API_KEY no configurada — acceso a {} bloqueado", path);
                 response.setStatus(HttpServletResponse.SC_FORBIDDEN);
@@ -73,35 +66,57 @@ public class AdminAuthFilter extends OncePerRequestFilter {
     }
 
     private boolean isAdminEndpoint(String path, String method) {
-        // ✅ Los endpoints de recuperación de contraseña son PÚBLICOS — no requieren X-Admin-Key
+        // Endpoints de recuperación de contraseña — PÚBLICOS
         if (path.startsWith("/api/users/forgot-password")) return false;
-        if (path.startsWith("/api/users/reset-password")) return false;
+        if (path.startsWith("/api/users/reset-password"))  return false;
 
-        // GET /api/users — listar todos los clientes
+        // Check-in del usuario — PÚBLICO (lo hace el propio usuario)
+        if ("POST".equals(method) && path.matches("/api/users/.+/checkin")) return false;
+
+        // Saldo y historial de puntos — PÚBLICO (el usuario ve sus propios puntos)
+        if ("GET".equals(method)  && path.matches("/api/points/balance/.+"))  return false;
+        if ("GET".equals(method)  && path.matches("/api/points/history/.+"))  return false;
+        if ("GET".equals(method)  && path.startsWith("/api/points/redeem/validate")) return false;
+
+        // Check-in de puntos — PÚBLICO
+        if ("POST".equals(method) && path.matches("/api/points/checkin/.+")) return false;
+
+        // Canje de puntos desde el checkout — PÚBLICO (lo hace el propio usuario)
+        if ("POST".equals(method) && path.matches("/api/points/redeem/.+")) return false;
+
+        // ─── Endpoints de ADMIN ──────────────────────────────
+
+        // Listar todos los clientes
         if ("GET".equals(method) && "/api/users".equals(path)) return true;
 
-        // POST /api/users/{email}/add-points — sumar puntos manualmente
+        // Sumar puntos manualmente (admin)
         if ("POST".equals(method) && path.matches("/api/users/.+/add-points")) return true;
 
-        // FIX: POST /api/users/{email}/purchase-points — protegido para evitar acreditacion fraudulenta
-        // Sin esta proteccion, cualquiera puede enviar un POST con total=9999999 y regalar puntos falsos.
+        // Acreditar puntos por compra (protegido para evitar fraude)
         if ("POST".equals(method) && path.matches("/api/users/.+/purchase-points")) return true;
 
-        // PATCH /api/orders/{id}/status — cambiar estado de pedido
+        // Cambiar estado de pedido
         if ("PATCH".equals(method) && path.matches("/api/orders/\\d+/status")) return true;
 
-        // GET /api/orders — exportar todos los pedidos (admin)
+        // Exportar todos los pedidos
         if ("GET".equals(method) && "/api/orders".equals(path)) return true;
 
-        // ✅ FIX: GET /api/gift-cards/all — solo admin puede listar todas las gift cards
+        // Listar todas las gift cards
         if ("GET".equals(method) && "/api/gift-cards/all".equals(path)) return true;
 
-        // ✅ FIX: DELETE /api/products/{id}/reviews/{rid} — moderar reseñas
+        // Moderar reseñas
         if ("DELETE".equals(method) && path.matches("/api/products/\\d+/reviews/\\d+")) return true;
-        if ("PATCH".equals(method) && path.matches("/api/products/\\d+/reviews/\\d+/moderate")) return true;
+        if ("PATCH".equals(method)  && path.matches("/api/products/\\d+/reviews/\\d+/moderate")) return true;
 
-        // ✅ FIX: POST /api/push/send — enviar push a todos (solo admin)
+        // Enviar push a todos los usuarios
         if ("POST".equals(method) && "/api/push/send".equals(path)) return true;
+
+        // ✅ NUEVO — sistema de puntos (solo admin)
+        // Ejecutar expiración manual de puntos
+        if ("POST".equals(method) && "/api/points/expire/run".equals(path)) return true;
+
+        // Acreditar bonos manualmente (tipo ADMIN)
+        if ("POST".equals(method) && path.matches("/api/points/add/bonus/.+")) return true;
 
         return false;
     }

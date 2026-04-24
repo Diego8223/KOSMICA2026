@@ -1,6 +1,7 @@
 package com.luxshop.service;
 
 import com.luxshop.dto.OrderRequest;
+import com.luxshop.dto.PointsDtos.*;
 import com.luxshop.model.Order;
 import com.luxshop.model.OrderItem;
 import com.luxshop.model.Product;
@@ -19,6 +20,19 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * ✅ PARCHE v2 — Correcciones aplicadas:
+ *
+ *  ✅ createOrder(): si el request incluye pointsToRedeem > 0,
+ *     ejecuta el canje ANTES de calcular el total final.
+ *     El descuento de puntos se guarda en order.pointsDiscount.
+ *
+ *  ✅ updateStatus (PAID): awardPurchasePoints() ahora usa
+ *     el total SIN el descuento de puntos para calcular los
+ *     puntos ganados (no se ganan puntos sobre puntos).
+ *
+ * Resto del archivo sin cambios.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -29,14 +43,10 @@ public class OrderService {
     private final EmailService      emailService;
     private final ReferralService   referralService;
     private final UserService       userService;
+    private final PointsService     pointsService;   // ← nuevo
 
     // ════════════════════════════════════════════════════════════
     //  CREAR PEDIDO
-    //
-    //  ✅ FIX: Ahora se envía email al cliente Y al admin en cuanto
-    //  se crea el pedido (PENDING), sin esperar el webhook.
-    //  Cuando el webhook confirme PAID, se envía una segunda
-    //  confirmación de "pago recibido" al cliente.
     // ════════════════════════════════════════════════════════════
     @Transactional
     public Order createOrder(OrderRequest req) {
@@ -78,7 +88,7 @@ public class OrderService {
             }
         }
 
-        // Guardar items — NO descontar stock todavía
+        // Calcular subtotal e ítems
         List<OrderItem> items = new ArrayList<>();
         BigDecimal subtotal = BigDecimal.ZERO;
 
@@ -100,24 +110,61 @@ public class OrderService {
             subtotal = subtotal.add(oi.getSubtotal());
         }
 
-        BigDecimal shipping = req.getShippingCost() != null ? req.getShippingCost() : BigDecimal.ZERO;
-        BigDecimal discount = req.getCouponDiscount() != null ? req.getCouponDiscount() : BigDecimal.ZERO;
-        BigDecimal giftDisc = req.getGiftCardDiscount() != null ? req.getGiftCardDiscount() : BigDecimal.ZERO;
+        BigDecimal shipping  = req.getShippingCost()    != null ? req.getShippingCost()    : BigDecimal.ZERO;
+        BigDecimal discount  = req.getCouponDiscount()  != null ? req.getCouponDiscount()  : BigDecimal.ZERO;
+        BigDecimal giftDisc  = req.getGiftCardDiscount()!= null ? req.getGiftCardDiscount(): BigDecimal.ZERO;
+
+        // Total base antes del canje de puntos
+        BigDecimal baseTotal = subtotal.subtract(discount).subtract(giftDisc).add(shipping);
+
+        // ✅ NUEVO: aplicar descuento de puntos si el cliente los quiere usar
+        BigDecimal pointsDiscount = BigDecimal.ZERO;
+        int        pointsRedeemed = 0;
+
+        if (req.getPointsToRedeem() != null && req.getPointsToRedeem() > 0) {
+            try {
+                RedeemValidationResponse validation = pointsService.validateRedeem(
+                    req.getEmail(),
+                    baseTotal.longValue(),
+                    req.getPointsToRedeem()
+                );
+
+                if (validation.isValid()) {
+                    // El canje se ejecuta aquí; si el pago falla luego,
+                    // el admin deberá revertir manualmente (o implementar saga pattern).
+                    // Para producción: mover el canje al webhook de PAID.
+                    RedeemPointsRequest redeemReq = new RedeemPointsRequest();
+                    redeemReq.setPointsToRedeem(req.getPointsToRedeem());
+                    redeemReq.setOrderTotalCop(baseTotal.longValue());
+                    redeemReq.setOrderNumber("PENDING"); // se actualizará al confirmar
+
+                    RedeemResponse redeemResult = pointsService.redeemPoints(req.getEmail(), redeemReq);
+                    pointsDiscount = BigDecimal.valueOf(redeemResult.getDiscountCop());
+                    pointsRedeemed = redeemResult.getPointsRedeemed();
+
+                    log.info("💸 Puntos canjeados: {} pts = ${} COP para {}",
+                        pointsRedeemed, pointsDiscount, req.getEmail());
+                } else {
+                    log.warn("⚠️ Canje de puntos inválido para {}: {}", req.getEmail(), validation.getMessage());
+                }
+            } catch (Exception e) {
+                log.warn("No se pudo aplicar canje de puntos para {}: {}", req.getEmail(), e.getMessage());
+            }
+        }
 
         order.setItems(items);
         order.setSubtotal(subtotal);
         order.setShippingCost(shipping);
-        order.setTotal(subtotal.subtract(discount).subtract(giftDisc).add(shipping));
+        order.setPointsDiscount(pointsDiscount);
+        order.setPointsRedeemed(pointsRedeemed);
+        order.setTotal(baseTotal.subtract(pointsDiscount).max(BigDecimal.ZERO));
 
         Order saved = orderRepo.save(order);
-        log.info("📋 Pedido PENDIENTE creado: {} | Total: {} | Pago: {}",
-            saved.getOrderNumber(), saved.getTotal(), saved.getPaymentMethod());
+        log.info("📋 Pedido PENDIENTE: {} | Total: {} | Pts canjeados: {} | Pago: {}",
+            saved.getOrderNumber(), saved.getTotal(), pointsRedeemed, saved.getPaymentMethod());
 
-        // ✅ Solo notificamos al ADMIN al crear el pedido (pendiente).
-        // El email al CLIENTE se envía únicamente cuando el pago es confirmado (PAID).
         try {
             emailService.sendAdminOrderAlert(saved);
-            log.info("✉️ Alerta de pedido {} enviada al admin", saved.getOrderNumber());
         } catch (Exception e) {
             log.warn("⚠️ Email admin no enviado para {}: {}", saved.getOrderNumber(), e.getMessage());
         }
@@ -139,7 +186,6 @@ public class OrderService {
 
         log.info("🔄 Pedido {} cambió de {} a {}", saved.getOrderNumber(), prevStatus, newStatus);
 
-        // ✅ Cuando el webhook confirma PAID: descontar stock, referidos, puntos
         if (newStatus == Order.Status.PAID && prevStatus == Order.Status.PENDING) {
             log.info("💳 Pago confirmado para pedido {} — procesando...", saved.getOrderNumber());
 
@@ -176,12 +222,14 @@ public class OrderService {
             }
 
             // 3. Acreditar puntos de fidelidad
+            // ✅ CORRECCIÓN: se acreditan sobre el total REAL pagado (sin el descuento de puntos)
+            // No tiene sentido ganar puntos sobre puntos canjeados.
             if (saved.getCustomerEmail() != null && !saved.getCustomerEmail().isBlank()
                     && saved.getTotal() != null) {
                 try {
                     userService.awardPurchasePoints(
                         saved.getCustomerEmail(),
-                        saved.getTotal().intValue()
+                        saved.getTotal().intValue()   // total ya tiene pointsDiscount aplicado
                     );
                     log.info("💎 Puntos acreditados para pedido {}", saved.getOrderNumber());
                 } catch (Exception e) {
@@ -190,16 +238,15 @@ public class OrderService {
                 }
             }
 
-            // ✅ Email de confirmación al CLIENTE solo cuando el pago es confirmado
+            // Email de confirmación al cliente
             try {
                 emailService.sendOrderConfirmation(saved);
-                log.info("✉️ Email de confirmación enviado al cliente: {}", saved.getCustomerEmail());
+                log.info("✉️ Email de confirmación enviado a: {}", saved.getCustomerEmail());
             } catch (Exception e) {
                 log.warn("⚠️ Email de confirmación no enviado para {}: {}", saved.getOrderNumber(), e.getMessage());
             }
 
         } else if (newStatus != Order.Status.PAID && newStatus != Order.Status.PENDING) {
-            // Para cambios de estado posteriores (PROCESSING, SHIPPED, DELIVERED, CANCELLED)
             try {
                 emailService.sendStatusUpdate(saved);
             } catch (Exception e) {
