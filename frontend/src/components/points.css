@@ -1,0 +1,385 @@
+/* ============================================================
+   KOSMICA — points.css
+   Estilos para todos los componentes de puntos.
+   Compatible con variables CSS de la app existente.
+   ============================================================ */
+
+/* ── Variables locales ──────────────────────────────────── */
+:root {
+  --pts-radius: 12px;
+  --pts-radius-sm: 8px;
+  --pts-gap: 12px;
+  --pts-border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* ══════════════════════════════════════════════════════════
+   PointsWidget
+   ══════════════════════════════════════════════════════════ */
+.points-widget {
+  background: #fff;
+  border: var(--pts-border);
+  border-radius: var(--pts-radius);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.points-widget--loading,
+.points-widget--error {
+  padding: 16px;
+  font-size: 14px;
+  color: #666;
+}
+
+/* Encabezado */
+.points-widget__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.points-widget__tier-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 99px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.points-widget__balance {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.points-widget__balance-pts {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.points-widget__balance-cop {
+  font-size: 13px;
+  color: #777;
+}
+
+/* Barra de progreso */
+.points-widget__progress {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.points-widget__progress-bar {
+  height: 6px;
+  background: #f0f0f0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.points-widget__progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.points-widget__progress-label {
+  font-size: 12px;
+  color: #888;
+}
+
+/* Alerta de expiración */
+.points-widget__expiry-alert {
+  background: #FEF3C7;
+  color: #92400E;
+  border-radius: var(--pts-radius-sm);
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+/* Info de canje */
+.points-widget__redeem-ok   { font-size: 13px; color: #065F46; }
+.points-widget__redeem-pending { font-size: 13px; color: #6B7280; }
+
+/* Check-in */
+.points-widget__checkin {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.points-widget__streak {
+  font-size: 13px;
+  color: #555;
+}
+
+.points-widget__checkin-btn {
+  padding: 10px 16px;
+  background: #111;
+  color: #fff;
+  border: none;
+  border-radius: var(--pts-radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+.points-widget__checkin-btn:hover:not(:disabled) {
+  opacity: 0.88;
+  transform: scale(0.99);
+}
+
+.points-widget__checkin-btn:disabled,
+.points-widget__checkin-btn--done {
+  background: #e5e7eb;
+  color: #9CA3AF;
+  cursor: default;
+}
+
+.points-widget__checkin-msg {
+  font-size: 12px;
+  color: #059669;
+  margin: 0;
+}
+
+/* ══════════════════════════════════════════════════════════
+   CheckoutPoints
+   ══════════════════════════════════════════════════════════ */
+.checkout-points {
+  border: var(--pts-border);
+  border-radius: var(--pts-radius-sm);
+  overflow: hidden;
+}
+
+.checkout-points--loading,
+.checkout-points--unavailable {
+  padding: 12px 14px;
+  font-size: 13px;
+  color: #9CA3AF;
+}
+
+/* Canje aplicado */
+.checkout-points--applied {
+  padding: 12px 14px;
+  background: #F0FDF4;
+  border: 1px solid #BBF7D0;
+  border-radius: var(--pts-radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.checkout-points__applied-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #065F46;
+}
+
+.checkout-points__applied-sub {
+  font-size: 12px;
+  color: #6B7280;
+}
+
+.checkout-points__remove-btn {
+  background: transparent;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #374151;
+  transition: background 0.1s;
+}
+
+.checkout-points__remove-btn:hover { background: #F3F4F6; }
+
+/* Toggle */
+.checkout-points__toggle {
+  width: 100%;
+  padding: 12px 14px;
+  background: #F9FAFB;
+  border: none;
+  border-radius: var(--pts-radius-sm);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+}
+
+.checkout-points__toggle:hover { background: #F3F4F6; }
+.checkout-points__toggle--open { border-radius: var(--pts-radius-sm) var(--pts-radius-sm) 0 0; }
+.checkout-points__toggle-icon { font-size: 11px; color: #9CA3AF; }
+
+/* Panel */
+.checkout-points__panel {
+  padding: 14px;
+  background: #fff;
+  border-top: var(--pts-border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Slider */
+.checkout-points__slider-label {
+  display: block;
+  font-size: 13px;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.checkout-points__slider {
+  width: 100%;
+  accent-color: #111;
+}
+
+.checkout-points__slider-ends {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #9CA3AF;
+  margin-top: 2px;
+}
+
+/* Validación */
+.checkout-points__validating {
+  font-size: 13px;
+  color: #9CA3AF;
+}
+
+.checkout-points__validation {
+  padding: 10px 12px;
+  border-radius: var(--pts-radius-sm);
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.checkout-points__validation--ok  { background: #F0FDF4; color: #065F46; }
+.checkout-points__validation--err { background: #FEF2F2; color: #991B1B; }
+
+.checkout-points__validation-sub {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+/* Botón aplicar */
+.checkout-points__apply-btn {
+  padding: 11px 16px;
+  background: #111;
+  color: #fff;
+  border: none;
+  border-radius: var(--pts-radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  align-self: flex-start;
+}
+
+.checkout-points__apply-btn:hover:not(:disabled) { opacity: 0.88; }
+.checkout-points__apply-btn:disabled { background: #E5E7EB; color: #9CA3AF; cursor: default; }
+
+.checkout-points__info {
+  font-size: 11px;
+  color: #9CA3AF;
+  margin: 0;
+}
+
+/* ══════════════════════════════════════════════════════════
+   PointsHistory
+   ══════════════════════════════════════════════════════════ */
+.points-history--loading,
+.points-history--error,
+.points-history--empty {
+  padding: 16px;
+  font-size: 14px;
+  color: #9CA3AF;
+  text-align: center;
+}
+
+.points-history__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.points-history__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.points-history__item:last-child { border-bottom: none; }
+
+.points-history__item--expired { opacity: 0.5; }
+
+.points-history__icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.points-history__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.points-history__desc {
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.points-history__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  color: #9CA3AF;
+}
+
+.points-history__expiry--expired { color: #EF4444; }
+
+.points-history__amount {
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.points-history__amount--gain { color: #059669; }
+.points-history__amount--loss { color: #DC2626; }
+
+/* ── Modo oscuro ────────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  .points-widget,
+  .checkout-points {
+    background: #1f2937;
+    border-color: rgba(255,255,255,0.08);
+  }
+  .points-widget__progress-bar { background: #374151; }
+  .points-widget__checkin { border-color: #374151; }
+  .checkout-points__toggle { background: #111827; }
+  .checkout-points__toggle:hover { background: #1f2937; }
+  .checkout-points__panel { background: #1f2937; }
+  .points-history__item { border-color: #374151; }
+  .points-history__item--expired { opacity: 0.4; }
+}
