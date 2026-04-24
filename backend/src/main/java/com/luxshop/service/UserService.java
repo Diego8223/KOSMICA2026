@@ -108,7 +108,7 @@ public class UserService {
     }
 
     /**
-     * Suma puntos por compra. 1 pto = $1.000 COP.
+     * Suma puntos por compra. 1 pto = $20 COP.
      * Límite acumulado: máximo DAILY_POINTS_LIMIT puntos por compras en un mismo día.
      * Si ya llegó al límite hoy, se acreditan 0 puntos (pero la compra sigue adelante).
      * Actualiza racha de compras.
@@ -128,7 +128,7 @@ public class UserService {
         }
         // Cuánto puede ganar aún hoy
         int remaining  = Math.max(0, DAILY_POINTS_LIMIT - dailyEarnedSoFar);
-        int rawEarned  = Math.max(0, total / 1000);   // 1 pt = $1.000 COP
+        int rawEarned  = Math.max(0, total / 20);    // 1 pt = $20 COP
         int earned     = Math.min(rawEarned, remaining);
 
         if (earned > 0) {

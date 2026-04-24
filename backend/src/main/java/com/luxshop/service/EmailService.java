@@ -67,38 +67,33 @@ public class EmailService {
             && callmebotKey != null && !callmebotKey.isBlank();
     }
 
-    // ── Confirmación nuevo pedido ─────────────────────────────
-    public void sendOrderConfirmation(Order order) {
+    // ── Alerta solo al admin cuando llega un pedido nuevo (antes de confirmar pago) ─
+    public void sendAdminOrderAlert(Order order) {
         if (isEmailConfigured()) {
-            // ✅ FIX: Email al cliente con número de pedido destacado
-            sendEmail(order.getCustomerEmail(), order.getCustomerName(),
-                "✅ Pedido confirmado — " + order.getOrderNumber(),
-                buildConfirmationHtml(order));
-            log.info("✉️ Confirmación enviada al cliente: {}", order.getCustomerEmail());
-
-            // ✅ FIX: Email al admin con todos los detalles del pedido
             sendAdminAlert(order);
-            log.info("✉️ Alerta de pedido enviada al admin: {}", storeEmail);
+        }
+        if (isWhatsappConfigured()) {
+            sendWhatsapp(adminWhatsapp, buildAdminWhatsappMsg(order));
+        }
+    }
 
-            // ✅ NUEVO: Si hay adminEmail configurado, también enviar ahí
-            if (adminEmail != null && !adminEmail.isBlank() && !adminEmail.equalsIgnoreCase(storeEmail)) {
-                sendAdminAlert(order, adminEmail);
-                log.info("✉️ Copia de alerta enviada a: {}", adminEmail);
-            }
+    // ── Confirmación nuevo pedido (solo al cliente, cuando pago=PAID) ────────────
+    public void sendOrderConfirmation(Order order) {
+        // Este método se llama SOLO cuando el pago es confirmado (PAID).
+        // El admin ya fue notificado al crear el pedido via sendAdminOrderAlert().
+        if (isEmailConfigured()) {
+            sendEmail(order.getCustomerEmail(), order.getCustomerName(),
+                "✅ ¡Pago confirmado! — " + order.getOrderNumber(),
+                buildConfirmationHtml(order));
+            log.info("✉️ Confirmación de pago enviada al cliente: {}", order.getCustomerEmail());
         } else {
             log.warn("Email no configurado — confirmación de pedido {} omitida", order.getOrderNumber());
-        }
-
-        if (isWhatsappConfigured()) {
-            String msg = buildAdminWhatsappMsg(order);
-            sendWhatsapp(adminWhatsapp, msg);
         }
 
         if (isWhatsappConfigured() && order.getPhone() != null && !order.getPhone().isBlank()) {
             String clientPhone = order.getPhone().replaceAll("[^0-9]", "");
             if (!clientPhone.startsWith("57")) clientPhone = "57" + clientPhone;
-            String msg = buildClientWhatsappMsg(order);
-            sendWhatsapp(clientPhone, msg);
+            sendWhatsapp(clientPhone, buildClientWhatsappMsg(order));
         }
     }
 

@@ -113,14 +113,13 @@ public class OrderService {
         log.info("📋 Pedido PENDIENTE creado: {} | Total: {} | Pago: {}",
             saved.getOrderNumber(), saved.getTotal(), saved.getPaymentMethod());
 
-        // ✅ FIX PRINCIPAL: Enviar email inmediatamente al crear el pedido
-        // El cliente recibe el número de pedido y el admin es notificado
+        // ✅ Solo notificamos al ADMIN al crear el pedido (pendiente).
+        // El email al CLIENTE se envía únicamente cuando el pago es confirmado (PAID).
         try {
-            emailService.sendOrderConfirmation(saved);
-            log.info("✉️ Email de pedido {} enviado al cliente y admin", saved.getOrderNumber());
+            emailService.sendAdminOrderAlert(saved);
+            log.info("✉️ Alerta de pedido {} enviada al admin", saved.getOrderNumber());
         } catch (Exception e) {
-            // El email no debe bloquear la creación del pedido
-            log.warn("⚠️ Email de pedido no enviado para {}: {}", saved.getOrderNumber(), e.getMessage());
+            log.warn("⚠️ Email admin no enviado para {}: {}", saved.getOrderNumber(), e.getMessage());
         }
 
         return saved;
@@ -191,15 +190,13 @@ public class OrderService {
                 }
             }
 
-            // ✅ Nota: NO se reenvía el email de confirmación aquí porque
-            // ya se envió al crear el pedido. Si quieres una segunda
-            // notificación de "pago confirmado", descomenta esto:
-            //
-            // try {
-            //     emailService.sendStatusUpdate(saved); // enviará PAID si agregas ese case
-            // } catch (Exception e) {
-            //     log.warn("Email de pago confirmado no enviado: {}", e.getMessage());
-            // }
+            // ✅ Email de confirmación al CLIENTE solo cuando el pago es confirmado
+            try {
+                emailService.sendOrderConfirmation(saved);
+                log.info("✉️ Email de confirmación enviado al cliente: {}", saved.getCustomerEmail());
+            } catch (Exception e) {
+                log.warn("⚠️ Email de confirmación no enviado para {}: {}", saved.getOrderNumber(), e.getMessage());
+            }
 
         } else if (newStatus != Order.Status.PAID && newStatus != Order.Status.PENDING) {
             // Para cambios de estado posteriores (PROCESSING, SHIPPED, DELIVERED, CANCELLED)

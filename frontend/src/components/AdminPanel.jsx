@@ -372,6 +372,322 @@ const CSS = `
   }
 `;
 
+
+// ── PUNTOS SECTION ─────────────────────────────────────────
+function PuntosSection() {
+  const API_URL = process.env.REACT_APP_API_URL || 'https://kosmica-backend.onrender.com';
+  const [users, setUsers]           = React.useState([]);
+  const [loading, setLoading]       = React.useState(true);
+  const [search, setSearch]         = React.useState('');
+  const [sortBy, setSortBy]         = React.useState('points'); // points | name | date
+  const [editUser, setEditUser]     = React.useState(null);  // { email, name, points }
+  const [editPts, setEditPts]       = React.useState('');
+  const [editNote, setEditNote]     = React.useState('');
+  const [saving, setSaving]         = React.useState(false);
+  const [msg, setMsg]               = React.useState('');
+  const fmtDate = str => { try { return new Date(str).toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}); } catch { return '—'; } };
+  const fmtCOP  = n => '$' + Number(n||0).toLocaleString('es-CO') + ' COP';
+
+  const load = () => {
+    setLoading(true);
+    fetch(`${API_URL}/api/users`, { headers: adminHeaders() })
+      .then(r => r.ok ? r.json() : [])
+      .then(data => {
+        const list = Array.isArray(data) ? data : [];
+        setUsers(list.map(u => ({
+          id:        u.id,
+          name:      u.name      || '—',
+          email:     u.email     || '—',
+          phone:     u.phone     || '—',
+          city:      u.city      || '—',
+          points:    Number(u.points || 0),
+          checkinStreak:  Number(u.checkinStreak  || 0),
+          purchaseStreak: Number(u.purchaseStreak || 0),
+          createdAt: u.createdAt,
+        })));
+      })
+      .catch(() => setUsers([]))
+      .finally(() => setLoading(false));
+  };
+
+  React.useEffect(load, []);
+
+  // Ajuste manual de puntos (suma o resta)
+  const applyPoints = async () => {
+    if (!editUser || editPts === '') return;
+    const delta = parseInt(editPts, 10);
+    if (isNaN(delta)) { setMsg('⚠️ Ingresa un número válido'); return; }
+    setSaving(true); setMsg('');
+    try {
+      const endpoint = delta >= 0
+        ? `/api/users/${encodeURIComponent(editUser.email)}/add-points`
+        : `/api/users/${encodeURIComponent(editUser.email)}/redeem-points`;
+      const body = delta >= 0
+        ? { points: delta }
+        : { points: Math.abs(delta) };
+      const res = await fetch(`${API_URL}${endpoint}`, {
+        method: 'POST',
+        headers: { ...adminHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setMsg('❌ ' + (err.error || 'Error al actualizar puntos'));
+        setSaving(false); return;
+      }
+      setMsg('✅ Puntos actualizados correctamente');
+      setEditUser(null); setEditPts(''); setEditNote('');
+      load();
+    } catch(e) {
+      setMsg('❌ Error de conexión');
+    }
+    setSaving(false);
+  };
+
+  const filtered = users
+    .filter(u => !search || u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase()))
+    .sort((a,b) => {
+      if (sortBy === 'points') return b.points - a.points;
+      if (sortBy === 'name')   return a.name.localeCompare(b.name);
+      return new Date(b.createdAt||0) - new Date(a.createdAt||0);
+    });
+
+  const totalPts   = users.reduce((s,u) => s + u.points, 0);
+  const totalCOP   = totalPts * 20;
+  const conPuntos  = users.filter(u => u.points > 0).length;
+  const topUser    = [...users].sort((a,b) => b.points - a.points)[0];
+
+  const tierBadge = pts => {
+    if (pts >= 1500) return { lbl:'👑 VIP',      bg:'#FEF9C3', color:'#92400E' };
+    if (pts >= 500)  return { lbl:'💜 Premium',  bg:'#EDE9FE', color:'#4C1D95' };
+    return                  { lbl:'🌸 Esencial', bg:'#F1F5F9', color:'#475569' };
+  };
+
+  if (loading) return (
+    <div style={{textAlign:'center',padding:'40px 0',color:'#9CA3AF'}}>
+      <div style={{fontSize:'2rem',marginBottom:8}}>⏳</div>
+      <div style={{fontWeight:600}}>Cargando reporte de puntos...</div>
+    </div>
+  );
+
+  return (
+    <>
+      {/* ── RESUMEN ── */}
+      <div style={{display:'flex',gap:12,flexWrap:'wrap',marginBottom:18}}>
+        {[
+          ['💎','Puntos emitidos',     totalPts.toLocaleString('es-CO'), '#FEF3C7','#92400E'],
+          ['💵','Valor total (COP)',   fmtCOP(totalCOP),                 '#D1FAE5','#065F46'],
+          ['👥','Clientes con puntos', conPuntos,                        '#EDE9FE','#4C1D95'],
+          ['🏆','Líder de puntos',     topUser ? topUser.points + ' pts — ' + topUser.name.split(' ')[0] : '—', '#FEE2E2','#991B1B'],
+        ].map(([ico,lbl,val,bg,color]) => (
+          <div key={lbl} style={{background:bg,borderRadius:14,padding:'14px 18px',flex:'1 1 180px',minWidth:180}}>
+            <div style={{fontSize:'1.4rem',marginBottom:4}}>{ico}</div>
+            <div style={{fontSize:'1.25rem',fontWeight:900,color,lineHeight:1.1}}>{val}</div>
+            <div style={{fontSize:'.74rem',color,fontWeight:700,opacity:.8,marginTop:4}}>{lbl}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── FILTROS ── */}
+      <div className="adm-card" style={{marginBottom:14}}>
+        <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
+          <input
+            className="adm-input"
+            placeholder="🔍 Buscar por nombre o email..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{flex:'1 1 220px',minWidth:200}}
+          />
+          <select
+            className="adm-input"
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value)}
+            style={{width:180}}
+          >
+            <option value="points">Mayor a menor puntos</option>
+            <option value="name">Nombre A→Z</option>
+            <option value="date">Más recientes primero</option>
+          </select>
+          <button className="adm-btn-primary" onClick={load} style={{whiteSpace:'nowrap'}}>
+            🔄 Actualizar
+          </button>
+        </div>
+      </div>
+
+      {/* ── TABLA ── */}
+      <div className="adm-card">
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14,flexWrap:'wrap',gap:8}}>
+          <div className="adm-card-title" style={{margin:0}}>
+            📋 {filtered.length} cliente{filtered.length !== 1 ? 's' : ''} · 1 pt = $20 COP
+          </div>
+          <button
+            className="adm-btn-sm"
+            onClick={() => {
+              const csv = ['Nombre,Email,Teléfono,Ciudad,Puntos,Valor COP,Nivel,Racha Checkin,Racha Compras,Registro']
+                .concat(filtered.map(u =>
+                  `"${u.name}","${u.email}","${u.phone}","${u.city}",${u.points},${u.points*20},"${tierBadge(u.points).lbl}",${u.checkinStreak},${u.purchaseStreak},"${fmtDate(u.createdAt)}"`
+                )).join('\n');
+              const blob = new Blob([csv], {type:'text/csv'});
+              const a = document.createElement('a');
+              a.href = URL.createObjectURL(blob);
+              a.download = `kosmica-puntos-${new Date().toISOString().slice(0,10)}.csv`;
+              a.click();
+            }}
+            style={{background:'#D1FAE5',color:'#065F46',border:'none'}}
+          >
+            📥 Exportar CSV
+          </button>
+        </div>
+
+        {msg && (
+          <div style={{
+            marginBottom:12,padding:'10px 14px',borderRadius:10,
+            background: msg.startsWith('✅') ? '#D1FAE5' : '#FEE2E2',
+            color:      msg.startsWith('✅') ? '#065F46' : '#991B1B',
+            fontWeight:700,fontSize:'.85rem'
+          }}>{msg}</div>
+        )}
+
+        {filtered.length === 0 ? (
+          <div style={{textAlign:'center',padding:'28px 0',color:'#9CA3AF',fontSize:'.88rem'}}>
+            No se encontraron clientes
+          </div>
+        ) : (
+          <div style={{overflowX:'auto'}}>
+            <table className="adm-tbl">
+              <thead><tr>
+                <th>#</th>
+                <th>Cliente</th>
+                <th>Email</th>
+                <th>Ciudad</th>
+                <th style={{textAlign:'center'}}>Puntos</th>
+                <th style={{textAlign:'center'}}>Valor COP</th>
+                <th style={{textAlign:'center'}}>Nivel</th>
+                <th style={{textAlign:'center'}}>🔥 Rachas</th>
+                <th style={{textAlign:'center'}}>Registro</th>
+                <th style={{textAlign:'center'}}>Ajustar</th>
+              </tr></thead>
+              <tbody>
+                {filtered.map((u, i) => {
+                  const tier = tierBadge(u.points);
+                  return (
+                    <tr key={u.email}>
+                      <td style={{color:'#9CA3AF',fontSize:'.78rem'}}>{i+1}</td>
+                      <td style={{fontWeight:700,whiteSpace:'nowrap'}}>{u.name}</td>
+                      <td style={{fontSize:'.8rem',color:'#6B7280'}}>{u.email}</td>
+                      <td style={{fontSize:'.82rem'}}>{u.city}</td>
+                      <td style={{textAlign:'center'}}>
+                        <span style={{
+                          background:'linear-gradient(135deg,#FEF3C7,#FDE68A)',
+                          color:'#92400E',padding:'3px 12px',borderRadius:50,
+                          fontWeight:900,fontSize:'.85rem'
+                        }}>💎 {u.points.toLocaleString('es-CO')}</span>
+                      </td>
+                      <td style={{textAlign:'center',fontWeight:700,color:'#065F46',fontSize:'.85rem'}}>
+                        {fmtCOP(u.points * 20)}
+                      </td>
+                      <td style={{textAlign:'center'}}>
+                        <span style={{background:tier.bg,color:tier.color,padding:'2px 10px',borderRadius:50,fontSize:'.75rem',fontWeight:700}}>
+                          {tier.lbl}
+                        </span>
+                      </td>
+                      <td style={{textAlign:'center',fontSize:'.8rem',color:'#6B7280'}}>
+                        🔥{u.checkinStreak}d · 🛍️{u.purchaseStreak}d
+                      </td>
+                      <td style={{textAlign:'center',fontSize:'.78rem',color:'#9CA3AF',whiteSpace:'nowrap'}}>
+                        {fmtDate(u.createdAt)}
+                      </td>
+                      <td style={{textAlign:'center'}}>
+                        <button
+                          className="adm-btn-sm"
+                          onClick={() => { setEditUser(u); setEditPts(''); setMsg(''); }}
+                          style={{background:'#EDE9FE',color:'#4C1D95',border:'none',fontSize:'.75rem'}}
+                        >✏️ Editar</button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ── MODAL EDITAR PUNTOS ── */}
+      {editUser && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:9000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}
+          onClick={() => { setEditUser(null); setMsg(''); }}>
+          <div style={{background:'#fff',borderRadius:20,padding:28,maxWidth:400,width:'100%',boxShadow:'0 8px 40px rgba(0,0,0,.2)'}}
+            onClick={e => e.stopPropagation()}>
+            <div style={{fontWeight:900,fontSize:'1.1rem',marginBottom:4,color:'#2D1B4E'}}>
+              ✏️ Ajustar puntos
+            </div>
+            <div style={{fontSize:'.85rem',color:'#6B7280',marginBottom:16}}>
+              {editUser.name} · {editUser.email}
+            </div>
+            <div style={{background:'#F5F0FF',borderRadius:12,padding:'12px 16px',marginBottom:16,textAlign:'center'}}>
+              <div style={{fontSize:'.75rem',color:'#7B5EA7',fontWeight:700}}>PUNTOS ACTUALES</div>
+              <div style={{fontSize:'2rem',fontWeight:900,color:'#4C1D95'}}>{editUser.points.toLocaleString('es-CO')}</div>
+              <div style={{fontSize:'.78rem',color:'#9B72CF'}}>{fmtCOP(editUser.points * 20)}</div>
+            </div>
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:'.78rem',fontWeight:700,color:'#4C1D95',marginBottom:5}}>
+                Cantidad a sumar (+) o restar (−)
+              </div>
+              <input
+                className="adm-input"
+                type="number"
+                placeholder="Ej: +100 para sumar, -50 para restar"
+                value={editPts}
+                onChange={e => setEditPts(e.target.value)}
+                style={{width:'100%'}}
+              />
+              <div style={{fontSize:'.72rem',color:'#9CA3AF',marginTop:4}}>
+                {editPts && !isNaN(parseInt(editPts,10)) && (
+                  <>Nuevo saldo estimado: <strong>{Math.max(0, editUser.points + parseInt(editPts,10)).toLocaleString('es-CO')} pts</strong> = {fmtCOP(Math.max(0, editUser.points + parseInt(editPts,10)) * 20)}</>
+                )}
+              </div>
+            </div>
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:'.78rem',fontWeight:700,color:'#4C1D95',marginBottom:5}}>Motivo (opcional)</div>
+              <input
+                className="adm-input"
+                placeholder="Ej: Ajuste manual, compensación, regalo..."
+                value={editNote}
+                onChange={e => setEditNote(e.target.value)}
+                style={{width:'100%'}}
+              />
+            </div>
+            {msg && (
+              <div style={{
+                marginBottom:12,padding:'8px 12px',borderRadius:8,
+                background: msg.startsWith('✅') ? '#D1FAE5' : '#FEE2E2',
+                color:      msg.startsWith('✅') ? '#065F46' : '#991B1B',
+                fontSize:'.82rem',fontWeight:700
+              }}>{msg}</div>
+            )}
+            <div style={{display:'flex',gap:8}}>
+              <button
+                className="adm-btn-primary"
+                onClick={applyPoints}
+                disabled={saving || editPts === ''}
+                style={{flex:1,opacity:(saving || editPts==='') ? .6 : 1}}
+              >
+                {saving ? '⏳ Guardando...' : '✅ Aplicar cambio'}
+              </button>
+              <button
+                className="adm-btn-sm"
+                onClick={() => { setEditUser(null); setMsg(''); }}
+                style={{background:'#F1F5F9',color:'#475569',border:'none',padding:'10px 16px'}}
+              >Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ── CLIENTES SECTION ───────────────────────────────────────
 function ClientesSection() {
   const [users, setUsers] = React.useState([]);
@@ -397,6 +713,7 @@ function ClientesSection() {
           email:     u.email     || '—',
           phone:     u.phone     || '—',
           city:      u.city      || '—',
+          points:    Number(u.points || 0),
           createdAt: u.createdAt,
           orders:    0,
         });
@@ -459,7 +776,7 @@ function ClientesSection() {
             <table className="adm-tbl">
               <thead><tr>
                 <th>Nombre</th><th>Email</th><th>Teléfono</th><th>Ciudad</th>
-                <th>Pedidos</th><th>Primer pedido</th>
+                <th style={{textAlign:'center'}}>💎 Puntos</th><th>Pedidos</th><th>Primer pedido</th>
               </tr></thead>
               <tbody>
                 {users.map((u,i)=>(
@@ -468,6 +785,7 @@ function ClientesSection() {
                     <td style={{fontSize:'.82rem'}}>{u.email}</td>
                     <td>{u.phone||'—'}</td>
                     <td>{u.city||'—'}</td>
+                    <td style={{textAlign:'center'}}><span style={{background:'#FEF3C7',color:'#92400E',padding:'2px 10px',borderRadius:50,fontWeight:800,fontSize:'.75rem'}}>💎 {(u.points||0).toLocaleString('es-CO')}</span></td>
                     <td><span style={{background:'#EDE9FE',color:'#6D28D9',padding:'2px 10px',borderRadius:50,fontWeight:800,fontSize:'.75rem'}}>📦 {u.orders}</span></td>
                     <td style={{fontSize:'.78rem',color:'#9CA3AF'}}>{fmtDate(u.createdAt)}</td>
                   </tr>
@@ -1567,6 +1885,7 @@ export default function AdminPanel({ onExit }) {
     { id:'coupons',   ico:'🏷️',  lbl:'Cupones'        },
     { id:'giftcards', ico:'🎁', lbl:'Tarjetas Regalo' },
     { id:'reports',   ico:'📈', lbl:'Reportes'        },
+    { id:'points',    ico:'💎', lbl:'Puntos'          },
     { id:'push',      ico:'🔔', lbl:'Notificaciones'  },
     { id:'media',     ico:'📸', lbl:'Subir Medios'    },
   ];
@@ -1989,6 +2308,13 @@ export default function AdminPanel({ onExit }) {
             <h1 className="adm-h1">👥 Clientes Registrados</h1>
             <p className="adm-sub">Todos los usuarios con cuenta en la tienda</p>
             <ClientesSection />
+          </>)}
+
+          {/* ── PUNTOS ── */}
+          {section==='points' && (<>
+            <h1 className="adm-h1">💎 Control de Puntos Kosmica</h1>
+            <p className="adm-sub">Reporte de puntos por cliente · 1 punto = $20 COP</p>
+            <PuntosSection />
           </>)}
 
           {/* ── CUPONES ── */}

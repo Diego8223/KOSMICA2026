@@ -2209,11 +2209,10 @@ export default function App() {
   // ════════════════════════════════════════
   // 💎 PUNTOS — sumar por compra y guardar en backend
   // ════════════════════════════════════════
-  // FIX: 1 punto = $1.000 COP — igual que el backend (UserService.java: total / 1000)
-  // Antes estaba mal calculado como total / 36 generando hasta 27x más puntos que los acreditados
+  // 1 punto = $20 COP — igual que el backend (UserService.java: total / 20)
   const awardLoyaltyPoints = async (total) => {
     if (!currentUser) return 0;
-    const pts = Math.floor(total / 1000); // FIX: era Math.floor(total / 36)
+    const pts = Math.floor(total / 20);
     try {
       const API_URL = process.env.REACT_APP_API_URL || "";
       const res = await fetch(
@@ -3859,7 +3858,7 @@ export default function App() {
               <div className="loyalty-points-label">puntos acumulados</div>
             </div>
             <div className="loyalty-value-note">
-              💎 1 punto = $1.000 COP &nbsp;·&nbsp; Valor acumulado: <strong>${(displayPoints * 1000).toLocaleString("es-CO")} COP</strong> &nbsp;·&nbsp; Límite diario: {DAILY_POINTS_LIMIT} pts
+              💎 1 punto = $20 COP &nbsp;·&nbsp; Valor acumulado: <strong>${(displayPoints * 20).toLocaleString("es-CO")} COP</strong> &nbsp;·&nbsp; Límite diario: {DAILY_POINTS_LIMIT} pts
             </div>
 
             {/* ── RACHA DIARIA TIPO SHEIN ── */}
@@ -3955,7 +3954,7 @@ export default function App() {
               <div className="loyalty-how-title">Cómo ganar puntos</div>
               {[
                 ["Check-in diario","+5 pts gratis cada día (hasta +20 pts el día 7)"],
-                ["Cada compra","1 pt por cada $1.000 COP — máx. "+DAILY_POINTS_LIMIT+" pts/día"],
+                ["Cada compra","1 pt por cada $20 COP — máx. "+DAILY_POINTS_LIMIT+" pts/día"],
                 ["Referir una amiga","+50 pts cuando ella compra"],
                 ["Dejar reseña","+10 pts por reseña publicada"],
                 ["Newsletter","+20 pts al suscribirte"],
@@ -3971,11 +3970,11 @@ export default function App() {
                 setLoyaltyOpen(false);
                 showToast("💎 Contacta a Kosmica por WhatsApp para canjear tus puntos");
                 setTimeout(()=>{
-                  const text = `Hola Kosmica! 💜 Tengo ${displayPoints} puntos acumulados (equivalen a $${(displayPoints*36).toLocaleString("es-CO")} COP) y me gustaría canjearlos por un descuento.`;
+                  const text = `Hola Kosmica! 💜 Tengo ${displayPoints} puntos acumulados (equivalen a $${(displayPoints*20).toLocaleString("es-CO")} COP) y me gustaría canjearlos por un descuento.`;
                   window.open(`https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(text)}`,"_blank");
                 },1000);
               }}>
-                🎁 Canjear mis {displayPoints} pts (${(displayPoints*36).toLocaleString("es-CO")} COP)
+                🎁 Canjear mis {displayPoints} pts (${(displayPoints*20).toLocaleString("es-CO")} COP)
               </button>
             ) : (
               <button className="loyalty-redeem" style={{background:"linear-gradient(135deg,#B8A0D8,#9B72CF)"}} onClick={()=>{setLoyaltyOpen(false);scrollTo();}}>
