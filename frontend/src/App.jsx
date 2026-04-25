@@ -2852,7 +2852,6 @@ export default function App() {
           </button>
         ))}
       </div>
-
       {/* ── HERO ── */}
       <section className="hero">
         <div className="hero-inner">
