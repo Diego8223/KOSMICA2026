@@ -34,7 +34,7 @@ public class ProductController {
             } catch (IllegalArgumentException e) {
                 return ResponseEntity.badRequest()
                     .body(Map.of("error", "Categoría inválida: " + category +
-                        ". Valores válidos: BOLSOS, BILLETERAS, MAQUILLAJE, CAPILAR, CUIDADO_PERSONAL, ACCESORIOS"));
+                        ". Valores válidos: BOLSOS, BILLETERAS, MAQUILLAJE, CAPILAR, CUIDADO_PERSONAL, MODA"));
             }
             // ✅ FIX BUG #2: pasamos String al servicio, no el enum
             return ResponseEntity.ok(productService.getByCategory(normalizedCategory, page, size));

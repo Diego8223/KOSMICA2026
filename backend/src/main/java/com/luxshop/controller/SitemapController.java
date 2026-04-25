@@ -31,7 +31,7 @@ public class SitemapController {
         sb.append(url(BASE_URL + "/", "1.0", "daily", today));
 
         // ── Categorías ──
-        String[] cats = {"BOLSOS", "BILLETERAS", "MAQUILLAJE", "CAPILAR", "CUIDADO_PERSONAL", "ACCESORIOS"};
+        String[] cats = {"BOLSOS", "BILLETERAS", "MAQUILLAJE", "CAPILAR", "CUIDADO_PERSONAL", "MODA"};
         for (String cat : cats) {
             sb.append(url(BASE_URL + "/?categoria=" + cat, "0.8", "daily", today));
         }

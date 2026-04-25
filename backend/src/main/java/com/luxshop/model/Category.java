@@ -6,7 +6,7 @@ package com.luxshop.model;
  * Product es String para ser compatible con el VARCHAR(100) de Postgres.
  */
 public enum Category {
-    BOLSOS, BILLETERAS, MAQUILLAJE, CAPILAR, CUIDADO_PERSONAL, ACCESORIOS;
+    BOLSOS, BILLETERAS, MAQUILLAJE, CAPILAR, CUIDADO_PERSONAL, MODA;
 
     /** Devuelve el nombre del enum como String, para pasarlo al repositorio. */
     public String toDbValue() {
