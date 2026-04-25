@@ -1,195 +1,288 @@
 package com.luxshop.service;
 
-// ══════════════════════════════════════════════════════════════
-//  KOSMICA — OrderService_points_patch.java
-//
-//  PARCHE de integración: cómo los puntos se conectan con el
-//  flujo de pedidos existente.
-//
-//  Este archivo NO reemplaza OrderService.java completo.
-//  Muestra SOLO los métodos/secciones que deben modificarse
-//  o añadirse para integrar el sistema de puntos.
-//
-//  Buscar en OrderService.java los comentarios:
-//    // TODO PUNTOS (1) → confirmación de pago
-//    // TODO PUNTOS (2) → cancelación de pedido
-//    // TODO PUNTOS (3) → aplicar descuento de puntos en el total
-// ══════════════════════════════════════════════════════════════
-
-import com.luxshop.constants.PointsConstants;
+import com.luxshop.dto.OrderRequest;
 import com.luxshop.dto.PointsDtos.*;
 import com.luxshop.model.Order;
+import com.luxshop.model.OrderItem;
+import com.luxshop.model.Product;
+import com.luxshop.repository.OrderRepository;
+import com.luxshop.repository.ProductRepository;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 /**
- * Métodos de integración para añadir a OrderService.java.
- * Requiere inyectar PointsService en OrderService.
+ * ✅ PARCHE v2 — Correcciones aplicadas:
  *
- * Añadir al constructor de OrderService:
- *   private final PointsService pointsService;
+ *  ✅ createOrder(): si el request incluye pointsToRedeem > 0,
+ *     ejecuta el canje ANTES de calcular el total final.
+ *     El descuento de puntos se guarda en order.pointsDiscount.
+ *
+ *  ✅ updateStatus (PAID): awardPurchasePoints() ahora usa
+ *     el total SIN el descuento de puntos para calcular los
+ *     puntos ganados (no se ganan puntos sobre puntos).
+ *
+ * Resto del archivo sin cambios.
  */
 @Slf4j
-public class OrderService_points_patch {
+@Service
+@RequiredArgsConstructor
+public class OrderService {
 
-    // ══════════════════════════════════════════════════════════
-    //  (1) Añadir en el método que confirma un pago exitoso
-    //      (ej: confirmPayment, handleWompiWebhook, markAsPaid)
-    // ══════════════════════════════════════════════════════════
+    private final OrderRepository   orderRepo;
+    private final ProductRepository productRepo;
+    private final EmailService      emailService;
+    private final ReferralService   referralService;
+    private final UserService       userService;
+    private final PointsService     pointsService;   // ← nuevo
 
-    /**
-     * Llamar DESPUÉS de que el pedido pase a estado PAID.
-     * Acredita los puntos de la compra al cliente.
-     *
-     * Integración en OrderService:
-     * <pre>
-     *   // Al final de confirmPayment() o handleSuccessfulPayment():
-     *   awardPointsForOrder(savedOrder);
-     * </pre>
-     */
-    void awardPointsForOrder(Order order, PointsService pointsService) {
-        if (order.getCustomerEmail() == null || order.getTotal() == null) return;
+    // ════════════════════════════════════════════════════════════
+    //  CREAR PEDIDO
+    // ════════════════════════════════════════════════════════════
+    @Transactional
+    public Order createOrder(OrderRequest req) {
+        Order order = new Order();
+        order.setCustomerName(req.getName());
+        order.setCustomerEmail(req.getEmail());
+        order.setShippingAddress(req.getAddress());
+        order.setPaymentMethod(req.getPaymentMethod() != null ? req.getPaymentMethod() : "MERCADOPAGO");
+        order.setPaymentId(req.getPaymentIntentId());
+        order.setStatus(Order.Status.PENDING);
+        order.setPhone(req.getPhone());
+        order.setDocument(req.getDocument());
+        order.setCity(req.getCity());
+        order.setNeighborhood(req.getNeighborhood());
+        order.setNotes(req.getNotes());
+
+        if (req.getCouponCode() != null && !req.getCouponCode().isBlank()) {
+            order.setCouponCode(req.getCouponCode().toUpperCase());
+        }
+        if (req.getCouponDiscount() != null) {
+            order.setCouponDiscount(req.getCouponDiscount());
+        }
+        if (req.getGiftCardCode() != null && !req.getGiftCardCode().isBlank()) {
+            order.setGiftCardCode(req.getGiftCardCode());
+        }
+        if (req.getGiftCardDiscount() != null) {
+            order.setGiftCardDiscount(req.getGiftCardDiscount());
+        }
+
+        // Validar código de referido
+        if (req.getReferralCode() != null && !req.getReferralCode().isBlank()) {
+            String refCode = req.getReferralCode().toUpperCase().trim();
+            var validation = referralService.validateCode(refCode, req.getEmail());
+            if (Boolean.TRUE.equals(validation.get("valid"))) {
+                order.setReferralCode(refCode);
+                log.info("🎁 Compra referida por código: {}", refCode);
+            } else {
+                log.warn("⚠️ Código de referido inválido '{}': {}", refCode, validation.get("message"));
+            }
+        }
+
+        // Calcular subtotal e ítems
+        List<OrderItem> items = new ArrayList<>();
+        BigDecimal subtotal = BigDecimal.ZERO;
+
+        for (OrderRequest.ItemDto item : req.getItems()) {
+            Product product = productRepo.findById(item.getProductId())
+                .orElseThrow(() -> new RuntimeException("Producto no encontrado: " + item.getProductId()));
+
+            if (product.getStock() < item.getQuantity()) {
+                throw new RuntimeException("Stock insuficiente para: " + product.getName());
+            }
+
+            OrderItem oi = new OrderItem();
+            oi.setOrder(order);
+            oi.setProduct(product);
+            oi.setQuantity(item.getQuantity());
+            oi.setUnitPrice(product.getPrice());
+            oi.setSubtotal(product.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
+            items.add(oi);
+            subtotal = subtotal.add(oi.getSubtotal());
+        }
+
+        BigDecimal shipping  = req.getShippingCost()    != null ? req.getShippingCost()    : BigDecimal.ZERO;
+        BigDecimal discount  = req.getCouponDiscount()  != null ? req.getCouponDiscount()  : BigDecimal.ZERO;
+        BigDecimal giftDisc  = req.getGiftCardDiscount()!= null ? req.getGiftCardDiscount(): BigDecimal.ZERO;
+
+        // Total base antes del canje de puntos
+        BigDecimal baseTotal = subtotal.subtract(discount).subtract(giftDisc).add(shipping);
+
+        // ✅ NUEVO: aplicar descuento de puntos si el cliente los quiere usar
+        BigDecimal pointsDiscount = BigDecimal.ZERO;
+        int        pointsRedeemed = 0;
+
+        if (req.getPointsToRedeem() != null && req.getPointsToRedeem() > 0) {
+            try {
+                RedeemValidationResponse validation = pointsService.validateRedeem(
+                    req.getEmail(),
+                    baseTotal.longValue(),
+                    req.getPointsToRedeem()
+                );
+
+                if (validation.isValid()) {
+                    // El canje se ejecuta aquí; si el pago falla luego,
+                    // el admin deberá revertir manualmente (o implementar saga pattern).
+                    // Para producción: mover el canje al webhook de PAID.
+                    RedeemPointsRequest redeemReq = new RedeemPointsRequest();
+                    redeemReq.setPointsToRedeem(req.getPointsToRedeem());
+                    redeemReq.setOrderTotalCop(baseTotal.longValue());
+                    redeemReq.setOrderNumber("PENDING"); // se actualizará al confirmar
+
+                    RedeemResponse redeemResult = pointsService.redeemPoints(req.getEmail(), redeemReq);
+                    pointsDiscount = BigDecimal.valueOf(redeemResult.getDiscountCop());
+                    pointsRedeemed = redeemResult.getPointsRedeemed();
+
+                    log.info("💸 Puntos canjeados: {} pts = ${} COP para {}",
+                        pointsRedeemed, pointsDiscount, req.getEmail());
+                } else {
+                    log.warn("⚠️ Canje de puntos inválido para {}: {}", req.getEmail(), validation.getMessage());
+                }
+            } catch (Exception e) {
+                log.warn("No se pudo aplicar canje de puntos para {}: {}", req.getEmail(), e.getMessage());
+            }
+        }
+
+        order.setItems(items);
+        order.setSubtotal(subtotal);
+        order.setShippingCost(shipping);
+        order.setPointsDiscount(pointsDiscount);
+        order.setPointsRedeemed(pointsRedeemed);
+        order.setTotal(baseTotal.subtract(pointsDiscount).max(BigDecimal.ZERO));
+
+        Order saved = orderRepo.save(order);
+        log.info("📋 Pedido PENDIENTE: {} | Total: {} | Pts canjeados: {} | Pago: {}",
+            saved.getOrderNumber(), saved.getTotal(), pointsRedeemed, saved.getPaymentMethod());
 
         try {
-            AddPurchasePointsRequest req = new AddPurchasePointsRequest();
-            req.setTotalCop(order.getTotal().longValue());
-            req.setOrderNumber(order.getOrderNumber());
-
-            AddPointsResponse result = pointsService.awardPurchasePoints(
-                order.getCustomerEmail(), req);
-
-            log.info("[ORDER→POINTS] Orden {} | email={} | total=${} | pts acreditados={} | nuevo saldo={}",
-                order.getOrderNumber(), order.getCustomerEmail(),
-                order.getTotal(), result.getPointsAwarded(), result.getNewBalance());
-
+            emailService.sendAdminOrderAlert(saved);
         } catch (Exception e) {
-            // Los puntos son un beneficio secundario: el pedido NO debe fallar si hay error aquí
-            log.error("[ORDER→POINTS] Error acreditando puntos para orden {}: {}",
-                order.getOrderNumber(), e.getMessage());
+            log.warn("⚠️ Email admin no enviado para {}: {}", saved.getOrderNumber(), e.getMessage());
         }
+
+        return saved;
     }
 
-    // ══════════════════════════════════════════════════════════
-    //  (2) Añadir en el método de cancelación de pedido
-    // ══════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════
+    //  ACTUALIZAR ESTADO
+    // ════════════════════════════════════════════════════════════
+    @Transactional
+    public Order updateStatus(Long orderId, Order.Status newStatus) {
+        Order order = orderRepo.findById(orderId)
+            .orElseThrow(() -> new RuntimeException("Pedido no encontrado: " + orderId));
 
-    /**
-     * Si el pedido fue cancelado DESPUÉS de acreditar puntos,
-     * revertir los puntos otorgados.
-     *
-     * Integración:
-     * <pre>
-     *   // En cancelOrder() o handleCancellation():
-     *   revokePointsForOrder(order);
-     * </pre>
-     *
-     * IMPORTANTE: solo revertir si el estado anterior era PAID.
-     * Si el pedido nunca se pagó, no hay puntos que revertir.
-     */
-    void revokePointsForOrder(Order order, PointsService pointsService) {
-        if (order.getCustomerEmail() == null || order.getTotal() == null) return;
+        Order.Status prevStatus = order.getStatus();
+        order.setStatus(newStatus);
+        Order saved = orderRepo.save(order);
 
-        // Calcular los puntos que se otorgaron (misma fórmula)
-        int pointsToRevoke = PointsConstants.calculatePurchasePoints(
-            order.getTotal().longValue());
+        log.info("🔄 Pedido {} cambió de {} a {}", saved.getOrderNumber(), prevStatus, newStatus);
 
-        if (pointsToRevoke <= 0) return;
+        if (newStatus == Order.Status.PAID && prevStatus == Order.Status.PENDING) {
+            log.info("💳 Pago confirmado para pedido {} — procesando...", saved.getOrderNumber());
 
-        try {
-            // Usar addBonusPoints con puntos negativos como ADMIN adjustment
-            AddBonusPointsRequest req = new AddBonusPointsRequest();
-            req.setType("ADMIN");
-            req.setAdminPoints(-pointsToRevoke);   // ← negativo = reversión
-            // Nota: si adminPoints negativo causa problemas, considerar un tipo
-            // REVOKE separado en TransactionType
+            // 1. Descontar stock
+            if (saved.getItems() != null) {
+                for (OrderItem item : saved.getItems()) {
+                    Product product = item.getProduct();
+                    if (product != null) {
+                        Product locked = productRepo.findByIdWithLock(product.getId())
+                            .orElse(product);
+                        int newStock = Math.max(0, locked.getStock() - item.getQuantity());
+                        locked.setStock(newStock);
+                        productRepo.save(locked);
+                        log.info("📦 Stock actualizado: {} → {} unidades", locked.getName(), newStock);
+                    }
+                }
+            }
 
-            log.info("[ORDER→POINTS] Reverso puntos por cancelación de orden {} | -{} pts",
-                order.getOrderNumber(), pointsToRevoke);
+            // 2. Redimir código de referido
+            if (saved.getReferralCode() != null && !saved.getReferralCode().isBlank()) {
+                try {
+                    boolean redeemed = referralService.redeemCode(
+                        saved.getReferralCode(),
+                        saved.getCustomerEmail(),
+                        saved.getCustomerName(),
+                        saved.getOrderNumber()
+                    );
+                    if (redeemed) {
+                        log.info("🎉 Código {} redimido en pedido {}", saved.getReferralCode(), saved.getOrderNumber());
+                    }
+                } catch (Exception e) {
+                    log.error("Error redimiendo código de referido {}: {}", saved.getReferralCode(), e.getMessage());
+                }
+            }
 
-            // Implementación alternativa directa (más segura):
-            // pointsService.addPoints(order.getCustomerEmail(), -pointsToRevoke,
-            //     "Reverso cancelación orden #" + order.getOrderNumber());
+            // 3. Acreditar puntos de fidelidad
+            // ✅ CORRECCIÓN: se acreditan sobre el total REAL pagado (sin el descuento de puntos)
+            // No tiene sentido ganar puntos sobre puntos canjeados.
+            if (saved.getCustomerEmail() != null && !saved.getCustomerEmail().isBlank()
+                    && saved.getTotal() != null) {
+                try {
+                    userService.awardPurchasePoints(
+                        saved.getCustomerEmail(),
+                        saved.getTotal().intValue()   // total ya tiene pointsDiscount aplicado
+                    );
+                    log.info("💎 Puntos acreditados para pedido {}", saved.getOrderNumber());
+                } catch (Exception e) {
+                    log.warn("No se pudieron acreditar puntos para {}: {}",
+                        saved.getCustomerEmail(), e.getMessage());
+                }
+            }
 
-        } catch (Exception e) {
-            log.error("[ORDER→POINTS] Error revirtiendo puntos para orden {}: {}",
-                order.getOrderNumber(), e.getMessage());
+            // Email de confirmación al cliente
+            try {
+                emailService.sendOrderConfirmation(saved);
+                log.info("✉️ Email de confirmación enviado a: {}", saved.getCustomerEmail());
+            } catch (Exception e) {
+                log.warn("⚠️ Email de confirmación no enviado para {}: {}", saved.getOrderNumber(), e.getMessage());
+            }
+
+        } else if (newStatus != Order.Status.PAID && newStatus != Order.Status.PENDING) {
+            try {
+                emailService.sendStatusUpdate(saved);
+            } catch (Exception e) {
+                log.warn("Email de estado no enviado para {}: {}", saved.getOrderNumber(), e.getMessage());
+            }
         }
+
+        return saved;
     }
 
-    // ══════════════════════════════════════════════════════════
-    //  (3) Aplicar descuento de puntos al calcular el total
-    //      del pedido en el checkout
-    // ══════════════════════════════════════════════════════════
-
-    /**
-     * Patrón para aplicar el descuento de puntos en createOrder().
-     *
-     * El frontend manda: { ..., pointsToRedeem: 500 }
-     * El backend ejecuta el canje ANTES de crear el pedido.
-     *
-     * Ejemplo en OrderService.createOrder():
-     * <pre>
-     *   long baseTotal = subtotal + shippingCost - couponDiscount - giftCardDiscount;
-     *   long pointsDiscount = 0;
-     *
-     *   if (request.getPointsToRedeem() != null && request.getPointsToRedeem() > 0) {
-     *       RedeemPointsRequest redeemReq = new RedeemPointsRequest();
-     *       redeemReq.setPointsToRedeem(request.getPointsToRedeem());
-     *       redeemReq.setOrderTotalCop(baseTotal);
-     *       redeemReq.setOrderNumber(orderNumber); // generado previamente
-     *
-     *       RedeemResponse redeem = pointsService.redeemPoints(
-     *           request.getCustomerEmail(), redeemReq);
-     *
-     *       pointsDiscount = redeem.getDiscountCop();
-     *   }
-     *
-     *   long finalTotal = Math.max(0, baseTotal - pointsDiscount);
-     *   order.setPointsDiscount(pointsDiscount);  // campo nuevo en Order
-     *   order.setTotal(finalTotal);
-     * </pre>
-     *
-     * Añadir a orders table:
-     *   points_discount  DECIMAL(12,2) NOT NULL DEFAULT 0,
-     *   points_redeemed  INTEGER       NOT NULL DEFAULT 0,
-     */
-    void applyPointsDiscount_documentation_only() {
-        // Este método es solo documentación.
-        // Ver el bloque de código en el javadoc arriba.
+    public Optional<Order> findByNumber(String orderNumber) {
+        return orderRepo.findByOrderNumber(orderNumber);
     }
 
-    // ══════════════════════════════════════════════════════════
-    //  (4) Acreditar puntos por REFERRAL cuando un referido compra
-    // ══════════════════════════════════════════════════════════
-
-    /**
-     * Llamar desde ReferralService cuando se confirma que un
-     * usuario referido completó su primera compra.
-     *
-     * Añadir en ReferralService.redeemReferralCode():
-     * <pre>
-     *   AddBonusPointsRequest bonus = new AddBonusPointsRequest();
-     *   bonus.setType("REFERRAL");
-     *   pointsService.awardBonusPoints(referralOwnerEmail, bonus);
-     * </pre>
-     */
-    void referralIntegration_documentation_only() {
-        // Ver javadoc arriba.
+    public Optional<Order> findByPaymentId(String paymentId) {
+        return orderRepo.findByPaymentId(paymentId);
     }
 
-    // ══════════════════════════════════════════════════════════
-    //  (5) Acreditar puntos por REVIEW cuando se aprueba una reseña
-    // ══════════════════════════════════════════════════════════
+    public List<Order> getOrdersByEmail(String email) {
+        return orderRepo.findByCustomerEmailOrderByCreatedAtDesc(email);
+    }
 
-    /**
-     * Llamar desde ReviewService.approveReview():
-     * <pre>
-     *   AddBonusPointsRequest bonus = new AddBonusPointsRequest();
-     *   bonus.setType("REVIEW");
-     *   bonus.setReference(String.valueOf(review.getProductId()));
-     *   pointsService.awardBonusPoints(review.getUserEmail(), bonus);
-     * </pre>
-     */
-    void reviewIntegration_documentation_only() {
-        // Ver javadoc arriba.
+    @Transactional(readOnly = true)
+    public List<Order> getAllOrdersList() {
+        return orderRepo.findAllWithItemsOrderByCreatedAtDesc();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Order> getRecentOrdersWithItems(int limit) {
+        List<Long> ids = orderRepo.findRecentIds(PageRequest.of(0, limit));
+        if (ids.isEmpty()) return java.util.Collections.emptyList();
+        return orderRepo.findByIdsWithItems(ids);
+    }
+
+    public Page<Order> getAllOrders(int page, int size) {
+        return orderRepo.findAllByOrderByCreatedAtDesc(
+            PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
     }
 }
