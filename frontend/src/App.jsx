@@ -2857,9 +2857,9 @@ export default function App() {
       <section className="hero">
         <div className="hero-inner">
           <div>
-            <div className="hero-tag">✦ Nueva Colección 2026</div>
+            <div className="hero-tag">✦ Kosmica</div>
             <h1 className="hero-title">Donde tu estilo<br/><em>cobra vida</em> ✦</h1>
-            <p className="hero-sub">Bolsos, billeteras, maquillaje, capilar, cuidado personal y moda femenina premium. Galería con fotos y videos reales.</p>
+            <p className="hero-sub">Bolsos, billeteras, maquillaje, capilar, cuidado personal y moda femenina.</p>
             <div className="hero-btns">
               <button className="btn-primary" onClick={scrollTo}>Explorar Colección</button>
               <button className="btn-outline" onClick={()=>{setActiveCategory("MAQUILLAJE");scrollTo();}}>🔥 Ver Ofertas</button>
