@@ -2857,7 +2857,7 @@ export default function App() {
       <section className="hero">
         <div className="hero-inner">
           <div>
-            <div className="hero-tag">✦ Kosmica</div>
+            <h1 className="hero-title">✦ Kosmica</h1>
             <h1 className="hero-title">Donde tu estilo<br/><em>cobra vida</em> ✦</h1>
             <p className="hero-sub">Bolsos, billeteras, maquillaje, capilar, cuidado personal y moda femenina.</p>
             <div className="hero-btns">
