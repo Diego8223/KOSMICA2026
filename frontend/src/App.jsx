@@ -1470,7 +1470,7 @@ const CATEGORIES = [
   { key:"MAQUILLAJE",       label:"💄 Maquillaje",         ico:"💄", color:"linear-gradient(135deg,#F4A7C3,#D4719B)" },
   { key:"CAPILAR",          label:"✨ Capilar",             ico:"✨", color:"linear-gradient(135deg,#A8D4F0,#72B7D4)" },
   { key:"CUIDADO_PERSONAL", label:"🧴 Cuidado Personal",  ico:"🧴", color:"linear-gradient(135deg,#FFD6A5,#F4A261)" },
-  { key:"ACCESORIOS",       label:"💍 Accesorios",         ico:"💍", color:"linear-gradient(135deg,#FFC8DD,#E07A9A)" },
+  { key:"MODA",              label:"👗 Moda",                ico:"👗", color:"linear-gradient(135deg,#FFC8DD,#E07A9A)" },
 ];
 
 
@@ -2014,7 +2014,7 @@ export default function App() {
   // Emojis por categoría para hacer el mensaje más visual
   const CAT_EMOJI = {
     BOLSOS: "👜", BILLETERAS: "💳", MAQUILLAJE: "💄",
-    CAPILAR: "✨", CUIDADO_PERSONAL: "🧴", ACCESORIOS: "💍",
+    CAPILAR: "✨", CUIDADO_PERSONAL: "🧴", MODA: "👗",
   };
 
   // Sin fallback — solo se muestran compras reales
@@ -2858,8 +2858,8 @@ export default function App() {
         <div className="hero-inner">
           <div>
             <div className="hero-tag">✦ Nueva Colección 2026</div>
-            <h1 className="hero-title">Moda que te<br/><em>enamora</em> ✦</h1>
-            <p className="hero-sub">Bolsos, maquillaje, capilar y ropa femenina premium. Galería con fotos y videos reales.</p>
+            <h1 className="hero-title">Donde tu estilo<br/><em>cobra vida</em> ✦</h1>
+            <p className="hero-sub">Bolsos, billeteras, maquillaje, capilar, cuidado personal y moda femenina premium. Galería con fotos y videos reales.</p>
             <div className="hero-btns">
               <button className="btn-primary" onClick={scrollTo}>Explorar Colección</button>
               <button className="btn-outline" onClick={()=>{setActiveCategory("MAQUILLAJE");scrollTo();}}>🔥 Ver Ofertas</button>
@@ -3035,7 +3035,7 @@ export default function App() {
                 <a href="#p" onClick={e=>{e.preventDefault();selectCat("MAQUILLAJE");scrollTo();}}>Maquillaje</a>
                 <a href="#p" onClick={e=>{e.preventDefault();selectCat("CAPILAR");scrollTo();}}>Capilar</a>
                 <a href="#p" onClick={e=>{e.preventDefault();selectCat("CUIDADO_PERSONAL");scrollTo();}}>Cuidado Personal</a>
-                <a href="#p" onClick={e=>{e.preventDefault();selectCat("ACCESORIOS");scrollTo();}}>Accesorios</a>
+                <a href="#p" onClick={e=>{e.preventDefault();selectCat("MODA");scrollTo();}}>Moda</a>
               </div>
             </div>
             <div>
