@@ -89,7 +89,7 @@ const ctxChips = (t, cats = []) => {
   if (/billetera|monedero/.test(m))      return ["Para dama 💜","Para caballero 💙","Ver todos"];
   if (/maquillaje|labial|sombra/.test(m))return ["Kits completos 💄","Ver labiales","Ver paletas",...catChips].slice(0,4);
   if (/capilar|cabello|shampoo/.test(m)) return ["Ver shampoos ✨","Ver tratamientos","Kits capilares"];
-  if (/accesorio|aretes|collar/.test(m)) return ["Ver aretes 💍","Ver collares","Ver pulseras"];
+  if (/accesorio|aretes|collar/.test(m)) return ["Ver Moda 👗","Bolsos y morrales 👜","Maquillaje 💄"];
   if (/cuidado|crema|perfume/.test(m))   return ["Ver cremas 🧴","Sets de baño","Ver perfumes 🌸"];
   if (/oferta|descuento|promo/.test(m))  return ["Ver ofertas 🏷️","Lo más vendido ⭐",...catChips].slice(0,4);
   if (/env[íi]o|enviar/.test(m))         return ["🏍️ Local $15.000","📦 Nacional $20.000","Ver carrito 🛒"];
@@ -829,15 +829,6 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
     document.querySelectorAll(".kb-cat").forEach(b => b.classList.remove("on"));
     btn?.classList.add("on");
 
-    // Accesorios = próximamente
-    if (cat === "ACCESORIOS") {
-      addBot(
-        `¡Los accesorios están llegando muy pronto! 💍✨<br>Mientras tanto tenemos bolsos, morrales, maquillaje, capilar, billeteras y más.<br>¿Qué te gustaría ver?`,
-        ["Bolsos y morrales 👜","Billeteras 💳","Maquillaje 💄","Capilar ✨","Cuidado personal 🧴","Accesorios 💍"]
-      );
-      return;
-    }
-
     const prods = cat === "_all"
       ? allProds.filter(p => Number(p.stock) > 0).slice(0, 6)
       : allProds.filter(p => p.category === cat && Number(p.stock) > 0).slice(0, 6);
@@ -924,7 +915,7 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
         const top = allProds.filter(p => Number(p.stock)>0 && (p.badge || Number(p.rating)>=4.5)).slice(0,3);
         addBot(
           `¿Qué tipo de producto buscas${name?", <strong>"+name+"</strong>":""}? Cuéntame y te recomiendo lo mejor 💜`,
-          ["Bolsos y morrales 👜","Billeteras 💳","Maquillaje 💄","Capilar ✨","Cuidado personal 🧴","Accesorios 💍","Lo más vendido ⭐"],
+          ["Bolsos y morrales 👜","Billeteras 💳","Maquillaje 💄","Capilar ✨","Cuidado personal 🧴","Moda 👗","Lo más vendido ⭐"],
           top
         );
       }
@@ -994,7 +985,7 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
     if (/para m[íi]|algo para m[íi]|quiero algo/i.test(tl)) {
       setTimeout(() => addBot(
         `¡Me encanta! ¿Qué tipo de producto estás buscando${clientName?", <strong>"+clientName+"</strong>":""}? 💜`,
-        ["Bolsos y morrales 👜","Billeteras 💳","Maquillaje 💄","Capilar ✨","Cuidado personal 🧴","Accesorios 💍","Lo más vendido ⭐"]
+        ["Bolsos y morrales 👜","Billeteras 💳","Maquillaje 💄","Capilar ✨","Cuidado personal 🧴","Moda 👗","Lo más vendido ⭐"]
       ), 350);
       return;
     }
@@ -1045,7 +1036,7 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
       { regex: /capilar|cabello|shampoo/i,    label: "Capilar",          key: /CAPILAR|CABELLO/i },
       { regex: /billetera|monedero|wallet/i,  label: "Billeteras",       key: /BILLETERA|WALLET/i },
       { regex: /cuidado personal|crema|cuidado/i, label: "Cuidado personal", key: /CUIDADO|CREMA|PERSONAL/i },
-      { regex: /accesorio|aretes|collar|joya/i, label: "Accesorios",    key: /ACCESORIO|ARETE|COLLAR|JOYA/i },
+      { regex: /moda|ropa|vestido|blusa|outfit/i, label: "Moda",    key: /MODA/i },
     ];
     for (const { regex, label, key } of catMap) {
       if (regex.test(tl)) {
@@ -1061,7 +1052,7 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
         // Si no hay stock en esa categoría
         setTimeout(() => addBot(
           `Ahorita no tenemos productos de esa categoría disponibles, pero están llegando muy pronto 💜<br>¿Te muestro algo más?`,
-          ["Bolsos y morrales 👜","Billeteras 💳","Maquillaje 💄","Capilar ✨","Cuidado personal 🧴","Accesorios 💍"]
+          ["Bolsos y morrales 👜","Billeteras 💳","Maquillaje 💄","Capilar ✨","Cuidado personal 🧴","Moda 👗"]
         ), 350);
         return;
       }
@@ -1270,18 +1261,10 @@ export default function AIChatBot({ onAddToCart, onOpenCart, onSelectShipping })
                 {catEmoji(cat)} {cat.charAt(0).toUpperCase() + cat.slice(1).toLowerCase()}
               </button>
             ))}
-            {/* Accesorios - próximamente */}
-            {!cats.includes("ACCESORIOS") && (
-              <button className="kb-cat" onClick={e => filterCat("ACCESORIOS", e.currentTarget)}
-                style={{opacity:.7,position:"relative"}}>
-                💍 Accesorios
-                <span style={{
-                  position:"absolute",top:-7,right:-4,
-                  background:"linear-gradient(135deg,#C026D3,#7C3AED)",
-                  color:"#fff",fontSize:"7px",fontWeight:800,
-                  padding:"1px 5px",borderRadius:"8px",letterSpacing:".3px",
-                  whiteSpace:"nowrap"
-                }}>Pronto</span>
+            {/* Moda */}
+            {!cats.includes("MODA") && (
+              <button className="kb-cat" onClick={e => filterCat("MODA", e.currentTarget)}>
+                👗 Moda
               </button>
             )}
           </div>

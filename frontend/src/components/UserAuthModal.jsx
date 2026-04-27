@@ -214,33 +214,43 @@ export default function UserAuthModal({ open, onClose, onSuccess, initialTab = "
     setError("");
     if (!loginEmail || !loginPwd) { setError("Completa todos los campos"); return; }
     setLoading(true);
+    const pwdHash = await hashPassword(loginPwd);
+
+    // 1. Intentar validar contra el backend (fuente de verdad)
+    try {
+      const res = await fetch(`${API_URL}/api/users/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: loginEmail.toLowerCase().trim(), passwordHash: pwdHash }),
+      });
+      if (res.ok) {
+        const backendUser = await res.json();
+        const sessionUser = { ...backendUser };
+        delete sessionUser.passwordHash;
+        // Sincronizar en localStorage para uso offline
+        saveUser({ ...sessionUser, passwordHash: pwdHash });
+        setCurrentUser(sessionUser);
+        onSuccess?.(sessionUser);
+        onClose?.();
+        setLoading(false);
+        return;
+      } else if (res.status === 401) {
+        setError("Contraseña incorrecta");
+        setLoading(false);
+        return;
+      }
+      // Si hay otro error del servidor, caer al fallback local
+    } catch (_) {
+      // Sin conexión: usar localStorage como fallback
+    }
+
+    // 2. Fallback: validar con localStorage (modo offline)
     const users = getUsers();
     const user = users.find(u => u.email.toLowerCase() === loginEmail.toLowerCase());
     if (!user) { setError("No encontramos una cuenta con ese correo"); setLoading(false); return; }
-    const pwdHash = await hashPassword(loginPwd);
     if (user.passwordHash !== pwdHash) { setError("Contraseña incorrecta"); setLoading(false); return; }
     const sessionUser = { ...user };
     delete sessionUser.passwordHash;
-
-    // Sincronizar puntos y racha desde el backend al hacer login
-    try {
-      const res = await fetch(`${API_URL}/api/users/${encodeURIComponent(sessionUser.email)}`);
-      if (res.ok) {
-        const backendUser = await res.json();
-        sessionUser.points         = backendUser.points         ?? sessionUser.points ?? 0;
-        sessionUser.checkinStreak  = backendUser.checkinStreak  ?? sessionUser.checkinStreak ?? 0;
-        sessionUser.purchaseStreak = backendUser.purchaseStreak ?? sessionUser.purchaseStreak ?? 0;
-        sessionUser.city           = backendUser.city           || sessionUser.city;
-        sessionUser.phone          = backendUser.phone          || sessionUser.phone;
-        sessionUser.address        = backendUser.address        || sessionUser.address;
-        sessionUser.neighborhood   = backendUser.neighborhood   || sessionUser.neighborhood;
-        const newHash = await hashPassword(loginPwd);
-        saveUser({ ...sessionUser, passwordHash: newHash });
-      }
-    } catch (_) {
-      // Sin conexión: continuar con datos locales
-    }
-
     setCurrentUser(sessionUser);
     onSuccess?.(sessionUser);
     onClose?.();
@@ -305,6 +315,7 @@ export default function UserAuthModal({ open, onClose, onSuccess, initialTab = "
         body: JSON.stringify({
           name, email: normalizedEmail, phone, document,
           city, neighborhood: reg.neighborhood, address,
+          passwordHash,   // ✅ FIX: enviar hash para que quede guardado en la BD
           createdAt: new Date().toISOString(),
         }),
       });

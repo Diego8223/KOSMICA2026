@@ -67,6 +67,10 @@ public class User {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
+    // ── Contraseña (hash SHA-256 desde el frontend) ───────────
+    @Column(name = "password_hash", length = 64)
+    private String passwordHash;
+
     // ── Recuperación de contraseña ────────────────────────────
     @Column(name = "reset_token", length = 100)
     private String resetToken;

@@ -26,6 +26,36 @@ public class UserController {
         return ResponseEntity.ok(user);
     }
 
+    /**
+     * POST /api/users/login
+     * Valida email + passwordHash contra la BD.
+     * Body: { "email": "...", "passwordHash": "sha256hex..." }
+     * Responde con el usuario (sin hash) si es válido, 401 si no.
+     */
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestBody Map<String, Object> body) {
+        String email = ((String) body.getOrDefault("email", "")).toLowerCase().trim();
+        String hash  = (String) body.getOrDefault("passwordHash", "");
+        if (email.isBlank() || hash == null || hash.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email y contraseña requeridos"));
+        }
+        try {
+            User user = userService.getByEmail(email);
+            // Si el usuario no tiene hash en BD todavía (cuenta antigua) — aceptar y guardar
+            if (user.getPasswordHash() == null || user.getPasswordHash().isBlank()) {
+                userService.setPasswordHash(email, hash);
+                user = userService.getByEmail(email);
+            } else if (!hash.equals(user.getPasswordHash())) {
+                return ResponseEntity.status(401).body(Map.of("error", "Contraseña incorrecta"));
+            }
+            // No exponer el hash en la respuesta
+            user.setPasswordHash(null);
+            return ResponseEntity.ok(user);
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.status(401).body(Map.of("error", "Usuario no encontrado"));
+        }
+    }
+
     /** GET /api/users — panel admin */
     @GetMapping
     public ResponseEntity<List<User>> getAll() {

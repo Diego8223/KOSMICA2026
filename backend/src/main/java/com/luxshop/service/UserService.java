@@ -63,6 +63,14 @@ public class UserService {
         user.setNeighborhood((String) payload.getOrDefault("neighborhood", ""));
         user.setAddress((String) payload.getOrDefault("address", ""));
 
+        // ✅ FIX: guardar el hash de contraseña en la BD si viene en el payload
+        // En actualizaciones de perfil el hash NO viene, así que solo se sobreescribe
+        // si el payload incluye explícitamente un passwordHash no vacío.
+        String incomingHash = (String) payload.get("passwordHash");
+        if (incomingHash != null && !incomingHash.isBlank()) {
+            user.setPasswordHash(incomingHash);
+        }
+
         // Guardar primero (necesitamos que el usuario exista antes de acreditar puntos)
         User saved = userRepository.save(user);
 
@@ -162,6 +170,14 @@ public class UserService {
             .orElseThrow(() -> new EntityNotFoundException("Usuario no encontrado: " + email));
     }
 
+    /** Establece el hash de contraseña directamente (migración de cuentas antiguas). */
+    @Transactional
+    public void setPasswordHash(String email, String hash) {
+        User user = getByEmail(email);
+        user.setPasswordHash(hash);
+        userRepository.save(user);
+    }
+
     public List<User> getAllUsers() {
         return userRepository.findAllByOrderByCreatedAtDesc();
     }
@@ -198,6 +214,8 @@ public class UserService {
                 || LocalDateTime.now().isAfter(user.getResetTokenExpiry())) {
             throw new IllegalArgumentException("El enlace de recuperación ya expiró");
         }
+        // ✅ FIX CRÍTICO: guardar el nuevo hash en la BD (antes esta línea no existía)
+        user.setPasswordHash(newPasswordHash);
         user.setResetToken(null);
         user.setResetTokenExpiry(null);
         userRepository.save(user);

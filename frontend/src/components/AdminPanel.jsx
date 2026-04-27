@@ -15,7 +15,7 @@ const adminHeaders = () => ({
   ...(_adminApiKey ? { 'X-Admin-Key': _adminApiKey } : {}),
 });
 // Envia.com via backend proxy — v3 (auth y fan-out manejados en el backend)
-const CATEGORIES = ['BOLSOS','BILLETERAS','MAQUILLAJE','CAPILAR','CUIDADO_PERSONAL','ACCESORIOS'];
+const CATEGORIES = ['BOLSOS','BILLETERAS','MAQUILLAJE','CAPILAR','CUIDADO_PERSONAL','MODA'];
 const BADGES     = ['','VIRAL','HOT','BESTSELLER','NUEVO'];
 const EMPTY_PROD = {
   name:'', description:'', price:'', originalPrice:'',
@@ -2020,7 +2020,7 @@ export default function AdminPanel({ onExit }) {
                     <option value="MAQUILLAJE">💄 Maquillaje</option>
                     <option value="CAPILAR">✨ Capilar</option>
                     <option value="CUIDADO_PERSONAL">🧴 Cuidado Personal</option>
-                    <option value="ACCESORIOS">💍 Accesorios</option>
+                    <option value="MODA">👗 Moda</option>
                   </select>
                   <button className="adm-btn-primary" onClick={openNew}>+ Nuevo producto</button>
                 </div>
@@ -2037,7 +2037,7 @@ export default function AdminPanel({ onExit }) {
                           <tr key={p.id}>
                             <td><img className="adm-prod-img" src={p.imageUrl||'https://via.placeholder.com/48'} alt=""/></td>
                             <td style={{fontWeight:600,maxWidth:180}}>{p.name}</td>
-                            <td><span className="adm-cat">{{BOLSOS:'👜 Bolsos',BILLETERAS:'💳 Billeteras',MAQUILLAJE:'💄 Maquillaje',CAPILAR:'✨ Capilar',CUIDADO_PERSONAL:'🧴 Cuidado',ACCESORIOS:'💍 Accesorios'}[p.category]||p.category}</span></td>
+                            <td><span className="adm-cat">{{BOLSOS:'👜 Bolsos',BILLETERAS:'💳 Billeteras',MAQUILLAJE:'💄 Maquillaje',CAPILAR:'✨ Capilar',CUIDADO_PERSONAL:'🧴 Cuidado',MODA:'👗 Moda'}[p.category]||p.category}</span></td>
                             <td style={{fontWeight:700,color:'#7B5EA7'}}>${Number(p.price||0).toLocaleString("es-CO",{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
                             <td>{p.stock}</td>
                             <td>{p.badge&&<span className={`adm-badge ${p.badge}`}>{p.badge}</span>}</td>
@@ -2100,7 +2100,7 @@ export default function AdminPanel({ onExit }) {
                       <option value="MAQUILLAJE">💄 Maquillaje</option>
                       <option value="CAPILAR">✨ Capilar</option>
                       <option value="CUIDADO_PERSONAL">🧴 Cuidado Personal</option>
-                      <option value="ACCESORIOS">💍 Accesorios</option>
+                      <option value="MODA">👗 Moda</option>
                     </select>
                   </div>
 

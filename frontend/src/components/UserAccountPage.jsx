@@ -228,6 +228,11 @@ export default function UserAccountPage({ onClose, onOpenGiftCard, onLogout }) {
   const [backendGCs, setBackendGCs] = useState([]);
   const [loadingGCs, setLoadingGCs] = useState(false);
   const [toast, setToast]     = useState("");
+  // Cambio de contraseña
+  const [pwdForm, setPwdForm]     = useState({ current: "", new1: "", new2: "" });
+  const [pwdError, setPwdError]   = useState("");
+  const [pwdSuccess, setPwdSuccess] = useState("");
+  const [pwdLoading, setPwdLoading] = useState(false);
   const [redeemLoading, setRedeemLoading] = useState(false);
 
   const API_URL = process.env.REACT_APP_API_URL || "https://kosmica-backend.onrender.com";
@@ -309,6 +314,51 @@ export default function UserAccountPage({ onClose, onOpenGiftCard, onLogout }) {
     logoutUser();
     onClose?.();
     onLogout?.();
+  };
+
+  // Cambio de contraseña desde el perfil
+  const handleChangePassword = async () => {
+    setPwdError(""); setPwdSuccess("");
+    if (!pwdForm.current) { setPwdError("Ingresa tu contraseña actual"); return; }
+    if (!pwdForm.new1 || pwdForm.new1.length < 6) { setPwdError("La nueva contraseña debe tener al menos 6 caracteres"); return; }
+    if (pwdForm.new1 !== pwdForm.new2) { setPwdError("Las contraseñas nuevas no coinciden"); return; }
+    setPwdLoading(true);
+    try {
+      // Verificar contraseña actual contra backend
+      const currentHash = await (async (str) => {
+        const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+        return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+      })(pwdForm.current);
+      const newHash = await (async (str) => {
+        const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+        return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+      })(pwdForm.new1);
+
+      // Validar actual contra backend
+      const checkRes = await fetch(`${API_URL}/api/users/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email, passwordHash: currentHash }),
+      });
+      if (!checkRes.ok) { setPwdError("La contraseña actual es incorrecta"); setPwdLoading(false); return; }
+
+      // Guardar nueva contraseña en backend via registro (que preserva el hash si viene)
+      const regRes = await fetch(`${API_URL}/api/users/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...user, passwordHash: newHash }),
+      });
+      if (!regRes.ok) { setPwdError("No se pudo actualizar la contraseña. Intenta de nuevo."); setPwdLoading(false); return; }
+
+      // Actualizar en localStorage
+      saveUser({ ...user, passwordHash: newHash });
+      setPwdForm({ current: "", new1: "", new2: "" });
+      setPwdSuccess("✅ Contraseña actualizada correctamente");
+    } catch (_) {
+      setPwdError("Error de conexión. Intenta de nuevo.");
+    } finally {
+      setPwdLoading(false);
+    }
   };
 
   // FIX: si no hay sesion activa, mostrar fallback con boton de cierre
@@ -454,6 +504,31 @@ export default function UserAccountPage({ onClose, onOpenGiftCard, onLogout }) {
                     Datos listos para pago automático
                   </span>
                 </div>
+              </div>
+
+              <div className="uacc-card" style={{marginTop:0}}>
+                <div className="uacc-card-title">🔐 Cambiar contraseña</div>
+                <div className="uacc-form-group">
+                  <label className="uacc-label">Contraseña actual</label>
+                  <input className="uacc-input" type="password" placeholder="••••••••"
+                    value={pwdForm.current} onChange={e=>setPwdForm(p=>({...p,current:e.target.value}))}/>
+                </div>
+                <div className="uacc-form-group">
+                  <label className="uacc-label">Nueva contraseña</label>
+                  <input className="uacc-input" type="password" placeholder="Mínimo 6 caracteres"
+                    value={pwdForm.new1} onChange={e=>setPwdForm(p=>({...p,new1:e.target.value}))}/>
+                </div>
+                <div className="uacc-form-group">
+                  <label className="uacc-label">Confirmar nueva contraseña</label>
+                  <input className="uacc-input" type="password" placeholder="Repite la contraseña"
+                    value={pwdForm.new2} onChange={e=>setPwdForm(p=>({...p,new2:e.target.value}))}/>
+                </div>
+                {pwdError && <div style={{background:"#FFF1F2",border:"1.5px solid #FECDD3",borderRadius:10,padding:"8px 12px",color:"#BE123C",fontSize:".82rem",fontWeight:600,marginBottom:8}}>⚠️ {pwdError}</div>}
+                {pwdSuccess && <div style={{background:"#F0FDF4",border:"1.5px solid #BBF7D0",borderRadius:10,padding:"8px 12px",color:"#15803D",fontSize:".82rem",fontWeight:600,marginBottom:8}}>{pwdSuccess}</div>}
+                <button className="uacc-save-btn" onClick={handleChangePassword}
+                  style={{opacity:pwdLoading?.6:1,cursor:pwdLoading?"not-allowed":"pointer",marginTop:4}}>
+                  {pwdLoading ? "Guardando..." : "🔒 Actualizar contraseña"}
+                </button>
               </div>
 
               <button className="uacc-logout" onClick={handleLogout}>

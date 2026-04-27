@@ -2841,6 +2841,7 @@ export default function App() {
       {/* ── PROMO STRIP ── */}
       <div className="promo-strip">💳 PSE, Wompi &amp; tarjeta &nbsp;|&nbsp; 🔒 Pago 100% seguro &nbsp;|&nbsp; 🚚 Elige tu envío al finalizar compra ✦</div>
 
+      
       {/* ── CATEGORÍAS BARRA HORIZONTAL ── */}
       <div className="cats-bar">
         {CATEGORIES.map(c=>(
@@ -2852,7 +2853,9 @@ export default function App() {
           </button>
         ))}
       </div>
+      
       {/* ── HERO ── */}
+
       <section className="hero">
         <div className="hero-inner">
           <div>
