@@ -37,4 +37,8 @@ public class OrderItem {
     /** Color que el cliente eligió al comprar este ítem. Null si el producto no tiene colores. */
     @Column(name = "selected_color", length = 100)
     private String selectedColor;
+
+    /** URL de la foto del color elegido — se usa en correo de confirmación. */
+    @Column(name = "selected_color_image", length = 500)
+    private String selectedColorImage;
 }

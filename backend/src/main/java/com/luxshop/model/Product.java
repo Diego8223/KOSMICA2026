@@ -61,11 +61,10 @@ public class Product {
     private Integer stock = 0;
 
     /**
-     * Colores disponibles para este producto, separados por coma.
-     * Ejemplo: "Negro,Blanco,Rosado"
-     * Null o vacío = producto sin variante de color.
+     * Colores disponibles. Puede ser JSON [{name,hex,image}] o texto "Negro,Blanco".
+     * Se usa TEXT para soportar URLs largas de imágenes por color.
      */
-    @Column(name = "colors", length = 500)
+    @Column(name = "colors", columnDefinition = "TEXT")
     private String colors;
 
     @Builder.Default

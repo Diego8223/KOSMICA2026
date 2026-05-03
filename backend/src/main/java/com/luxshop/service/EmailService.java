@@ -402,8 +402,16 @@ public class EmailService {
             for (OrderItem item : order.getItems()) {
                 String name  = item.getProduct() != null ? item.getProduct().getName() : "Producto";
                 String price = item.getSubtotal() != null ? item.getSubtotal().toString() : "0";
+                // ✅ Foto y nombre del color elegido
+                String colorHtml = "";
+                if (item.getSelectedColor() != null && !item.getSelectedColor().isBlank()) {
+                    colorHtml = "<br><span style='font-size:.8rem;color:#9B72CF;font-weight:700'>🎨 " + item.getSelectedColor() + "</span>";
+                    if (item.getSelectedColorImage() != null && !item.getSelectedColorImage().isBlank()) {
+                        colorHtml += "<br><img src='" + item.getSelectedColorImage() + "' width='60' height='60' style='border-radius:8px;object-fit:cover;margin-top:4px;border:1.5px solid #E8D5FF'/>";
+                    }
+                }
                 rows.append("<tr>")
-                    .append("<td style='padding:8px 12px;border-bottom:1px solid #f0e8ff'>").append(name).append("</td>")
+                    .append("<td style='padding:8px 12px;border-bottom:1px solid #f0e8ff'>").append(name).append(colorHtml).append("</td>")
                     .append("<td style='padding:8px 12px;border-bottom:1px solid #f0e8ff;text-align:center'>").append(item.getQuantity()).append("</td>")
                     .append("<td style='padding:8px 12px;border-bottom:1px solid #f0e8ff;text-align:right;font-weight:700;color:#7B5EA7'>$").append(price).append("</td>")
                     .append("</tr>");
@@ -446,8 +454,16 @@ public class EmailService {
             for (OrderItem item : order.getItems()) {
                 String name     = item.getProduct() != null ? item.getProduct().getName() : "Producto";
                 String subtotal = item.getSubtotal() != null ? item.getSubtotal().toString() : "0";
+                // ✅ Foto y nombre del color elegido
+                String colorHtml = "";
+                if (item.getSelectedColor() != null && !item.getSelectedColor().isBlank()) {
+                    colorHtml = "<br><span style='font-size:.8rem;color:#9B72CF;font-weight:700'>🎨 " + item.getSelectedColor() + "</span>";
+                    if (item.getSelectedColorImage() != null && !item.getSelectedColorImage().isBlank()) {
+                        colorHtml += "<br><img src='" + item.getSelectedColorImage() + "' width='60' height='60' style='border-radius:8px;object-fit:cover;margin-top:4px;border:1.5px solid #E8D5FF'/>";
+                    }
+                }
                 rows.append("<tr>")
-                    .append("<td style='padding:10px 14px;border-bottom:1px solid #f0e8ff'>").append(name).append("</td>")
+                    .append("<td style='padding:10px 14px;border-bottom:1px solid #f0e8ff'>").append(name).append(colorHtml).append("</td>")
                     .append("<td style='padding:10px 14px;border-bottom:1px solid #f0e8ff;text-align:center'>").append(item.getQuantity()).append("</td>")
                     .append("<td style='padding:10px 14px;border-bottom:1px solid #f0e8ff;text-align:right;font-weight:700;color:#7B5EA7'>$").append(subtotal).append("</td>")
                     .append("</tr>");

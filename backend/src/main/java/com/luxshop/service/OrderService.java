@@ -110,6 +110,10 @@ public class OrderService {
             if (item.getSelectedColor() != null && !item.getSelectedColor().isBlank()) {
                 oi.setSelectedColor(item.getSelectedColor().trim());
             }
+            // ✅ Guardar la foto del color elegido (para correo y admin)
+            if (item.getSelectedColorImage() != null && !item.getSelectedColorImage().isBlank()) {
+                oi.setSelectedColorImage(item.getSelectedColorImage().trim());
+            }
             items.add(oi);
             subtotal = subtotal.add(oi.getSubtotal());
         }

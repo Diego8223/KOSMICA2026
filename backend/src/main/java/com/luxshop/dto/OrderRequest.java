@@ -72,5 +72,8 @@ public class OrderRequest {
 
         /** Color elegido por el cliente. Null si el producto no maneja colores. */
         private String selectedColor;
+
+        /** URL de la foto del color elegido. Se incluye en el correo de confirmación. */
+        private String selectedColorImage;
     }
 }
