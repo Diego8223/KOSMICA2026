@@ -853,33 +853,107 @@ export default function ProductDetailModal({
                 </div>
 
                 <div className="pdm-qty-row">
-                  {/* ✅ SELECTOR DE COLOR */}
+                  {/* ✅ SELECTOR DE COLOR ESTILO SHEIN */}
                   {(() => {
                     const colorList = product.colors
                       ? product.colors.split(',').map(c => c.trim()).filter(Boolean)
                       : [];
                     if (colorList.length === 0) return null;
+
+                    // Mapa de nombres de color en español/inglés → hex real
+                    const COLOR_MAP = {
+                      negro: '#1a1a1a', black: '#1a1a1a',
+                      blanco: '#ffffff', white: '#ffffff',
+                      rojo: '#e53935', red: '#e53935',
+                      rosado: '#f06292', rosa: '#f06292', pink: '#f06292',
+                      fucsia: '#e91e8c', fuchsia: '#e91e8c',
+                      naranja: '#f57c00', orange: '#f57c00',
+                      amarillo: '#fdd835', yellow: '#fdd835',
+                      verde: '#43a047', green: '#43a047',
+                      menta: '#80cbc4', mint: '#80cbc4',
+                      azul: '#1e88e5', blue: '#1e88e5',
+                      marino: '#0d2b55', navy: '#0d2b55',
+                      morado: '#8e24aa', purple: '#8e24aa',
+                      lila: '#ce93d8', lilac: '#ce93d8',
+                      gris: '#757575', gray: '#757575', grey: '#757575',
+                      beige: '#d7ccc8', crema: '#fff3e0', cream: '#fff3e0',
+                      cafe: '#795548', café: '#795548', brown: '#795548',
+                      camel: '#c8a165', dorado: '#ffc107', gold: '#ffc107',
+                      plateado: '#b0bec5', silver: '#b0bec5',
+                      turquesa: '#00bcd4', turquoise: '#00bcd4',
+                      coral: '#ff6b6b', salmón: '#ff8a65', salmon: '#ff8a65',
+                      vino: '#880e4f', wine: '#880e4f', bordo: '#6d0032',
+                      khaki: '#c5b358', olivo: '#808000', olive: '#808000',
+                      multicolor: 'conic-gradient(#e53935,#fdd835,#43a047,#1e88e5,#e91e8c)',
+                    };
+
+                    const getColorHex = (name) => {
+                      const key = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                      for (const [k, v] of Object.entries(COLOR_MAP)) {
+                        const kn = k.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                        if (key.includes(kn) || kn.includes(key)) return v;
+                      }
+                      return null; // sin mapeo → usar chip de texto
+                    };
+
                     return (
-                      <div style={{ width: '100%', marginBottom: 14 }}>
-                        <div style={{ fontSize: '.82rem', fontWeight: 700, color: '#7B5EA7', marginBottom: 8, letterSpacing: '.04em' }}>
-                          Color: {selectedColor
-                            ? <span style={{ color: '#2D1B4E' }}>{selectedColor}</span>
-                            : <span style={{ color: '#E74C3C', fontWeight: 600 }}>— elige uno</span>}
+                      <div style={{ width: '100%', marginBottom: 16 }}>
+                        {/* Encabezado */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                          <span style={{ fontSize: '.82rem', fontWeight: 700, color: '#2D1B4E', letterSpacing: '.03em' }}>Color:</span>
+                          {selectedColor
+                            ? <span style={{ fontSize: '.82rem', color: '#7B5EA7', fontWeight: 600 }}>{selectedColor}</span>
+                            : <span style={{ fontSize: '.78rem', color: '#E74C3C', fontWeight: 600 }}>Elige un color</span>}
                         </div>
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          {colorList.map(c => (
-                            <button key={c} onClick={() => setSelectedColor(c)}
-                              style={{
-                                padding: '6px 16px', borderRadius: 30, fontSize: '.85rem', fontWeight: 700,
-                                cursor: 'pointer', transition: 'all .18s',
-                                border: selectedColor === c ? '2.5px solid #7B5EA7' : '2px solid #D4C8F0',
-                                background: selectedColor === c ? 'linear-gradient(135deg,#9B72CF,#7B5EA7)' : '#F5F0FF',
-                                color: selectedColor === c ? '#fff' : '#7B5EA7',
-                                boxShadow: selectedColor === c ? '0 2px 10px rgba(123,94,167,.35)' : 'none',
-                              }}>
-                              {c}
-                            </button>
-                          ))}
+                        {/* Swatches */}
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                          {colorList.map(c => {
+                            const hex = getColorHex(c);
+                            const isSelected = selectedColor === c;
+                            const isLight = hex && ['#ffffff','#fff3e0','#fdd835','#c8a165','#fff'].some(l => hex.startsWith(l));
+
+                            if (hex) {
+                              // Círculo de color real (estilo Shein)
+                              return (
+                                <div key={c} onClick={() => setSelectedColor(c)}
+                                  title={c}
+                                  style={{
+                                    position: 'relative', cursor: 'pointer',
+                                    width: 36, height: 36, borderRadius: '50%',
+                                    background: hex,
+                                    border: isSelected ? '3px solid #7B5EA7' : isLight ? '2px solid #D4C8F0' : '2px solid transparent',
+                                    boxShadow: isSelected
+                                      ? '0 0 0 3px rgba(123,94,167,.3)'
+                                      : '0 2px 6px rgba(0,0,0,.18)',
+                                    transition: 'all .15s',
+                                    flexShrink: 0,
+                                  }}>
+                                  {isSelected && (
+                                    <span style={{
+                                      position: 'absolute', inset: 0,
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      fontSize: 14, color: isLight ? '#333' : '#fff',
+                                      fontWeight: 900, lineHeight: 1,
+                                    }}>✓</span>
+                                  )}
+                                </div>
+                              );
+                            } else {
+                              // Chip de texto para colores sin mapeo hex
+                              return (
+                                <button key={c} onClick={() => setSelectedColor(c)}
+                                  style={{
+                                    padding: '6px 14px', borderRadius: 30, fontSize: '.82rem', fontWeight: 700,
+                                    cursor: 'pointer', transition: 'all .15s', border: 'none', outline: 'none',
+                                    background: isSelected ? 'linear-gradient(135deg,#9B72CF,#7B5EA7)' : '#F0E8FF',
+                                    color: isSelected ? '#fff' : '#7B5EA7',
+                                    boxShadow: isSelected ? '0 2px 10px rgba(123,94,167,.35)' : 'none',
+                                  }}>
+                                  {c}
+                                </button>
+                              );
+                            }
+                          })}
                         </div>
                       </div>
                     );

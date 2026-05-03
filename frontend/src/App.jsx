@@ -3961,7 +3961,7 @@ export default function App() {
               {[
                 ["Check-in diario","+5 pts gratis cada día (hasta +20 pts el día 7)"],
                 ["Cada compra","1 pt por cada $20 COP — máx. "+DAILY_POINTS_LIMIT+" pts/día"],
-                ["Referir una amiga","+50 pts cuando ella compra"],
+                ["Referir a una amiga","+50 pts cuando ella compra"],
                 ["Dejar reseña","+10 pts por reseña publicada"],
                 ["Newsletter","+20 pts al suscribirte"],
               ].map(([accion, det])=>(
