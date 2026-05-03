@@ -2447,6 +2447,13 @@ export default function App() {
         shippingMethod:selectedShippingMethod.id,
         shippingCost:selectedShippingMethod.cost,
         items:cart.map(i=>({productId:i.id,quantity:i.qty,selectedColor:i.selectedColor||null,selectedColorImage:i.selectedColorImage||null})),
+        couponCode:       appliedCoupon && !appliedCoupon.code.startsWith("KOS-") && appliedCoupon.type !== "giftcard" ? appliedCoupon.code : null,
+        couponDiscount:   couponDiscount,
+        referralCode:     appliedCoupon?.code.startsWith("KOS-") ? appliedCoupon.code : (referralCode || null),
+        giftCardCode:     appliedCoupon?.type === "giftcard" ? appliedCoupon.code : null,
+        giftCardDiscount: appliedCoupon?.type === "giftcard" ? couponDiscount : 0,
+      });
+      // 2. Crear transacción en Wompi
       const API_URL = process.env.REACT_APP_API_URL || "https://kosmica-backend.onrender.com";
       const res = await fetch(`${API_URL}/api/wompi/transaction`, {
         method: "POST",
