@@ -498,6 +498,7 @@ export default function ProductDetailModal({
   const [added,     setAdded]     = useState(false);
   const [cartOpen,  setCartOpen]  = useState(false);
   const [lightbox,  setLightbox]  = useState(false);
+  const [selectedColor, setSelectedColor] = useState('');  // ✅ color elegido
   const vidRef      = useRef(null);
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
@@ -631,7 +632,13 @@ export default function ProductDetailModal({
 
   const handleAdd = () => {
     if (product.stock !== undefined && product.stock !== null && product.stock <= 0) return;
-    onAddToCart(product, qty);
+    // ✅ Si hay colores disponibles y no eligió ninguno, bloquear
+    const colorList = product.colors ? product.colors.split(',').map(c => c.trim()).filter(Boolean) : [];
+    if (colorList.length > 0 && !selectedColor) {
+      alert('Por favor elige un color antes de agregar al carrito');
+      return;
+    }
+    onAddToCart({ ...product, selectedColor: selectedColor || null }, qty);
     setAdded(true);
     setCartOpen(true);
     setTimeout(() => setAdded(false), 1800);
@@ -846,6 +853,37 @@ export default function ProductDetailModal({
                 </div>
 
                 <div className="pdm-qty-row">
+                  {/* ✅ SELECTOR DE COLOR */}
+                  {(() => {
+                    const colorList = product.colors
+                      ? product.colors.split(',').map(c => c.trim()).filter(Boolean)
+                      : [];
+                    if (colorList.length === 0) return null;
+                    return (
+                      <div style={{ width: '100%', marginBottom: 14 }}>
+                        <div style={{ fontSize: '.82rem', fontWeight: 700, color: '#7B5EA7', marginBottom: 8, letterSpacing: '.04em' }}>
+                          Color: {selectedColor
+                            ? <span style={{ color: '#2D1B4E' }}>{selectedColor}</span>
+                            : <span style={{ color: '#E74C3C', fontWeight: 600 }}>— elige uno</span>}
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          {colorList.map(c => (
+                            <button key={c} onClick={() => setSelectedColor(c)}
+                              style={{
+                                padding: '6px 16px', borderRadius: 30, fontSize: '.85rem', fontWeight: 700,
+                                cursor: 'pointer', transition: 'all .18s',
+                                border: selectedColor === c ? '2.5px solid #7B5EA7' : '2px solid #D4C8F0',
+                                background: selectedColor === c ? 'linear-gradient(135deg,#9B72CF,#7B5EA7)' : '#F5F0FF',
+                                color: selectedColor === c ? '#fff' : '#7B5EA7',
+                                boxShadow: selectedColor === c ? '0 2px 10px rgba(123,94,167,.35)' : 'none',
+                              }}>
+                              {c}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
                   <span className="pdm-qty-lbl">Cantidad:</span>
                   <div className="pdm-qty">
                     <button className="pdm-qbtn" onClick={() => setQty(q => Math.max(1, q-1))}>−</button>

@@ -33,4 +33,8 @@ public class OrderItem {
 
     @Column(precision = 10, scale = 2)
     private BigDecimal subtotal;
+
+    /** Color que el cliente eligió al comprar este ítem. Null si el producto no tiene colores. */
+    @Column(name = "selected_color", length = 100)
+    private String selectedColor;
 }

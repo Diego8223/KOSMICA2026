@@ -60,6 +60,14 @@ public class Product {
     @Builder.Default
     private Integer stock = 0;
 
+    /**
+     * Colores disponibles para este producto, separados por coma.
+     * Ejemplo: "Negro,Blanco,Rosado"
+     * Null o vacío = producto sin variante de color.
+     */
+    @Column(name = "colors", length = 500)
+    private String colors;
+
     @Builder.Default
     private Boolean active = true;
 

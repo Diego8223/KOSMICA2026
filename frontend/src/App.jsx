@@ -2283,8 +2283,10 @@ export default function App() {
   const showToast=msg=>{ setToast(msg); setTimeout(()=>setToast(""),2800); };
   const addToCart=(p,qty=1)=>{
     setCart(prev=>{
-      const ex=prev.find(i=>i.id===p.id);
-      if(ex) return prev.map(i=>i.id===p.id?{...i,qty:i.qty+qty}:i);
+      // ✅ Un mismo producto con distinto color = ítem separado en el carrito
+      const colorKey = p.selectedColor || '';
+      const ex=prev.find(i=>i.id===p.id && (i.selectedColor||'')===colorKey);
+      if(ex) return prev.map(i=>(i.id===p.id&&(i.selectedColor||'')===colorKey)?{...i,qty:i.qty+qty}:i);
       return [...prev,{...p,qty}];
     });
     setCartPulse(true); setTimeout(()=>setCartPulse(false), 500);
@@ -2300,8 +2302,8 @@ export default function App() {
       });
     }
   };
-  const removeFromCart=id=>setCart(prev=>prev.filter(i=>i.id!==id));
-  const updateQty=(id,d)=>setCart(prev=>prev.map(i=>i.id===id?{...i,qty:Math.max(1,i.qty+d)}:i));
+  const removeFromCart=(id,color)=>setCart(prev=>prev.filter(i=>!(i.id===id&&(i.selectedColor||'')===(color||''))));
+  const updateQty=(id,d,color)=>setCart(prev=>prev.map(i=>(i.id===id&&(i.selectedColor||'')===(color||''))?{...i,qty:Math.max(1,i.qty+d)}:i));
   const toggleWishlist=id=>setWishlist(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id]);
 
   const cartTotal=cart.reduce((s,i)=>s+Number(i.price)*i.qty,0);
@@ -2388,7 +2390,7 @@ export default function App() {
         paymentIntentId:result.preferenceId,
         shippingMethod:selectedShippingMethod.id,
         shippingCost:selectedShippingMethod.cost,
-        items:cart.map(i=>({productId:i.id,quantity:i.qty})),
+        items:cart.map(i=>({productId:i.id,quantity:i.qty,selectedColor:i.selectedColor||null})),
         // ✅ CUPÓN Y REFERIDO — se guardan en la orden para el admin
         // Si el código aplicado es de referido (KOS-), va en referralCode
         // Si es cupón normal, va solo en couponCode
@@ -2444,7 +2446,7 @@ export default function App() {
         paymentIntentId: null,
         shippingMethod:selectedShippingMethod.id,
         shippingCost:selectedShippingMethod.cost,
-        items:cart.map(i=>({productId:i.id,quantity:i.qty})),
+        items:cart.map(i=>({productId:i.id,quantity:i.qty,selectedColor:i.selectedColor||null})),
         couponCode:       appliedCoupon && !appliedCoupon.code.startsWith("KOS-") && appliedCoupon.type !== "giftcard" ? appliedCoupon.code : null,
         couponDiscount:   couponDiscount,
         referralCode:     appliedCoupon?.code.startsWith("KOS-") ? appliedCoupon.code : (referralCode || null),
@@ -3106,8 +3108,8 @@ export default function App() {
                       fontWeight:700,fontSize:".95rem",cursor:"pointer",boxShadow:"var(--shadow)"
                     }}>Ver productos ✦</button>
                   </div>
-                : cart.map(item=>(
-                    <div key={item.id} className="cart-item">
+                : cart.map((item,idx)=>(
+                    <div key={`${item.id}-${item.selectedColor||''}-${idx}`} className="cart-item">
                       <img className="cart-item-img"
                         src={item.imageUrl||"https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=200"}
                         alt={item.name}
@@ -3116,14 +3118,16 @@ export default function App() {
                         <div>
                           {item.category&&<div className="cart-item-cat">{item.category}</div>}
                           <div className="cart-item-name">{item.name}</div>
+                          {/* ✅ Mostrar color elegido */}
+                          {item.selectedColor&&<div style={{fontSize:'.78rem',color:'#9B72CF',fontWeight:700,marginBottom:3}}>🎨 {item.selectedColor}</div>}
                           <div className="cart-item-price">{fmtCOP(Number(item.price)*item.qty)}</div>
                           {item.qty>1&&<div style={{fontSize:".78rem",color:"var(--muted)",marginBottom:4}}>{fmtCOP(Number(item.price))} c/u</div>}
                         </div>
                         <div className="qty-controls">
-                          <button className="qty-btn" onClick={()=>updateQty(item.id,-1)}>−</button>
+                          <button className="qty-btn" onClick={()=>updateQty(item.id,-1,item.selectedColor)}>−</button>
                           <span className="qty-val">{item.qty}</span>
-                          <button className="qty-btn" onClick={()=>updateQty(item.id,1)}>+</button>
-                          <button className="cart-remove" title="Eliminar" onClick={()=>removeFromCart(item.id)}>🗑️</button>
+                          <button className="qty-btn" onClick={()=>updateQty(item.id,1,item.selectedColor)}>+</button>
+                          <button className="cart-remove" title="Eliminar" onClick={()=>removeFromCart(item.id,item.selectedColor)}>🗑️</button>
                         </div>
                       </div>
                     </div>

@@ -69,5 +69,8 @@ public class OrderRequest {
 
         @Min(value = 1, message = "Cantidad mínima: 1")
         private Integer quantity;
+
+        /** Color elegido por el cliente. Null si el producto no maneja colores. */
+        private String selectedColor;
     }
 }

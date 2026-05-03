@@ -19,7 +19,8 @@ const CATEGORIES = ['BOLSOS','BILLETERAS','MAQUILLAJE','CAPILAR','CUIDADO_PERSON
 const BADGES     = ['','VIRAL','HOT','BESTSELLER','NUEVO'];
 const EMPTY_PROD = {
   name:'', description:'', price:'', originalPrice:'',
-  category:'BOLSOS', badge:'', stock:'', imageUrl:'', videoUrl:'', gallery:'[]'
+  category:'BOLSOS', badge:'', stock:'', imageUrl:'', videoUrl:'', gallery:'[]',
+  colors:''
 };
 
 const CSS = `
@@ -1378,7 +1379,12 @@ function PushNotificationsSection() {
 
 
 export default function AdminPanel({ onExit }) {
-  const [authed,  setAuthed]  = useState(false);
+  const [authed,  setAuthed]  = useState(() => {
+    // ✅ FIX REFRESH: recuperar sesión guardada en sessionStorage
+    const saved = sessionStorage.getItem('kosmica_admin_key');
+    if (saved) { _adminApiKey = saved; setAdminApiKey(saved); return true; }
+    return false;
+  });
   const [pass,    setPass]    = useState('');
   const [loginErr,setLoginErr]= useState('');
   const [section, setSection] = useState('dashboard');
@@ -1396,6 +1402,7 @@ export default function AdminPanel({ onExit }) {
   const [gallery, setGallery] = useState([]);
   const [vidName, setVidName] = useState('');
   const [orderSearch,    setOrderSearch]    = useState('');
+  const [expandedOrder,  setExpandedOrder]  = useState(null);  // ✅ para ver ítems del pedido
   const [orderTab,       setOrderTab]       = useState('active'); // 'active' | 'history'
   const [archivedOrders, setArchivedOrders] = useState(() => {
     try { return JSON.parse(localStorage.getItem('kosmica_admin_archived_orders')||'[]'); }
@@ -1440,6 +1447,7 @@ export default function AdminPanel({ onExit }) {
       if (res.ok || res.status === 200) {
         _adminApiKey = pass;
         setAdminApiKey(pass);  // FIX: sincroniza clave con axios interceptor
+        sessionStorage.setItem('kosmica_admin_key', pass);  // ✅ FIX REFRESH
         setAuthed(true);
         setLoginErr('');
       } else if (res.status === 401 || res.status === 403) {
@@ -1722,7 +1730,8 @@ export default function AdminPanel({ onExit }) {
       name:p.name||'', description:p.description||'', price:p.price||'',
       originalPrice:p.originalPrice||'', category:p.category||'BOLSOS',
       badge:p.badge||'', stock:p.stock||0, imageUrl:p.imageUrl||'',
-      videoUrl:p.videoUrl||'', gallery:p.gallery||'[]'
+      videoUrl:p.videoUrl||'', gallery:p.gallery||'[]',
+      colors:p.colors||''
     });
     let g=[]; try{ g=JSON.parse(p.gallery||'[]'); }catch{}
     setGallery(g);
@@ -1957,7 +1966,7 @@ export default function AdminPanel({ onExit }) {
           </nav>
           <div className="adm-nav-foot">
             <button className="adm-nav-foot-btn" onClick={onExit}>← Volver a la tienda</button>
-            <button className="adm-nav-foot-btn" onClick={()=>setAuthed(false)}>🔒 Cerrar sesión</button>
+            <button className="adm-nav-foot-btn" onClick={()=>{ sessionStorage.removeItem('kosmica_admin_key'); setAuthed(false); }}>🔒 Cerrar sesión</button>
           </div>
         </aside>
 
@@ -2116,6 +2125,25 @@ export default function AdminPanel({ onExit }) {
                     <input className="adm-input" type="number" value={form.stock} onChange={e=>fSet('stock',e.target.value)} placeholder="50"/>
                   </div>
 
+                  <div className="adm-form-group full">
+                    <label className="adm-label">🎨 Colores disponibles</label>
+                    <input className="adm-input" type="text" value={form.colors||''} onChange={e=>fSet('colors',e.target.value)}
+                      placeholder="Ej: Negro, Blanco, Rosado (separados por coma)"/>
+                    <div style={{fontSize:'.78rem',color:'#9B72CF',marginTop:5}}>
+                      Deja vacío si el producto no tiene variante de color.
+                      {form.colors && (
+                        <span style={{marginLeft:8}}>
+                          Vista previa: {form.colors.split(',').map(c=>c.trim()).filter(Boolean).map(c=>(
+                            <span key={c} style={{display:'inline-block',background:'#F0E8FF',color:'#7B5EA7',
+                              borderRadius:30,padding:'2px 10px',fontSize:'.78rem',fontWeight:700,margin:'2px 3px'}}>
+                              {c}
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Imagen principal */}
                   <div className="adm-form-group full">
                     <label className="adm-label">📸 Imagen principal</label>
@@ -2227,8 +2255,13 @@ export default function AdminPanel({ onExit }) {
                       <thead><tr><th>#</th><th>Cliente</th><th>Total</th><th>Estado</th><th>Fecha</th><th>Acciones</th></tr></thead>
                       <tbody>
                         {filteredOrders.map(o=>(
+                          <>
                           <tr key={o.id}>
-                            <td style={{fontWeight:700,color:'#7B5EA7',whiteSpace:'nowrap'}}>{o.orderNumber}</td>
+                            <td style={{fontWeight:700,color:'#7B5EA7',whiteSpace:'nowrap',cursor:'pointer',userSelect:'none'}}
+                              title="Clic para ver ítems y colores"
+                              onClick={()=>setExpandedOrder(expandedOrder===o.id?null:o.id)}>
+                              {expandedOrder===o.id?'▼ ':'▶ '}{o.orderNumber}
+                            </td>
                             <td>
                               <div style={{fontWeight:600}}>{o.customerName}</div>
                               <div style={{fontSize:'.8rem',color:'#9B72CF'}}>{o.customerEmail}</div>
@@ -2258,6 +2291,33 @@ export default function AdminPanel({ onExit }) {
                               </button>
                             </td>
                           </tr>
+                          {/* ✅ Fila expandida: ítems con colores */}
+                          {expandedOrder===o.id && (
+                            <tr key={`${o.id}-items`} style={{background:'#FAF7FF'}}>
+                              <td colSpan={6} style={{padding:'10px 18px'}}>
+                                {o.items && o.items.length > 0 ? (
+                                  <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+                                    {o.items.map((it,i)=>(
+                                      <div key={i} style={{
+                                        background:'#fff',border:'1.5px solid #EDE9FE',borderRadius:12,
+                                        padding:'8px 14px',fontSize:'.84rem',display:'flex',alignItems:'center',gap:8
+                                      }}>
+                                        {it.product?.imageUrl&&<img src={it.product.imageUrl} alt="" style={{width:36,height:36,objectFit:'cover',borderRadius:8}}/>}
+                                        <div>
+                                          <div style={{fontWeight:700,color:'#2D1B4E'}}>{it.product?.name||`Producto #${it.product?.id}`}</div>
+                                          <div style={{color:'#9B72CF',fontSize:'.78rem'}}>×{it.quantity} · ${Number(it.subtotal||0).toLocaleString('es-CO',{minimumFractionDigits:0})}</div>
+                                          {it.selectedColor&&<div style={{marginTop:3,background:'#F0E8FF',color:'#7B5EA7',borderRadius:20,padding:'2px 10px',fontWeight:700,fontSize:'.76rem',display:'inline-block'}}>🎨 {it.selectedColor}</div>}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span style={{color:'#aaa',fontSize:'.85rem'}}>Sin detalle de ítems disponible</span>
+                                )}
+                              </td>
+                            </tr>
+                          )}
+                          </>
                         ))}
                       </tbody>
                     </table>

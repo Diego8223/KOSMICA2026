@@ -106,6 +106,10 @@ public class OrderService {
             oi.setQuantity(item.getQuantity());
             oi.setUnitPrice(product.getPrice());
             oi.setSubtotal(product.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
+            // ✅ Guardar el color elegido por el cliente
+            if (item.getSelectedColor() != null && !item.getSelectedColor().isBlank()) {
+                oi.setSelectedColor(item.getSelectedColor().trim());
+            }
             items.add(oi);
             subtotal = subtotal.add(oi.getSubtotal());
         }
