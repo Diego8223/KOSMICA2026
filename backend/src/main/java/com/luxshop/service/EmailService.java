@@ -619,7 +619,11 @@ public class EmailService {
             sb.append("\n📦 *Productos:*\n");
             for (OrderItem item : order.getItems()) {
                 String name = item.getProduct() != null ? item.getProduct().getName() : "Producto";
-                sb.append("• ").append(name).append(" x").append(item.getQuantity()).append("\n");
+                sb.append("• ").append(name).append(" x").append(item.getQuantity());
+                if (item.getSelectedColor() != null && !item.getSelectedColor().isBlank()) {
+                    sb.append(" 🎨 *").append(item.getSelectedColor().trim()).append("*");
+                }
+                sb.append("\n");
             }
         }
         return sb.toString();
