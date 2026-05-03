@@ -2127,108 +2127,156 @@ export default function AdminPanel({ onExit }) {
 
                   <div className="adm-form-group full">
                     <label className="adm-label">🎨 Colores disponibles</label>
-                    {/* ── Constructor visual de colores ── */}
                     {(() => {
-                      // Parsear colores actuales (JSON nuevo o texto antiguo)
+                      // ── Paleta predefinida amplia ──────────────────────────────
+                      const PALETTE = [
+                        { name:'Negro',     hex:'#1a1a1a' }, { name:'Blanco',    hex:'#ffffff' },
+                        { name:'Gris',      hex:'#9e9e9e' }, { name:'Gris Claro',hex:'#e0e0e0' },
+                        { name:'Gris Oscuro',hex:'#424242'},
+                        { name:'Rojo',      hex:'#e53935' }, { name:'Rojo Vino', hex:'#880e4f' },
+                        { name:'Burdeo',    hex:'#6d0032' }, { name:'Coral',     hex:'#ff6b6b' },
+                        { name:'Salmón',    hex:'#ff8a65' }, { name:'Naranja',   hex:'#f57c00' },
+                        { name:'Naranja Claro',hex:'#ffb74d'},
+                        { name:'Amarillo',  hex:'#fdd835' }, { name:'Dorado',    hex:'#ffc107' },
+                        { name:'Camel',     hex:'#c8a165' }, { name:'Beige',     hex:'#d7ccc8' },
+                        { name:'Crema',     hex:'#fff3e0' },
+                        { name:'Verde',     hex:'#43a047' }, { name:'Verde Oscuro',hex:'#1b5e20'},
+                        { name:'Verde Agua',hex:'#4db6ac' }, { name:'Menta',     hex:'#80cbc4' },
+                        { name:'Olivo',     hex:'#827717' }, { name:'Khaki',     hex:'#c5b358' },
+                        { name:'Azul',      hex:'#1e88e5' }, { name:'Azul Claro',hex:'#64b5f6' },
+                        { name:'Marino',    hex:'#0d2b55' }, { name:'Azul Rey',  hex:'#1565c0' },
+                        { name:'Celeste',   hex:'#81d4fa' }, { name:'Turquesa',  hex:'#00bcd4' },
+                        { name:'Morado',    hex:'#8e24aa' }, { name:'Lila',      hex:'#ce93d8' },
+                        { name:'Lavanda',   hex:'#e1bee7' }, { name:'Violeta',   hex:'#6a1b9a' },
+                        { name:'Rosado',    hex:'#f06292' }, { name:'Rosa Viejo',hex:'#c48b9f' },
+                        { name:'Rosa Bebé', hex:'#fce4ec' }, { name:'Fucsia',    hex:'#e91e8c' },
+                        { name:'Café',      hex:'#795548' }, { name:'Café Claro',hex:'#a1887f' },
+                        { name:'Plateado',  hex:'#b0bec5' }, { name:'Bronce',    hex:'#cd7f32' },
+                        { name:'Multicolor',hex:'multi'   },
+                      ];
+
                       const parseColors = (raw) => {
                         if (!raw) return [];
-                        try {
-                          const p = JSON.parse(raw);
-                          if (Array.isArray(p)) return p;
-                        } catch {}
-                        return raw.split(',').map(c => ({ name: c.trim(), hex: '', image: '' })).filter(c => c.name);
+                        try { const p=JSON.parse(raw); if(Array.isArray(p)) return p; } catch {}
+                        return raw.split(',').map(c=>({ name:c.trim(), hex:'', image:'' })).filter(c=>c.name);
                       };
                       const colorArr = parseColors(form.colors);
 
-                      const updateColors = (newArr) => {
-                        fSet('colors', newArr.length === 0 ? '' : JSON.stringify(newArr));
+                      const updateColors = (arr) =>
+                        fSet('colors', arr.length===0 ? '' : JSON.stringify(arr));
+
+                      const addPreset = (preset) => {
+                        if (colorArr.find(c=>c.name===preset.name)) return; // no duplicar
+                        updateColors([...colorArr, { name:preset.name, hex:preset.hex==='multi'?'multi':preset.hex, image:'' }]);
                       };
 
-                      const addColor = () => {
-                        updateColors([...colorArr, { name: '', hex: '', image: '' }]);
-                      };
-
-                      const removeColor = (i) => {
-                        updateColors(colorArr.filter((_, idx) => idx !== i));
-                      };
+                      const removeColor = (i) => updateColors(colorArr.filter((_,idx)=>idx!==i));
 
                       const updateColor = (i, field, val) => {
-                        const updated = colorArr.map((c, idx) => idx === i ? { ...c, [field]: val } : c);
-                        updateColors(updated);
+                        updateColors(colorArr.map((c,idx)=>idx===i?{...c,[field]:val}:c));
                       };
+
+                      const swatchBg = (hex) => hex === 'multi'
+                        ? 'conic-gradient(#e53935,#fdd835,#43a047,#1e88e5,#e91e8c)'
+                        : (hex || '#E8D5FF');
 
                       return (
                         <div>
+                          {/* Paleta de acceso rápido */}
+                          <div style={{marginBottom:12}}>
+                            <div style={{fontSize:'.75rem',fontWeight:700,color:'#7B5EA7',marginBottom:7,letterSpacing:'.05em'}}>
+                              PALETA RÁPIDA — clic para agregar:
+                            </div>
+                            <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+                              {PALETTE.map(preset => {
+                                const already = colorArr.find(c=>c.name===preset.name);
+                                return (
+                                  <div key={preset.name}
+                                    onClick={()=>addPreset(preset)}
+                                    title={preset.name}
+                                    style={{
+                                      width:28, height:28, borderRadius:6, cursor:'pointer',
+                                      background: swatchBg(preset.hex),
+                                      border: already ? '2.5px solid #7B5EA7' : '2px solid #D4C8F0',
+                                      boxShadow: already ? '0 0 0 2px rgba(123,94,167,.3)' : '0 1px 4px rgba(0,0,0,.15)',
+                                      opacity: already ? 1 : 0.85,
+                                      position:'relative', flexShrink:0,
+                                      transition:'all .12s',
+                                    }}>
+                                    {already && (
+                                      <span style={{
+                                        position:'absolute',inset:0,display:'flex',alignItems:'center',
+                                        justifyContent:'center',fontSize:11,fontWeight:900,
+                                        color: ['#ffffff','#fff3e0','#fdd835','#fce4ec','#e0e0e0','#d7ccc8','#c8a165'].includes(preset.hex)?'#333':'#fff'
+                                      }}>✓</span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Lista de colores elegidos */}
                           {colorArr.length === 0 && (
-                            <p style={{ fontSize: '.78rem', color: '#B8A0D8', marginBottom: 10 }}>
-                              Sin colores — el producto se vende en un solo color. Haz clic en "+ Agregar color" para habilitar la selección.
+                            <p style={{fontSize:'.78rem',color:'#B8A0D8',marginBottom:10}}>
+                              Sin colores — el producto se vende en un solo color/estilo.
                             </p>
                           )}
-                          {colorArr.map((c, i) => (
+                          {colorArr.map((c,i) => (
                             <div key={i} style={{
-                              display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center',
-                              background: '#F8F4FF', borderRadius: 12, padding: '10px 12px',
-                              marginBottom: 8, border: '1.5px solid #E8D5FF',
+                              display:'flex', flexWrap:'wrap', gap:8, alignItems:'center',
+                              background:'#F8F4FF', borderRadius:12, padding:'10px 12px',
+                              marginBottom:8, border:'1.5px solid #E8D5FF',
                             }}>
-                              {/* Vista previa del swatch */}
+                              {/* Vista previa */}
                               <div style={{
-                                width: 36, height: 36, borderRadius: 8, flexShrink: 0,
-                                background: c.image ? `url(${c.image}) center/cover` : (c.hex || '#E8D5FF'),
-                                border: '2px solid #D4C8F0',
-                                overflow: 'hidden',
-                              }} />
+                                width:36, height:36, borderRadius:8, flexShrink:0,
+                                background: c.image ? `url(${c.image}) center/cover` : swatchBg(c.hex),
+                                border:'2px solid #D4C8F0', overflow:'hidden',
+                              }}/>
                               {/* Nombre */}
-                              <input
-                                className="adm-input"
-                                style={{ flex: '1 1 100px', minWidth: 90 }}
-                                placeholder="Nombre (ej: Negro)"
+                              <input className="adm-input"
+                                style={{flex:'1 1 100px',minWidth:90}}
+                                placeholder="Nombre del color"
                                 value={c.name}
-                                onChange={e => updateColor(i, 'name', e.target.value)}
-                              />
-                              {/* Hex */}
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                <input
-                                  type="color"
-                                  value={c.hex || '#9B72CF'}
-                                  onChange={e => updateColor(i, 'hex', e.target.value)}
-                                  style={{ width: 36, height: 36, borderRadius: 8, border: '1.5px solid #D4C8F0', cursor: 'pointer', padding: 2 }}
-                                  title="Elige el color"
-                                />
-                                <input
-                                  className="adm-input"
-                                  style={{ width: 80 }}
+                                onChange={e=>updateColor(i,'name',e.target.value)}/>
+                              {/* Color picker + hex */}
+                              <div style={{display:'flex',alignItems:'center',gap:4}}>
+                                <input type="color"
+                                  value={c.hex && c.hex!=='multi' ? c.hex : '#9B72CF'}
+                                  onChange={e=>updateColor(i,'hex',e.target.value)}
+                                  style={{width:36,height:36,borderRadius:8,border:'1.5px solid #D4C8F0',cursor:'pointer',padding:2}}
+                                  title="Ajustar color exacto"/>
+                                <input className="adm-input" style={{width:80}}
                                   placeholder="#hex"
-                                  value={c.hex || ''}
-                                  onChange={e => updateColor(i, 'hex', e.target.value)}
-                                />
+                                  value={c.hex && c.hex!=='multi' ? c.hex : ''}
+                                  onChange={e=>updateColor(i,'hex',e.target.value)}/>
                               </div>
-                              {/* URL imagen del color */}
-                              <input
-                                className="adm-input"
-                                style={{ flex: '2 1 180px', minWidth: 140 }}
-                                placeholder="URL foto de este color (opcional)"
-                                value={c.image || ''}
-                                onChange={e => updateColor(i, 'image', e.target.value)}
-                              />
-                              <button
-                                className="adm-btn-sm adm-btn-del"
-                                onClick={() => removeColor(i)}
-                                style={{ flexShrink: 0 }}
-                              >✕</button>
+                              {/* URL foto del color */}
+                              <input className="adm-input"
+                                style={{flex:'2 1 180px',minWidth:140}}
+                                placeholder="📸 URL foto de este color (recomendado)"
+                                value={c.image||''}
+                                onChange={e=>updateColor(i,'image',e.target.value)}/>
+                              <button className="adm-btn-sm adm-btn-del"
+                                onClick={()=>removeColor(i)}
+                                style={{flexShrink:0}}>✕</button>
                             </div>
                           ))}
-                          <button
-                            type="button"
-                            onClick={addColor}
+
+                          {/* Agregar color personalizado */}
+                          <button type="button" onClick={()=>updateColors([...colorArr,{name:'',hex:'',image:''}])}
                             style={{
-                              marginTop: 4, padding: '7px 16px', borderRadius: 30, border: '1.5px dashed #9B72CF',
-                              background: 'transparent', color: '#7B5EA7', fontWeight: 700,
-                              fontSize: '.82rem', cursor: 'pointer',
-                            }}
-                          >+ Agregar color</button>
+                              marginTop:4, padding:'7px 16px', borderRadius:30,
+                              border:'1.5px dashed #9B72CF', background:'transparent',
+                              color:'#7B5EA7', fontWeight:700, fontSize:'.82rem', cursor:'pointer',
+                            }}>
+                            + Color personalizado
+                          </button>
+
                           {colorArr.length > 0 && (
-                            <div style={{ fontSize: '.75rem', color: '#9B72CF', marginTop: 6 }}>
-                              💡 Si pones una URL de foto, al elegir ese color la imagen del producto cambiará automáticamente.
+                            <div style={{fontSize:'.75rem',color:'#9B72CF',marginTop:8,lineHeight:1.6}}>
+                              💡 <strong>Con URL de foto</strong>: cuando el cliente elige ese color, la foto del producto cambia automáticamente y se envía en el correo y el chatbot.
                             </div>
                           )}
                         </div>

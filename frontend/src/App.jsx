@@ -2390,7 +2390,7 @@ export default function App() {
         paymentIntentId:result.preferenceId,
         shippingMethod:selectedShippingMethod.id,
         shippingCost:selectedShippingMethod.cost,
-        items:cart.map(i=>({productId:i.id,quantity:i.qty,selectedColor:i.selectedColor||null})),
+        items:cart.map(i=>({productId:i.id,quantity:i.qty,selectedColor:i.selectedColor||null,selectedColorImage:i.selectedColorImage||null})),
         // ✅ CUPÓN Y REFERIDO — se guardan en la orden para el admin
         // Si el código aplicado es de referido (KOS-), va en referralCode
         // Si es cupón normal, va solo en couponCode
@@ -2446,14 +2446,7 @@ export default function App() {
         paymentIntentId: null,
         shippingMethod:selectedShippingMethod.id,
         shippingCost:selectedShippingMethod.cost,
-        items:cart.map(i=>({productId:i.id,quantity:i.qty,selectedColor:i.selectedColor||null})),
-        couponCode:       appliedCoupon && !appliedCoupon.code.startsWith("KOS-") && appliedCoupon.type !== "giftcard" ? appliedCoupon.code : null,
-        couponDiscount:   couponDiscount,
-        referralCode:     appliedCoupon?.code.startsWith("KOS-") ? appliedCoupon.code : (referralCode || null),
-        giftCardCode:     appliedCoupon?.type === "giftcard" ? appliedCoupon.code : null,
-        giftCardDiscount: appliedCoupon?.type === "giftcard" ? couponDiscount : 0,
-      });
-      // 2. Crear transacción en Wompi
+        items:cart.map(i=>({productId:i.id,quantity:i.qty,selectedColor:i.selectedColor||null,selectedColorImage:i.selectedColorImage||null})),
       const API_URL = process.env.REACT_APP_API_URL || "https://kosmica-backend.onrender.com";
       const res = await fetch(`${API_URL}/api/wompi/transaction`, {
         method: "POST",
@@ -3111,15 +3104,23 @@ export default function App() {
                 : cart.map((item,idx)=>(
                     <div key={`${item.id}-${item.selectedColor||''}-${idx}`} className="cart-item">
                       <img className="cart-item-img"
-                        src={item.imageUrl||"https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=200"}
+                        src={item.selectedColorImage || item.imageUrl||"https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=200"}
                         alt={item.name}
                         onError={e=>{e.target.src="https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=200";}}/>
                       <div className="cart-item-info">
                         <div>
                           {item.category&&<div className="cart-item-cat">{item.category}</div>}
                           <div className="cart-item-name">{item.name}</div>
-                          {/* ✅ Mostrar color elegido */}
-                          {item.selectedColor&&<div style={{fontSize:'.78rem',color:'#9B72CF',fontWeight:700,marginBottom:3}}>🎨 {item.selectedColor}</div>}
+                          {/* ✅ Mostrar color elegido con miniatura si tiene foto */}
+                          {item.selectedColor&&(
+                            <div style={{display:'flex',alignItems:'center',gap:5,fontSize:'.78rem',color:'#9B72CF',fontWeight:700,marginBottom:3}}>
+                              {item.selectedColorImage
+                                ? <img src={item.selectedColorImage} alt={item.selectedColor}
+                                    style={{width:16,height:16,borderRadius:4,objectFit:'cover',border:'1px solid #D4C8F0'}}/>
+                                : <span>🎨</span>}
+                              {item.selectedColor}
+                            </div>
+                          )}
                           <div className="cart-item-price">{fmtCOP(Number(item.price)*item.qty)}</div>
                           {item.qty>1&&<div style={{fontSize:".78rem",color:"var(--muted)",marginBottom:4}}>{fmtCOP(Number(item.price))} c/u</div>}
                         </div>

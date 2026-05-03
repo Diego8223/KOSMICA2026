@@ -655,7 +655,11 @@ export default function ProductDetailModal({
       alert('Por favor elige un color antes de agregar al carrito');
       return;
     }
-    onAddToCart({ ...product, selectedColor: selectedColor || null }, qty);
+    onAddToCart({
+      ...product,
+      selectedColor: selectedColor || null,
+      selectedColorImage: selectedColorObj?.image || null,  // ✅ foto real del color elegido
+    }, qty);
     setAdded(true);
     setCartOpen(true);
     setTimeout(() => setAdded(false), 1800);

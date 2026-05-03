@@ -107,13 +107,32 @@ const buildPrompt = (products, name) => {
   });
   const catalog = Object.entries(groups).map(([cat, ps]) =>
     `\n## ${cat.toUpperCase()} (${ps.length} productos disponibles)\n` +
-    ps.map(p =>
-      `  [ID:${p.id}] ${p.name} | Precio: ${fmtCOP(p.price)}` +
-      (p.badge ? ` | DESTACADO: ${p.badge}` : "") +
-      (Number(p.stock) <= 5 ? ` | ⚡ ÚLTIMAS ${p.stock} unidades` : "") +
-      (p.rating ? ` | ★${p.rating}` : "") +
-      (p.description ? ` | ${String(p.description).slice(0, 120)}` : "")
-    ).join("\n")
+    ps.map(p => {
+      // Parsear colores con imagen real si existen
+      let coloresStr = '';
+      if (p.colors) {
+        try {
+          const cl = JSON.parse(p.colors);
+          if (Array.isArray(cl) && cl.length > 0) {
+            const withImg = cl.filter(c=>c.image);
+            const withoutImg = cl.filter(c=>!c.image);
+            coloresStr = ` | Colores: ${cl.map(c=>c.name).join(', ')}`;
+            if (withImg.length > 0) {
+              coloresStr += ` | Fotos por color: ${withImg.map(c=>`${c.name}=${c.image}`).join(', ')}`;
+            }
+          }
+        } catch {
+          coloresStr = p.colors ? ` | Colores: ${p.colors}` : '';
+        }
+      }
+      return `  [ID:${p.id}] ${p.name} | Precio: ${fmtCOP(p.price)}` +
+        (p.badge ? ` | DESTACADO: ${p.badge}` : "") +
+        (Number(p.stock) <= 5 ? ` | ⚡ ÚLTIMAS ${p.stock} unidades` : "") +
+        (p.rating ? ` | ★${p.rating}` : "") +
+        (p.imageUrl ? ` | Foto principal: ${p.imageUrl}` : "") +
+        coloresStr +
+        (p.description ? ` | ${String(p.description).slice(0, 120)}` : "");
+    }).join("\n")
   ).join("\n");
 
   return `Eres ISABEL, asesora profesional de ventas de KOSMICA — tienda colombiana de moda y belleza.
@@ -148,6 +167,8 @@ PROCESO DE VENTA (sigue este orden)
    👜 Nombre del producto
    💰 Precio
    ✨ Beneficio principal — por qué ES PERFECTO para este cliente.
+   Si el cliente pregunta por un color específico y el producto tiene "Fotos por color" en el catálogo, responde con la URL de esa foto así:
+   FOTO_COLOR:url_de_la_foto
 
 3. URGENCIA — Si el producto tiene stock limitado (ÚLTIMAS X unidades), menciónalo sutilmente.
    Ejemplo: "Quedan pocas unidades, es muy solicitado."
