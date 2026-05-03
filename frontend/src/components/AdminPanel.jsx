@@ -2127,21 +2127,113 @@ export default function AdminPanel({ onExit }) {
 
                   <div className="adm-form-group full">
                     <label className="adm-label">🎨 Colores disponibles</label>
-                    <input className="adm-input" type="text" value={form.colors||''} onChange={e=>fSet('colors',e.target.value)}
-                      placeholder="Ej: Negro, Blanco, Rosado (separados por coma)"/>
-                    <div style={{fontSize:'.78rem',color:'#9B72CF',marginTop:5}}>
-                      Deja vacío si el producto no tiene variante de color.
-                      {form.colors && (
-                        <span style={{marginLeft:8}}>
-                          Vista previa: {form.colors.split(',').map(c=>c.trim()).filter(Boolean).map(c=>(
-                            <span key={c} style={{display:'inline-block',background:'#F0E8FF',color:'#7B5EA7',
-                              borderRadius:30,padding:'2px 10px',fontSize:'.78rem',fontWeight:700,margin:'2px 3px'}}>
-                              {c}
-                            </span>
+                    {/* ── Constructor visual de colores ── */}
+                    {(() => {
+                      // Parsear colores actuales (JSON nuevo o texto antiguo)
+                      const parseColors = (raw) => {
+                        if (!raw) return [];
+                        try {
+                          const p = JSON.parse(raw);
+                          if (Array.isArray(p)) return p;
+                        } catch {}
+                        return raw.split(',').map(c => ({ name: c.trim(), hex: '', image: '' })).filter(c => c.name);
+                      };
+                      const colorArr = parseColors(form.colors);
+
+                      const updateColors = (newArr) => {
+                        fSet('colors', newArr.length === 0 ? '' : JSON.stringify(newArr));
+                      };
+
+                      const addColor = () => {
+                        updateColors([...colorArr, { name: '', hex: '', image: '' }]);
+                      };
+
+                      const removeColor = (i) => {
+                        updateColors(colorArr.filter((_, idx) => idx !== i));
+                      };
+
+                      const updateColor = (i, field, val) => {
+                        const updated = colorArr.map((c, idx) => idx === i ? { ...c, [field]: val } : c);
+                        updateColors(updated);
+                      };
+
+                      return (
+                        <div>
+                          {colorArr.length === 0 && (
+                            <p style={{ fontSize: '.78rem', color: '#B8A0D8', marginBottom: 10 }}>
+                              Sin colores — el producto se vende en un solo color. Haz clic en "+ Agregar color" para habilitar la selección.
+                            </p>
+                          )}
+                          {colorArr.map((c, i) => (
+                            <div key={i} style={{
+                              display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center',
+                              background: '#F8F4FF', borderRadius: 12, padding: '10px 12px',
+                              marginBottom: 8, border: '1.5px solid #E8D5FF',
+                            }}>
+                              {/* Vista previa del swatch */}
+                              <div style={{
+                                width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+                                background: c.image ? `url(${c.image}) center/cover` : (c.hex || '#E8D5FF'),
+                                border: '2px solid #D4C8F0',
+                                overflow: 'hidden',
+                              }} />
+                              {/* Nombre */}
+                              <input
+                                className="adm-input"
+                                style={{ flex: '1 1 100px', minWidth: 90 }}
+                                placeholder="Nombre (ej: Negro)"
+                                value={c.name}
+                                onChange={e => updateColor(i, 'name', e.target.value)}
+                              />
+                              {/* Hex */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <input
+                                  type="color"
+                                  value={c.hex || '#9B72CF'}
+                                  onChange={e => updateColor(i, 'hex', e.target.value)}
+                                  style={{ width: 36, height: 36, borderRadius: 8, border: '1.5px solid #D4C8F0', cursor: 'pointer', padding: 2 }}
+                                  title="Elige el color"
+                                />
+                                <input
+                                  className="adm-input"
+                                  style={{ width: 80 }}
+                                  placeholder="#hex"
+                                  value={c.hex || ''}
+                                  onChange={e => updateColor(i, 'hex', e.target.value)}
+                                />
+                              </div>
+                              {/* URL imagen del color */}
+                              <input
+                                className="adm-input"
+                                style={{ flex: '2 1 180px', minWidth: 140 }}
+                                placeholder="URL foto de este color (opcional)"
+                                value={c.image || ''}
+                                onChange={e => updateColor(i, 'image', e.target.value)}
+                              />
+                              <button
+                                className="adm-btn-sm adm-btn-del"
+                                onClick={() => removeColor(i)}
+                                style={{ flexShrink: 0 }}
+                              >✕</button>
+                            </div>
                           ))}
-                        </span>
-                      )}
-                    </div>
+                          <button
+                            type="button"
+                            onClick={addColor}
+                            style={{
+                              marginTop: 4, padding: '7px 16px', borderRadius: 30, border: '1.5px dashed #9B72CF',
+                              background: 'transparent', color: '#7B5EA7', fontWeight: 700,
+                              fontSize: '.82rem', cursor: 'pointer',
+                            }}
+                          >+ Agregar color</button>
+                          {colorArr.length > 0 && (
+                            <div style={{ fontSize: '.75rem', color: '#9B72CF', marginTop: 6 }}>
+                              💡 Si pones una URL de foto, al elegir ese color la imagen del producto cambiará automáticamente.
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Imagen principal */}
